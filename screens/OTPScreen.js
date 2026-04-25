@@ -31,7 +31,7 @@ function maskPhone(phone) {
   return `+95${digits}`;
 }
 
-export default function OTPScreen({ phoneNumber, onBackToLogin }) {
+export default function OTPScreen({ phoneNumber, onBackToLogin, onContinue }) {
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -134,7 +134,7 @@ export default function OTPScreen({ phoneNumber, onBackToLogin }) {
           nextFocusUp={findNodeHandle(confirmInputRef.current) ?? undefined}
           onFocus={() => setContinueFocused(true)}
           onBlur={() => setContinueFocused(false)}
-          onPress={() => {}}
+          onPress={onContinue}
         >
           <Text style={styles.continueText}>Confirm and Continue</Text>
         </Pressable>
