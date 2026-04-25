@@ -1,0 +1,29 @@
+{
+  "name": "zettabyte-v2",
+  "main": "index.js",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "expo lint"
+  },
+  "dependencies": {
+    "@react-native-tvos/config-tv": "^0.1.6",
+    "expo": "~53.0.27",
+    "expo-splash-screen": "~0.30.10",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "npm:react-native-tvos@0.79.7-1",
+    "react-native-web": "~0.20.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "eslint": "^9.25.0",
+    "eslint-config-expo": "~10.0.0",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
