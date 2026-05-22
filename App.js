@@ -3,8 +3,10 @@ import HomeScreen from "./screens/HomeScreen";
 import LoginScreen from "./screens/LoginScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import OTPScreen from "./screens/OTPScreen";
+import SplashScreen from "./screens/SplashScreen";
 
 const SCREEN = {
+  SPLASH: "splash",
   ONBOARDING: "onboarding",
   LOGIN: "login",
   OTP: "otp",
@@ -12,7 +14,7 @@ const SCREEN = {
 };
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState(SCREEN.ONBOARDING);
+  const [currentPage, setCurrentPage] = useState(SCREEN.SPLASH);
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const screenComponent = useMemo(() => {
@@ -37,9 +39,12 @@ export default function App() {
       [SCREEN.ONBOARDING]: (
         <OnboardingScreen onFinish={() => setCurrentPage(SCREEN.LOGIN)} />
       ),
+      [SCREEN.SPLASH]: (
+        <SplashScreen onFinish={() => setCurrentPage(SCREEN.ONBOARDING)} />
+      ),
     };
 
-    return screens[currentPage] ?? screens[SCREEN.ONBOARDING];
+    return screens[currentPage] ?? screens[SCREEN.SPLASH];
   }, [currentPage, phoneNumber]);
 
   return screenComponent;
