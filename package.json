@@ -7,12 +7,15 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "fonts:setup": "bash scripts/setup-gill-sans-font.sh"
   },
   "dependencies": {
     "@react-native-masked-view/masked-view": "^0.3.2",
     "@react-native-tvos/config-tv": "^0.1.6",
     "expo": "~53.0.27",
+    "expo-font": "~13.3.2",
+    "expo-image": "~2.4.1",
     "expo-linear-gradient": "~14.1.5",
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
@@ -26,6 +29,7 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "react-native-svg-transformer": "^1.5.3",
     "typescript": "~5.9.2"
   },
   "private": true

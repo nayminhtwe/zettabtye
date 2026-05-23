@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
   findNodeHandle,
-  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import ScreenHeader from "../components/ScreenHeader";
 
 function maskPhone(phone) {
   if (!phone) {
@@ -31,7 +31,7 @@ function maskPhone(phone) {
   return `+95${digits}`;
 }
 
-export default function OTPScreen({ phoneNumber, onBackToLogin, onContinue }) {
+export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -40,6 +40,7 @@ export default function OTPScreen({ phoneNumber, onBackToLogin, onContinue }) {
   const [backFocused, setBackFocused] = useState(false);
   const [otpFocused, setOtpFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
+  const backRef = useRef(null);
   const otpInputRef = useRef(null);
   const passwordInputRef = useRef(null);
   const confirmInputRef = useRef(null);
@@ -51,24 +52,17 @@ export default function OTPScreen({ phoneNumber, onBackToLogin, onContinue }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.statusBarSpacer} />
 
-      <View style={styles.topBar}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.backButton,
-            (pressed || backFocused) ? styles.backButtonFocused : null,
-          ]}
-          onPress={onBackToLogin}
-          onFocus={() => setBackFocused(true)}
-          onBlur={() => setBackFocused(false)}
-        >
-          <Text style={styles.backIcon}>{"<"}</Text>
-        </Pressable>
-        <Image
-          source={require("../assets/images/logo.png")}
-          resizeMode="contain"
-          style={styles.logo}
-        />
-      </View>
+      <ScreenHeader
+        title="Verifying Your Phone Number"
+        backRef={backRef}
+        onBack={onBack}
+        isBackFocused={backFocused}
+        backFocusProps={{
+          onFocus: () => setBackFocused(true),
+          onBlur: () => setBackFocused(false),
+          nextFocusDown: findNodeHandle(otpInputRef.current) ?? undefined,
+        }}
+      />
 
       <View style={styles.content}>
         <Text style={styles.message}>
@@ -86,6 +80,7 @@ export default function OTPScreen({ phoneNumber, onBackToLogin, onContinue }) {
           keyboardType="number-pad"
           maxLength={4}
           showSoftInputOnFocus
+          nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
           nextFocusDown={findNodeHandle(passwordInputRef.current) ?? undefined}
           onFocus={() => setOtpFocused(true)}
           onBlur={() => setOtpFocused(false)}
@@ -127,10 +122,7 @@ export default function OTPScreen({ phoneNumber, onBackToLogin, onContinue }) {
 
         <Pressable
           ref={continueButtonRef}
-          style={({ pressed }) => [
-            styles.continueButton,
-            (pressed || continueFocused) ? styles.continueButtonFocused : null,
-          ]}
+          style={[styles.continueButton, continueFocused ? styles.continueButtonFocused : null]}
           nextFocusUp={findNodeHandle(confirmInputRef.current) ?? undefined}
           onFocus={() => setContinueFocused(true)}
           onBlur={() => setContinueFocused(false)}
@@ -151,35 +143,6 @@ const styles = StyleSheet.create({
   statusBarSpacer: {
     height: 52,
     backgroundColor: "#1D1B20",
-  },
-  topBar: {
-    height: 64,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1D1B20",
-  },
-  backButton: {
-    position: "absolute",
-    left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backButtonFocused: {
-    borderWidth: 1,
-    borderColor: "#FFFFFF",
-  },
-  backIcon: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  logo: {
-    width: 140,
-    height: 40,
   },
   content: {
     flex: 1,

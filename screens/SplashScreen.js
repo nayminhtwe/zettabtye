@@ -1,7 +1,7 @@
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ExpoSplashScreen from "expo-splash-screen";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
+import { gillSans } from "../constants/fonts";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const GLOW_BORDER_RADIUS = 40;
@@ -25,16 +26,21 @@ const LOGO_SMALL = { width: 29, height: 24 };
 const FLOAT_DISTANCE = 14;
 const TEXT_FONT_SIZE = 22;
 const TEXT_LINE_HEIGHT = 24;
-const TEXT_REVEAL_WIDTH = 104;
+const TEXT_REVEAL_WIDTH_FALLBACK = 120;
+const TEXT_WIDTH_BUFFER = 6;
 const TEXT_GRADIENT_LOCATIONS = [0, 0.3249, 1];
 const PAIR_OVERLAP = 4;
 const LOGO_BURST_SCALE =
   Math.max(SCREEN_WIDTH / LOGO_SMALL.width, SCREEN_HEIGHT / LOGO_SMALL.height) *
   1.15;
-const PAIR_HALF_SPAN =
-  (TEXT_REVEAL_WIDTH + LOGO_SMALL.width) / 4 - PAIR_OVERLAP / 2;
-const PAIR_TEXT_OFFSET = -PAIR_HALF_SPAN;
-const PAIR_LOGO_OFFSET = PAIR_HALF_SPAN;
+
+function getPairOffsets(textRevealWidth) {
+  const pairHalfSpan = (textRevealWidth + LOGO_SMALL.width) / 4 - PAIR_OVERLAP / 2;
+  return {
+    text: -pairHalfSpan,
+    logo: pairHalfSpan,
+  };
+}
 const LOGO_COMPACT_SCALE = LOGO_SMALL.width / LOGO_LARGE.width;
 const TEXT_ONLY_HOLD_MS = 1200;
 
@@ -109,6 +115,20 @@ function GradientBrandText() {
 }
 
 export default function SplashScreen({ onFinish }) {
+  const [brandTextWidth, setBrandTextWidth] = useState(0);
+
+  const textRevealWidth = useMemo(() => {
+    if (!brandTextWidth) {
+      return TEXT_REVEAL_WIDTH_FALLBACK;
+    }
+    return Math.ceil(brandTextWidth) + TEXT_WIDTH_BUFFER;
+  }, [brandTextWidth]);
+
+  const pairOffsets = useMemo(
+    () => getPairOffsets(textRevealWidth),
+    [textRevealWidth],
+  );
+
   const floatAnim = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(1)).current;
   const logoTranslateX = useRef(new Animated.Value(0)).current;
@@ -122,6 +142,10 @@ export default function SplashScreen({ onFinish }) {
   const floatLoopRef = useRef(null);
 
   useEffect(() => {
+    if (!brandTextWidth) {
+      return undefined;
+    }
+
     let cancelled = false;
 
     const run = async () => {
@@ -186,13 +210,13 @@ export default function SplashScreen({ onFinish }) {
             useNativeDriver: true,
           }),
           Animated.timing(textTranslateX, {
-            toValue: PAIR_TEXT_OFFSET,
+            toValue: pairOffsets.text,
             duration: 550,
             easing: Easing.inOut(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(logoTranslateX, {
-            toValue: PAIR_LOGO_OFFSET,
+            toValue: pairOffsets.logo,
             duration: 550,
             easing: Easing.inOut(Easing.cubic),
             useNativeDriver: true,
@@ -287,6 +311,9 @@ export default function SplashScreen({ onFinish }) {
     textSlide,
     textRevealScale,
     textTranslateX,
+    brandTextWidth,
+    pairOffsets.logo,
+    pairOffsets.text,
   ]);
 
   const floatY = floatAnim.interpolate({
@@ -297,6 +324,17 @@ export default function SplashScreen({ onFinish }) {
   return (
     <View style={styles.container}>
       <View style={styles.stage}>
+        <Text
+          style={styles.brandTextMeasure}
+          onLayout={(event) => {
+            const width = event.nativeEvent.layout.width;
+            if (width > 0 && width !== brandTextWidth) {
+              setBrandTextWidth(width);
+            }
+          }}
+        >
+          Zettabyte
+        </Text>
         <RadialBackgroundGlow opacity={bgGlowOpacity} />
         <Animated.View
           pointerEvents="none"
@@ -332,6 +370,7 @@ export default function SplashScreen({ onFinish }) {
             style={[
               styles.textReveal,
               {
+                width: textRevealWidth,
                 transform: [
                   { translateX: textSlide },
                   { scaleX: textRevealScale },
@@ -392,18 +431,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   textReveal: {
-    width: TEXT_REVEAL_WIDTH,
     height: TEXT_LINE_HEIGHT,
     overflow: "hidden",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   gradientFill: {
-    alignSelf: "center",
+    alignSelf: "flex-start",
+  },
+  brandTextMeasure: {
+    position: "absolute",
+    opacity: 0,
+    fontSize: TEXT_FONT_SIZE,
+    lineHeight: TEXT_LINE_HEIGHT,
+    ...gillSans("700"),
+    includeFontPadding: false,
   },
   brandText: {
     fontSize: TEXT_FONT_SIZE,
     lineHeight: TEXT_LINE_HEIGHT,
-    fontWeight: "700",
+    ...gillSans("700"),
     includeFontPadding: false,
   },
   brandTextMask: {
