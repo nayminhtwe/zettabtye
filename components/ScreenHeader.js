@@ -9,13 +9,18 @@ export default function ScreenHeader({
   onBack,
   isBackFocused = false,
   backFocusProps = {},
+  backFocusedStyle,
 }) {
   return (
     <View style={styles.topBar}>
       <Pressable
         ref={backRef}
         android_ripple={null}
-        style={isBackFocused ? [styles.backButton, styles.backButtonFocused] : styles.backButton}
+        style={
+          isBackFocused
+            ? [styles.backButton, styles.backButtonFocused, backFocusedStyle]
+            : styles.backButton
+        }
         onPress={onBack}
         {...backFocusProps}
       >

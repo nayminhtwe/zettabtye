@@ -3,8 +3,10 @@ import { ActivityIndicator, View } from "react-native";
 import { useAppFonts } from "./hooks/useAppFonts";
 import HomeScreen from "./screens/HomeScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
+import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
 import OTPScreen from "./screens/OTPScreen";
 import PasswordScreen from "./screens/PasswordScreen";
+import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import SplashScreen from "./screens/SplashScreen";
 import { isFirstTimeUser } from "./utils/phoneAuth";
 
@@ -13,6 +15,8 @@ const SCREEN = {
   ONBOARDING: "onboarding",
   OTP: "otp",
   PASSWORD: "password",
+  FORGOT_PASSWORD_PHONE: "forgot_password_phone",
+  RESET_PASSWORD: "reset_password",
   HOME: "home",
 };
 
@@ -41,6 +45,23 @@ export default function App() {
         <PasswordScreen
           phoneNumber={phoneNumber}
           onBack={goToOnboardingPhoneStep}
+          onContinue={() => setCurrentPage(SCREEN.HOME)}
+          onForgotPassword={() => setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE)}
+        />
+      ),
+      [SCREEN.FORGOT_PASSWORD_PHONE]: (
+        <ForgotPasswordPhoneScreen
+          onBack={() => setCurrentPage(SCREEN.PASSWORD)}
+          onContinue={(value) => {
+            setPhoneNumber(value);
+            setCurrentPage(SCREEN.RESET_PASSWORD);
+          }}
+        />
+      ),
+      [SCREEN.RESET_PASSWORD]: (
+        <ResetPasswordScreen
+          phoneNumber={phoneNumber}
+          onBack={() => setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE)}
           onContinue={() => setCurrentPage(SCREEN.HOME)}
         />
       ),

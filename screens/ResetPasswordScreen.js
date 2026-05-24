@@ -11,31 +11,11 @@ import {
 } from "react-native";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
-
-function maskPhone(phone) {
-  if (!phone) {
-    return "+95987654321";
-  }
-
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) {
-    return "+95987654321";
-  }
-
-  if (digits.startsWith("09")) {
-    return `+95${digits.slice(1)}`;
-  }
-
-  if (digits.startsWith("95")) {
-    return `+${digits}`;
-  }
-
-  return `+95${digits}`;
-}
+import { maskPhone } from "../utils/phoneAuth";
 
 const OTP_LENGTH = 4;
 
-export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
+export default function ResetPasswordScreen({ phoneNumber, onBack, onContinue }) {
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -68,9 +48,9 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
     const isConfirmPasswordEmpty = confirmPassword.trim().length === 0;
 
     setOtpError(isOtpEmpty ? "Please enter OTP code" : "");
-    setPasswordError(isPasswordEmpty ? "Please enter your password" : "");
+    setPasswordError(isPasswordEmpty ? "Please enter your new password" : "");
     setConfirmPasswordError(
-      isConfirmPasswordEmpty ? "Please confirm your password" : "",
+      isConfirmPasswordEmpty ? "Please confirm your new password" : "",
     );
 
     if (isOtpEmpty || isPasswordEmpty || isConfirmPasswordEmpty) {
@@ -85,7 +65,7 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
       <View style={styles.statusBarSpacer} />
 
       <ScreenHeader
-        title="Verifying Your Phone Number"
+        title="Reset Password"
         backRef={backRef}
         onBack={onBack}
         isBackFocused={backFocused}
@@ -99,9 +79,8 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
 
       <View style={styles.content}>
         <Text style={styles.message}>
-          We sent an OTP code to your new phone number {normalizedPhone}.
+          We sent an OTP code to {normalizedPhone}. Enter the code and create a new password.
         </Text>
-        <Text style={styles.helpText}>Didn&apos;t receive a code?</Text>
 
         <View style={styles.otpSection}>
           <View style={styles.otpRow}>
@@ -128,14 +107,14 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
                   setOtpError("");
                 }
               }}
-            keyboardType="number-pad"
-            maxLength={OTP_LENGTH}
-            showSoftInputOnFocus
-            caretHidden
-            nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
-            nextFocusDown={findNodeHandle(passwordInputRef.current) ?? undefined}
-            onFocus={() => setOtpFocused(true)}
-            onBlur={() => setOtpFocused(false)}
+              keyboardType="number-pad"
+              maxLength={OTP_LENGTH}
+              showSoftInputOnFocus
+              caretHidden
+              nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
+              nextFocusDown={findNodeHandle(passwordInputRef.current) ?? undefined}
+              onFocus={() => setOtpFocused(true)}
+              onBlur={() => setOtpFocused(false)}
             />
           </View>
           {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
@@ -152,9 +131,10 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
             <TextInput
               ref={passwordInputRef}
               style={styles.input}
-              placeholder="Enter your password"
+              placeholder="Enter new password"
               placeholderTextColor="#A7A7A7"
               secureTextEntry={!showPassword}
+              showSoftInputOnFocus
               value={password}
               onChangeText={(value) => {
                 setPassword(value);
@@ -167,16 +147,16 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
               onFocus={() => setPasswordFocused(true)}
               onBlur={() => setPasswordFocused(false)}
             />
-          <Pressable
-            style={styles.eyeButton}
-            onPress={() => setShowPassword((prev) => !prev)}
-          >
-            <Ionicons
-              name={showPassword ? "eye-off" : "eye"}
-              size={20}
-              color="#D2D2D2"
-            />
-          </Pressable>
+            <Pressable
+              style={styles.eyeButton}
+              onPress={() => setShowPassword((prev) => !prev)}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#D2D2D2"
+              />
+            </Pressable>
           </View>
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
         </View>
@@ -192,9 +172,10 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
             <TextInput
               ref={confirmInputRef}
               style={styles.input}
-              placeholder="Confirm your password"
+              placeholder="Confirm new password"
               placeholderTextColor="#A7A7A7"
               secureTextEntry={!showConfirmPassword}
+              showSoftInputOnFocus
               value={confirmPassword}
               onChangeText={(value) => {
                 setConfirmPassword(value);
@@ -263,23 +244,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.15,
     textAlign: "center",
-    // fontFamily: "Gill Sans",
-  },
-  helpText: {
-    marginTop: 4,
-    color: "#8E8E8E",
-    ...gillSans("400"),
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.15,
-    textAlign: "center",
-    textDecorationLine: "underline",
-    textDecorationStyle: "solid",
-    textDecorationOffset: 16,
-    textDecorationThickness: 0,
   },
   otpSection: {
-    marginTop: 52,
+    marginTop: 32,
   },
   fieldSection: {
     marginTop: 24,
