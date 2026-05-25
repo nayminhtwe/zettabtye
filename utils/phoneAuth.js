@@ -16,6 +16,27 @@ export function normalizePhone(phone) {
   return (phone || "").replace(/\D/g, "");
 }
 
+const PHONE_FORMAT_BY_COUNTRY = {
+  MM: (digits) => /^09\d{8,9}$/.test(digits) || /^959\d{7,8}$/.test(digits),
+  TH: (digits) => /^0[689]\d{8}$/.test(digits) || /^66[689]\d{8}$/.test(digits),
+  MY: (digits) => /^01\d{8,9}$/.test(digits) || /^601\d{7,8}$/.test(digits),
+};
+
+export function getPhoneValidationError(phone, countryId) {
+  const digits = normalizePhone(phone);
+
+  if (!digits) {
+    return "Please enter your phone number";
+  }
+
+  const matchesCountry = PHONE_FORMAT_BY_COUNTRY[countryId];
+  if (!matchesCountry?.(digits)) {
+    return "Phone number does not match the selected country";
+  }
+
+  return "";
+}
+
 export function maskPhone(phone) {
   if (!phone) {
     return "+95987654321";

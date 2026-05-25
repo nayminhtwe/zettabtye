@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
@@ -13,7 +14,7 @@ import FloatingPhoneInput from "../components/FloatingPhoneInput";
 import OnboardingHeroImage from "../components/OnboardingHeroImage";
 import StepProgressBar from "../components/StepProgressBar";
 import { gillSans } from "../constants/fonts";
-import { DUMMY_PHONES } from "../utils/phoneAuth";
+import { DUMMY_PHONES, getPhoneValidationError } from "../utils/phoneAuth";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -43,6 +44,14 @@ const ONBOARDING_SLIDES = [
 
 const LAST_SLIDE_INDEX = ONBOARDING_SLIDES.length - 1;
 
+const COUNTRIES = [
+  { id: "MM", name: "Myanmar", dialCode: "+95", flag: "🇲🇲" },
+  { id: "TH", name: "Thailand", dialCode: "+66", flag: "🇹🇭" },
+  { id: "MY", name: "Malaysia", dialCode: "+60", flag: "🇲🇾" },
+];
+
+const DEFAULT_COUNTRY_ID = "MM";
+
 export default function OnboardingScreen({
   onContinue,
   initialSlideIndex = 0,
@@ -51,14 +60,24 @@ export default function OnboardingScreen({
   const listRef = useRef(null);
   const skipRef = useRef(null);
   const nextRef = useRef(null);
+  const countrySelectorRef = useRef(null);
+  const countryOptionRefs = useRef({});
   const phoneInputRef = useRef(null);
   const continueRef = useRef(null);
 
   const [activeIndex, setActiveIndex] = useState(initialSlideIndex);
   const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber);
+  const [selectedCountryId, setSelectedCountryId] = useState(DEFAULT_COUNTRY_ID);
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const [skipFocused, setSkipFocused] = useState(false);
   const [nextFocused, setNextFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
+
+  const selectedCountry =
+    COUNTRIES.find((country) => country.id === selectedCountryId) ?? COUNTRIES[0];
+
+  const isLastSlide = activeIndex === LAST_SLIDE_INDEX;
 
   useEffect(() => {
     if (initialSlideIndex <= 0) {
@@ -76,7 +95,11 @@ export default function OnboardingScreen({
     return () => cancelAnimationFrame(frame);
   }, [initialSlideIndex]);
 
-  const isLastSlide = activeIndex === LAST_SLIDE_INDEX;
+  useEffect(() => {
+    if (!isLastSlide) {
+      setIsCountryDropdownOpen(false);
+    }
+  }, [isLastSlide]);
 
   const goToSlide = (index) => {
     listRef.current?.scrollToIndex({ index, animated: true });
@@ -96,8 +119,54 @@ export default function OnboardingScreen({
   };
 
   const handleContinue = () => {
+    const error = getPhoneValidationError(phoneNumber, selectedCountryId);
+    setPhoneError(error);
+
+    if (error) {
+      return;
+    }
+
     onContinue?.(phoneNumber);
   };
+
+  const selectCountry = (countryId) => {
+    setSelectedCountryId(countryId);
+    setIsCountryDropdownOpen(false);
+    if (phoneError) {
+      setPhoneError("");
+    }
+  };
+
+  const toggleCountryDropdown = () => {
+    setIsCountryDropdownOpen((open) => !open);
+  };
+
+  const getCountryOptionDownTarget = (countryId) => {
+    const index = COUNTRIES.findIndex((country) => country.id === countryId);
+    const nextCountry = COUNTRIES[index + 1];
+
+    if (nextCountry) {
+      return findNodeHandle(countryOptionRefs.current[nextCountry.id]) ?? undefined;
+    }
+
+    return findNodeHandle(phoneInputRef.current) ?? undefined;
+  };
+
+  const getCountryOptionUpTarget = (countryId) => {
+    const index = COUNTRIES.findIndex((country) => country.id === countryId);
+
+    if (index > 0) {
+      const prevCountry = COUNTRIES[index - 1];
+      return findNodeHandle(countryOptionRefs.current[prevCountry.id]) ?? undefined;
+    }
+
+    return findNodeHandle(countrySelectorRef.current) ?? undefined;
+  };
+
+  const phoneFieldUpTarget = isCountryDropdownOpen
+    ? findNodeHandle(countryOptionRefs.current[COUNTRIES[COUNTRIES.length - 1].id]) ??
+      undefined
+    : findNodeHandle(countrySelectorRef.current) ?? undefined;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -150,18 +219,77 @@ export default function OnboardingScreen({
               Test new user: {DUMMY_PHONES.NEW_USER} · Returning:{" "}
               {DUMMY_PHONES.EXISTING_USER}
             </Text>
-            <FloatingPhoneInput
-              inputRef={phoneInputRef}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              focusableProps={{
-                nextFocusDown: findNodeHandle(continueRef.current) ?? undefined,
-              }}
-            />
+
+            <View style={styles.countrySection}>
+              <Pressable
+                ref={countrySelectorRef}
+                style={styles.countrySelector}
+                onPress={toggleCountryDropdown}
+                nextFocusDown={
+                  isCountryDropdownOpen
+                    ? findNodeHandle(countryOptionRefs.current[COUNTRIES[0].id]) ?? undefined
+                    : findNodeHandle(phoneInputRef.current) ?? undefined
+                }
+              >
+                <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
+                <Text style={styles.countryName}>{selectedCountry.name}</Text>
+                <Text style={styles.countryDialCode}>{selectedCountry.dialCode}</Text>
+                <Ionicons
+                  name={isCountryDropdownOpen ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color="#D2D2D2"
+                />
+              </Pressable>
+
+              {isCountryDropdownOpen ? (
+                <View style={styles.countryDropdown}>
+                  {COUNTRIES.map((country) => {
+                    const isSelected = country.id === selectedCountryId;
+                    return (
+                      <Pressable
+                        key={country.id}
+                        ref={(node) => {
+                          countryOptionRefs.current[country.id] = node;
+                        }}
+                        style={[
+                          styles.countryOption,
+                          isSelected ? styles.countryOptionSelected : null,
+                        ]}
+                        onPress={() => selectCountry(country.id)}
+                        nextFocusUp={getCountryOptionUpTarget(country.id)}
+                        nextFocusDown={getCountryOptionDownTarget(country.id)}
+                      >
+                        <Text style={styles.countryFlag}>{country.flag}</Text>
+                        <Text style={styles.countryName}>{country.name}</Text>
+                        <Text style={styles.countryDialCode}>{country.dialCode}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+
+            <View>
+              <FloatingPhoneInput
+                inputRef={phoneInputRef}
+                value={phoneNumber}
+                onChangeText={(value) => {
+                  setPhoneNumber(value);
+                  if (phoneError) {
+                    setPhoneError("");
+                  }
+                }}
+                focusableProps={{
+                  nextFocusUp: phoneFieldUpTarget,
+                  nextFocusDown: findNodeHandle(continueRef.current) ?? undefined,
+                }}
+              />
+              {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+            </View>
             <Pressable
               ref={continueRef}
               style={[styles.continueButton, continueFocused ? styles.continueButtonFocused : null]}
-              nextFocusUp={findNodeHandle(phoneInputRef.current) ?? undefined}
+              nextFocusUp={phoneFieldUpTarget}
               onFocus={() => setContinueFocused(true)}
               onBlur={() => setContinueFocused(false)}
               onPress={handleContinue}
@@ -314,6 +442,65 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     ...gillSans("400"),
     textAlign: "center",
+  },
+  countrySection: {
+    marginBottom: 12,
+  },
+  countrySelector: {
+    minHeight: 64,
+    paddingTop: 4,
+    paddingBottom: 4,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#4A4A4A",
+    backgroundColor: "#1A1A1A",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  countryDropdown: {
+    backgroundColor: "#1A1A1A",
+    borderBottomWidth: 1,
+    borderBottomColor: "#4A4A4A",
+  },
+  countryOption: {
+    minHeight: 56,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#2A2A2A",
+  },
+  countryOptionSelected: {
+    backgroundColor: "rgba(255, 59, 48, 0.08)",
+  },
+  countryFlag: {
+    fontSize: 24,
+    lineHeight: 28,
+    marginRight: 12,
+  },
+  countryName: {
+    flex: 1,
+    color: "#D2D2D2",
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0,
+    ...gillSans("400"),
+  },
+  countryDialCode: {
+    color: "#D2D2D2",
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0,
+    ...gillSans("400"),
+    marginRight: 8,
+  },
+  errorText: {
+    marginTop: 8,
+    color: "#E71809",
+    fontSize: 14,
+    lineHeight: 20,
+    ...gillSans("400"),
   },
   continueButton: {
     marginTop: 16,
