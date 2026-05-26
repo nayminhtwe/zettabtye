@@ -1,7 +1,9 @@
-import React, { forwardRef, useEffect, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
-  FlatList,
+  Dimensions,
   findNodeHandle,
+  FlatList,
   Image,
   Platform,
   Pressable,
@@ -13,27 +15,68 @@ import {
   useTVEventHandler,
   View,
 } from "react-native";
+import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import { gillSans } from "../constants/fonts";
 
 const FEATURED_ITEMS = [
   {
     id: "featured-1",
-    title: "ASH",
-    color: "#1C3A67",
+    title: "Interstellar",
+    image: require("../assets/images/featured/featured-1.jpg"),
   },
   {
     id: "featured-2",
-    title: "SUPERMAN",
-    color: "#2B355E",
+    title: "Superman",
+    image: require("../assets/images/featured/featured-2.jpg"),
   },
   {
     id: "featured-3",
-    title: "MASK",
-    color: "#5E2B3C",
+    title: "Mask",
+    image: require("../assets/images/featured/featured-3.jpg"),
+  },
+  {
+    id: "featured-4",
+    title: "Terminator",
+    image: require("../assets/images/featured/featured-4.jpg"),
+  },
+  {
+    id: "featured-5",
+    title: "Wish",
+    image: require("../assets/images/featured/featured-5.jpg"),
   },
 ];
 
+const TRENDING_POSTERS = [
+  require("../assets/images/trending/trending-1.jpg"),
+  require("../assets/images/trending/trending-2.jpg"),
+  require("../assets/images/trending/trending-3.jpg"),
+  require("../assets/images/trending/trending-4.jpg"),
+];
+
+const SALE_BANNER_SLIDES = [
+  { id: "sale-1", image: require("../assets/images/sale/sale-1.jpg") },
+  { id: "sale-2", image: require("../assets/images/sale/sale-2.jpg") },
+  { id: "sale-3", image: require("../assets/images/sale/sale-3.jpg") },
+];
+
+const SALE_BANNER_AUTO_SCROLL_MS = 4500;
+const CONTENT_HORIZONTAL_PADDING = 10;
+
+const posterImageForIndex = (index) => TRENDING_POSTERS[index % TRENDING_POSTERS.length];
+
 const HOME_SECTIONS = [
-  { id: "trending", title: "Trending Now", showSeeAll: false, items: ["FURIOSA", "BOLT", "GOAT", "MAD MAX"] },
+  {
+    id: "trending",
+    title: "Trending Now",
+    showSeeAll: false,
+    items: [
+      { id: "trending-1", label: "FURIOSA", image: TRENDING_POSTERS[0] },
+      { id: "trending-2", label: "BOLT", image: TRENDING_POSTERS[1] },
+      { id: "trending-3", label: "GOAT", image: TRENDING_POSTERS[2] },
+      { id: "trending-4", label: "MAD MAX", image: TRENDING_POSTERS[3] },
+      { id: "trending-5", label: "Spider-Man", image: TRENDING_POSTERS[0] },
+    ],
+  },
   { id: "continue", title: "Today's Match", showSeeAll: true, items: ["fixture-1", "fixture-2", "fixture-3"] },
   {
     id: "continueWatching",
@@ -60,11 +103,6 @@ const HOME_SECTIONS = [
   { id: "comedy", title: "Comedy", showSeeAll: false, items: ["FAMILY", "THIEF", "FIGHT", "PLAN"] },
 ];
 
-const SALE_BANNER = {
-  title: "SALE",
-  subtitle: "50% Off All Tickets",
-};
-
 const POSTER_COLORS = ["#22355A", "#3D2446", "#1E4D4A", "#4F3322", "#29304A", "#1E3A62"];
 
 const getPosterColor = (label) => {
@@ -73,30 +111,346 @@ const getPosterColor = (label) => {
 };
 
 const ANDROID_TOP_INSET = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0;
-const FEATURED_CARD_WIDTH = 132;
-const FEATURED_CARD_GAP = 8;
-const FEATURED_CARD_SPAN = FEATURED_CARD_WIDTH + FEATURED_CARD_GAP;
-const FEATURED_CAROUSEL_ITEMS = Array.from({ length: FEATURED_ITEMS.length * 3 }, (_, loopIndex) => {
-  const originalIndex = loopIndex % FEATURED_ITEMS.length;
-  return {
-    ...FEATURED_ITEMS[originalIndex],
-    originalIndex,
-    loopIndex,
-    carouselKey: `featured-loop-${loopIndex}`,
-  };
-});
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SALE_BANNER_MAX_WIDTH = 380;
+const SALE_BANNER_HEIGHT = 120;
+const SALE_BANNER_WIDTH = Math.min(
+  SALE_BANNER_MAX_WIDTH,
+  SCREEN_WIDTH - CONTENT_HORIZONTAL_PADDING * 2,
+);
+const FEATURED_CENTER_WIDTH = 196;
+const FEATURED_CENTER_HEIGHT = 250;
+const FEATURED_SIDE_WIDTH = 150;
+const FEATURED_SIDE_HEIGHT = 191;
+const FEATURED_CENTER_TOP = 14;
+const FEATURED_SIDE_TOP = 43.5;
+const FEATURED_ITEM_GAP = 10;
+const FEATURED_SLOT_WIDTH = FEATURED_CENTER_WIDTH + FEATURED_ITEM_GAP;
+const FEATURED_CAROUSEL_HEIGHT = FEATURED_CENTER_TOP + FEATURED_CENTER_HEIGHT;
+const FEATURED_SIDE_PADDING = Math.max(0, (SCREEN_WIDTH - FEATURED_SLOT_WIDTH) / 2);
+
+const clampFeaturedIndex = (index, length) => Math.max(0, Math.min(index, length - 1));
+
+const FOOTBALL_LOGOS = {
+  liverpool: require("../assets/images/football/liverpool.png"),
+  manchesterUnited: require("../assets/images/football/manchester-united.png"),
+  fcCopenhagen: require("../assets/images/football/fc-copenhagen.png"),
+  fcBasel: require("../assets/images/football/fc-basel.png"),
+};
 
 const FOOTBALL_FIXTURES = [
-  { id: "fixture-1", league: "Premiere League", home: "Liverpool", away: "Manchester United", date: "21 AUG", isLive: true },
-  { id: "fixture-2", league: "Premiere League", home: "Liverpool", away: "Manchester United", date: "21 AUG", time: "03:00 AM" },
-  { id: "fixture-3", league: "Premiere League", home: "Liverpool", away: "Manchester United", date: "21 AUG", time: "03:00 AM" },
+  {
+    id: "fixture-1",
+    home: "Liverpool",
+    away: "Manchester United",
+    date: "21 AUG",
+    isLive: true,
+    homeLogo: FOOTBALL_LOGOS.liverpool,
+    awayLogo: FOOTBALL_LOGOS.manchesterUnited,
+    homeBadgeColor: "#C8102E",
+    awayBadgeColor: "#DA291C",
+  },
+  {
+    id: "fixture-2",
+    home: "Liverpool",
+    away: "Manchester United",
+    date: "21 AUG",
+    time: "03:00 AM",
+    homeLogo: FOOTBALL_LOGOS.liverpool,
+    awayLogo: FOOTBALL_LOGOS.manchesterUnited,
+    homeBadgeColor: "#C8102E",
+    awayBadgeColor: "#DA291C",
+  },
+  {
+    id: "fixture-3",
+    home: "FC Copenhagen",
+    away: "FC Basel",
+    date: "21 AUG",
+    time: "03:00 AM",
+    homeLogo: FOOTBALL_LOGOS.fcCopenhagen,
+    awayLogo: FOOTBALL_LOGOS.fcBasel,
+    homeBadgeColor: "#00529F",
+    awayBadgeColor: "#E30613",
+  },
 ];
 const CONTINUE_WATCHING_PROGRESS = [0.68, 0.4, 0.52, 0.33, 0.74, 0.21, 0.57, 0.49, 0.62, 0.29];
 
-const DRAWER_ITEMS = ["Home", "Movies", "TV Series", "My List", "Settings"];
+const DRAWER_PANEL_WIDTH = Math.min(
+  400,
+  Math.round(Dimensions.get("window").width * 0.72),
+);
+const DRAWER_HEADER_HEIGHT = 152;
+const DRAWER_LOGO_SIZE = 113;
+
+function getDrawerHeaderCurvePath(width, height) {
+  const curveTop = height - 36;
+  const curveBulge = height + 10;
+
+  return `M 0 0 H ${width} V ${curveTop} Q ${width / 2} ${curveBulge} 0 ${curveTop} Z`;
+}
+
+function DrawerCurvedHeader({ topInset = 0, width = DRAWER_PANEL_WIDTH }) {
+  const svgHeight = DRAWER_HEADER_HEIGHT + 20;
+  const path = getDrawerHeaderCurvePath(width, DRAWER_HEADER_HEIGHT);
+
+  return (
+    <View style={[styles.drawerHeaderArea, { width, paddingTop: topInset }]}>
+      <Svg width={width} height={svgHeight} style={styles.drawerHeaderSvg}>
+        <Defs>
+          <LinearGradient id="drawerHeaderGradient" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#8F2B22" />
+            <Stop offset="35%" stopColor="#5C1814" />
+            <Stop offset="70%" stopColor="#2E0F0D" />
+            <Stop offset="100%" stopColor="#121212" />
+          </LinearGradient>
+        </Defs>
+        <Path d={path} fill="url(#drawerHeaderGradient)" />
+      </Svg>
+      <View style={styles.drawerLogoWrap}>
+        <Image
+          source={require("../assets/images/logo.png")}
+          resizeMode="contain"
+          style={styles.drawerLogo}
+        />
+      </View>
+    </View>
+  );
+}
+
+const DRAWER_SECTIONS = [
+  {
+    title: "Overview",
+    items: [
+      { label: "Home", icon: "home-outline" },
+      { label: "Series", icon: "grid-outline" },
+      { label: "Movies", icon: "film-outline" },
+      { label: "Football matches", icon: "football-outline" },
+      { label: "Categories", icon: "apps-outline" },
+      { label: "Notifications", icon: "notifications-outline", showBadge: true },
+      { label: "History", icon: "time-outline" },
+    ],
+  },
+  {
+    title: "Account",
+    items: [
+      { label: "My Profile", icon: "person-outline", showExternal: true },
+      { label: "Get Help", icon: "help-circle-outline", showExternal: true },
+    ],
+  },
+];
+
+const DRAWER_ITEMS = DRAWER_SECTIONS.flatMap((section) =>
+  section.items.map((item) => item.label),
+);
+
+const FeaturedCarousel = forwardRef(function FeaturedCarousel(
+  {
+    items,
+    drawerOpen,
+    onCloseDrawer,
+    nextFocusUpForIndex,
+    nextFocusDownForIndex,
+  },
+  ref,
+) {
+  const listRef = useRef(null);
+  const itemRefs = useRef(items.map(() => null));
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [focusedIndex, setFocusedIndex] = useState(null);
+
+  const scrollToActiveIndex = useCallback(
+    (index, animated = true) => {
+      const nextIndex = clampFeaturedIndex(index, items.length);
+      setActiveIndex(nextIndex);
+      listRef.current?.scrollToOffset({
+        offset: nextIndex * FEATURED_SLOT_WIDTH,
+        animated,
+      });
+    },
+    [items.length],
+  );
+
+  const selectIndex = useCallback(
+    (index, animated = true) => {
+      if (drawerOpen) {
+        onCloseDrawer?.();
+      }
+      setFocusedIndex(clampFeaturedIndex(index, items.length));
+      scrollToActiveIndex(index, animated);
+    },
+    [drawerOpen, items.length, onCloseDrawer, scrollToActiveIndex],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getNodeHandle: (index) =>
+        findNodeHandle(itemRefs.current[clampFeaturedIndex(index, items.length)]) ?? undefined,
+      scrollToIndex: scrollToActiveIndex,
+      getActiveIndex: () => activeIndex,
+    }),
+    [activeIndex, items.length, scrollToActiveIndex],
+  );
+
+  const handleScrollSettle = useCallback(
+    (offsetX) => {
+      const nextIndex = clampFeaturedIndex(Math.round(offsetX / FEATURED_SLOT_WIDTH), items.length);
+      setActiveIndex(nextIndex);
+    },
+    [items.length],
+  );
+
+  return (
+    <FlatList
+      ref={listRef}
+      data={items}
+      horizontal
+      nestedScrollEnabled
+      showsHorizontalScrollIndicator={false}
+      style={styles.featuredCarousel}
+      contentContainerStyle={styles.featuredCarouselContent}
+      keyExtractor={(item) => item.id}
+      snapToInterval={FEATURED_SLOT_WIDTH}
+      snapToAlignment="start"
+      decelerationRate="fast"
+      disableIntervalMomentum
+      bounces={false}
+      onLayout={() => scrollToActiveIndex(0, false)}
+      onMomentumScrollEnd={(event) => handleScrollSettle(event.nativeEvent.contentOffset.x)}
+      onScrollEndDrag={(event) => handleScrollSettle(event.nativeEvent.contentOffset.x)}
+      getItemLayout={(_, index) => ({
+        length: FEATURED_SLOT_WIDTH,
+        offset: FEATURED_SLOT_WIDTH * index,
+        index,
+      })}
+      renderItem={({ item, index }) => {
+        const isActive = index === activeIndex;
+        const isFocused = index === focusedIndex;
+
+        return (
+          <View style={styles.featuredSlot}>
+            <Pressable
+              ref={(node) => {
+                itemRefs.current[index] = node;
+              }}
+              onPress={() => selectIndex(index, true)}
+              onFocus={() => selectIndex(index, true)}
+              onBlur={() => setFocusedIndex(null)}
+              style={({ pressed }) => [
+                isActive ? styles.featuredCardCenter : styles.featuredCardSide,
+                (pressed || isFocused) ? styles.featuredCardFocused : null,
+              ]}
+              nextFocusUp={nextFocusUpForIndex?.(index)}
+              nextFocusLeft={
+                index > 0
+                  ? findNodeHandle(itemRefs.current[index - 1]) ?? undefined
+                  : undefined
+              }
+              nextFocusRight={
+                index < items.length - 1
+                  ? findNodeHandle(itemRefs.current[index + 1]) ?? undefined
+                  : undefined
+              }
+              nextFocusDown={nextFocusDownForIndex?.(index)}
+            >
+              <Image
+                source={item.image}
+                resizeMode="cover"
+                style={[
+                  styles.featuredImage,
+                  isActive ? styles.featuredImageCenter : styles.featuredImageSide,
+                ]}
+              />
+            </Pressable>
+          </View>
+        );
+      }}
+    />
+  );
+});
+
+const getSectionItem = (item, itemIndex) => {
+  if (typeof item === "string") {
+    return {
+      id: `${item}-${itemIndex}`,
+      label: item,
+      image: posterImageForIndex(itemIndex),
+    };
+  }
+
+  return item;
+};
+
+const SaleBannerCarousel = forwardRef(function SaleBannerCarousel(
+  { nextFocusUp, nextFocusDown },
+  ref,
+) {
+  const listRef = useRef(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveIndex((prev) => {
+        const next = (prev + 1) % SALE_BANNER_SLIDES.length;
+        listRef.current?.scrollToIndex({ index: next, animated: true });
+        return next;
+      });
+    }, SALE_BANNER_AUTO_SCROLL_MS);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <Pressable
+      ref={ref}
+      style={({ pressed, focused: nativeFocused }) => [
+        styles.saleBanner,
+        (pressed || focused || nativeFocused) ? styles.saleBannerFocused : null,
+      ]}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      nextFocusUp={nextFocusUp}
+      nextFocusDown={nextFocusDown}
+    >
+      <FlatList
+        ref={listRef}
+        style={styles.saleBannerList}
+        data={SALE_BANNER_SLIDES}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEnabled={false}
+        bounces={false}
+        keyExtractor={(slide) => slide.id}
+        getItemLayout={(_, index) => ({
+          length: SALE_BANNER_WIDTH,
+          offset: SALE_BANNER_WIDTH * index,
+          index,
+        })}
+        renderItem={({ item }) => (
+          <View style={styles.saleBannerSlide}>
+            <Image source={item.image} resizeMode="cover" style={styles.saleBannerSlideImage} />
+          </View>
+        )}
+      />
+      <View style={styles.saleBannerIndicators} pointerEvents="none">
+        {SALE_BANNER_SLIDES.map((slide, index) => (
+          <View
+            key={slide.id}
+            style={[
+              styles.saleBannerIndicator,
+              index === activeIndex ? styles.saleBannerIndicatorActive : null,
+            ]}
+          />
+        ))}
+      </View>
+    </Pressable>
+  );
+});
 
 const MediaCard = forwardRef(function MediaCard(
-  { label, nextFocusUp, nextFocusDown, variant = "poster", progress = 0, showLabel = true },
+  { label, image, nextFocusUp, nextFocusDown, variant = "poster", progress = 0, showLabel = false },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -124,9 +478,13 @@ const MediaCard = forwardRef(function MediaCard(
         </View>
       ) : (
         <>
-          <View style={[styles.cardPoster, { backgroundColor: getPosterColor(label) }]}>
-            <Text style={styles.cardPosterText}>{label.slice(0, 1)}</Text>
-          </View>
+          {image ? (
+            <Image source={image} resizeMode="cover" style={styles.cardPosterImage} />
+          ) : (
+            <View style={[styles.cardPoster, { backgroundColor: getPosterColor(label) }]}>
+              <Text style={styles.cardPosterText}>{label.slice(0, 1)}</Text>
+            </View>
+          )}
           {isContinueCard ? (
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(progress, 1)) * 100}%` }]} />
@@ -142,6 +500,18 @@ const MediaCard = forwardRef(function MediaCard(
     </Pressable>
   );
 });
+
+function TeamLogo({ logo, name, badgeColor }) {
+  if (logo) {
+    return <Image source={logo} resizeMode="contain" style={styles.teamLogoImage} />;
+  }
+
+  return (
+    <View style={[styles.teamLogoFallback, badgeColor ? { backgroundColor: badgeColor } : null]}>
+      <Text style={styles.teamLogoFallbackText}>{name.slice(0, 3).toUpperCase()}</Text>
+    </View>
+  );
+}
 
 const FootballCard = forwardRef(function FootballCard(
   { fixture, nextFocusUp, nextFocusDown },
@@ -161,23 +531,32 @@ const FootballCard = forwardRef(function FootballCard(
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
     >
-      <Text style={styles.footballLeague}>{fixture.league}</Text>
-      <View style={styles.footballRow}>
-        <View style={styles.footballTeam}>
-          <View style={styles.teamBadge}>
-            <Text style={styles.teamBadgeText}>{fixture.home.slice(0, 3).toUpperCase()}</Text>
-          </View>
-          <Text numberOfLines={1} style={styles.footballTeamText}>{fixture.home}</Text>
-        </View>
+      <View style={styles.fixturePillAnchor} pointerEvents="none">
         <View style={styles.fixturePill}>
-          <Text style={styles.fixturePillTop}>{fixture.isLive ? "LIVE" : fixture.time}</Text>
-          <Text style={styles.fixturePillBottom}>{fixture.date}</Text>
+          {fixture.isLive ? (
+            <View style={styles.liveBadge}>
+              <Text style={styles.liveBadgeText}>Live</Text>
+            </View>
+          ) : (
+            <Text style={styles.fixtureTimeText}>{fixture.time}</Text>
+          )}
+          <Text style={styles.fixtureDateText}>{fixture.date}</Text>
         </View>
-        <View style={[styles.footballTeam, styles.footballTeamRight]}>
-          <Text numberOfLines={2} style={styles.footballTeamText}>{fixture.away}</Text>
-          <View style={styles.teamBadge}>
-            <Text style={styles.teamBadgeText}>{fixture.away.slice(0, 3).toUpperCase()}</Text>
-          </View>
+      </View>
+
+      <View style={styles.footballRow}>
+        <View style={styles.footballTeamHome}>
+          <TeamLogo logo={fixture.homeLogo} name={fixture.home} badgeColor={fixture.homeBadgeColor} />
+          <Text numberOfLines={2} style={styles.footballTeamText}>
+            {fixture.home}
+          </Text>
+        </View>
+
+        <View style={styles.footballTeamAway}>
+          <Text numberOfLines={2} style={[styles.footballTeamText, styles.footballTeamTextAway]}>
+            {fixture.away}
+          </Text>
+          <TeamLogo logo={fixture.awayLogo} name={fixture.away} badgeColor={fixture.awayBadgeColor} />
         </View>
       </View>
     </Pressable>
@@ -187,10 +566,8 @@ const FootballCard = forwardRef(function FootballCard(
 export default function HomeScreen() {
   const menuButtonRef = useRef(null);
   const searchButtonRef = useRef(null);
-  const minimizeButtonRef = useRef(null);
   const drawerItemRefs = useRef(DRAWER_ITEMS.map(() => null));
   const drawerBlurTimeoutRef = useRef(null);
-  const featuredCenterRefs = useRef(FEATURED_ITEMS.map(() => null));
   const featuredCarouselRef = useRef(null);
   const rowRefs = useRef(
     HOME_SECTIONS.map((section) => Array.from({ length: section.items.length }, () => null)),
@@ -200,9 +577,8 @@ export default function HomeScreen() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeDrawerItem, setActiveDrawerItem] = useState(0);
-
   const getFeaturedHandle = (index) =>
-    findNodeHandle(featuredCenterRefs.current[index]) ?? undefined;
+    featuredCarouselRef.current?.getNodeHandle(index) ?? undefined;
   const getSectionCardHandle = (sectionIndex, itemIndex) =>
     findNodeHandle(rowRefs.current[sectionIndex]?.[itemIndex]) ?? undefined;
   const getDrawerHandle = (index) =>
@@ -212,8 +588,6 @@ export default function HomeScreen() {
     findNodeHandle(searchButtonRef.current) ??
     findNodeHandle(menuButtonRef.current) ??
     undefined;
-  const centerStartIndex = FEATURED_ITEMS.length;
-
   const cancelDrawerBlurClose = () => {
     if (drawerBlurTimeoutRef.current) {
       clearTimeout(drawerBlurTimeoutRef.current);
@@ -245,51 +619,40 @@ export default function HomeScreen() {
     }
   });
 
-  const handleFeaturedScrollEnd = (event) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const closestIndex = Math.round(offsetX / FEATURED_CARD_SPAN);
-    const itemCount = FEATURED_ITEMS.length;
-
-    if (closestIndex < itemCount) {
-      featuredCarouselRef.current?.scrollToIndex({
-        index: closestIndex + itemCount,
-        animated: false,
-      });
-    } else if (closestIndex >= itemCount * 2) {
-      featuredCarouselRef.current?.scrollToIndex({
-        index: closestIndex - itemCount,
-        animated: false,
-      });
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
           <Pressable
             ref={menuButtonRef}
-            style={({ pressed }) => [styles.iconButton, (pressed || menuFocused) ? styles.iconButtonFocused : null]}
+            style={({ pressed }) => [
+              styles.topBarIconButton,
+              (pressed || menuFocused) ? styles.topBarIconButtonFocused : null,
+            ]}
             onFocus={() => setMenuFocused(true)}
             onBlur={() => setMenuFocused(false)}
             onPress={() => setDrawerOpen((current) => !current)}
-            nextFocusDown={drawerOpen ? findNodeHandle(minimizeButtonRef.current) ?? undefined : getFeaturedHandle(0)}
-            nextFocusRight={drawerOpen ? findNodeHandle(minimizeButtonRef.current) ?? undefined : findNodeHandle(searchButtonRef.current) ?? undefined}
+            nextFocusDown={drawerOpen ? getDrawerHandle(0) : getFeaturedHandle(0)}
+            nextFocusRight={
+              drawerOpen ? getDrawerHandle(0) : findNodeHandle(searchButtonRef.current) ?? undefined
+            }
           >
-            <View style={styles.menuIconWrapper}>
-              <View style={styles.menuIconLine} />
-              <View style={styles.menuIconLine} />
-              <View style={styles.menuIconLine} />
-            </View>
+            <Ionicons name="menu" size={24} color="#FFFFFF" />
           </Pressable>
-          <Image
-            source={require("../assets/images/logo.png")}
-            resizeMode="contain"
-            style={styles.logo}
-          />
+          <View style={styles.topBarBrand}>
+            <Image
+              source={require("../assets/images/logo.png")}
+              resizeMode="contain"
+              style={styles.topBarLogoIcon}
+            />
+            <Text style={styles.topBarBrandText}>Zettabyte</Text>
+          </View>
           <Pressable
             ref={searchButtonRef}
-            style={({ pressed }) => [styles.iconButton, (pressed || searchFocused) ? styles.iconButtonFocused : null]}
+            style={({ pressed }) => [
+              styles.topBarIconButton,
+              (pressed || searchFocused) ? styles.topBarIconButtonFocused : null,
+            ]}
             onFocus={() => {
               setSearchFocused(true);
               if (drawerOpen) {
@@ -300,74 +663,24 @@ export default function HomeScreen() {
             nextFocusDown={getFeaturedHandle(2)}
             nextFocusLeft={findNodeHandle(menuButtonRef.current) ?? undefined}
           >
-            <View style={styles.searchIconWrap}>
-              <View style={styles.searchIconCircle} />
-              <View style={styles.searchIconHandle} />
-            </View>
+            <Ionicons name="search" size={18} color="#FFFFFF" />
           </Pressable>
         </View>
 
-        <FlatList
+        <FeaturedCarousel
           ref={featuredCarouselRef}
-          data={FEATURED_CAROUSEL_ITEMS}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.featuredContent}
-          ItemSeparatorComponent={() => <View style={styles.featuredSeparator} />}
-          keyExtractor={(item) => item.carouselKey}
-          snapToInterval={FEATURED_CARD_SPAN}
-          decelerationRate="fast"
-          disableIntervalMomentum
-          bounces={false}
-          getItemLayout={(_, index) => ({
-            length: FEATURED_CARD_SPAN,
-            offset: FEATURED_CARD_SPAN * index,
-            index,
-          })}
-          onLayout={() => {
-            featuredCarouselRef.current?.scrollToIndex({
-              index: centerStartIndex,
-              animated: false,
-            });
-          }}
-          onMomentumScrollEnd={handleFeaturedScrollEnd}
-          renderItem={({ item }) => (
-            <Pressable
-              ref={(node) => {
-                if (
-                  item.loopIndex >= centerStartIndex &&
-                  item.loopIndex < centerStartIndex + FEATURED_ITEMS.length
-                ) {
-                  featuredCenterRefs.current[item.originalIndex] = node;
-                }
-              }}
-              onFocus={() => {
-                if (drawerOpen) {
-                  setDrawerOpen(false);
-                }
-              }}
-              style={({ pressed, focused }) => [
-                styles.featuredCard,
-                { backgroundColor: item.color },
-                (pressed || focused) ? styles.featuredCardFocused : null,
-              ]}
-              nextFocusUp={
-                findNodeHandle(
-                  item.originalIndex === 0 ? menuButtonRef.current : searchButtonRef.current,
-                ) ?? undefined
-              }
-              nextFocusDown={
-                item.originalIndex === 1
-                  ? findNodeHandle(bannerRef.current) ?? undefined
-                  : getSectionCardHandle(
-                    0,
-                    Math.min(item.originalIndex, HOME_SECTIONS[0].items.length - 1),
-                  )
-              }
-            >
-              <Text style={styles.featuredCardText}>{item.title}</Text>
-            </Pressable>
-          )}
+          items={FEATURED_ITEMS}
+          drawerOpen={drawerOpen}
+          onCloseDrawer={() => setDrawerOpen(false)}
+          nextFocusUpForIndex={(index) =>
+            findNodeHandle(index === 0 ? menuButtonRef.current : searchButtonRef.current) ??
+            undefined
+          }
+          nextFocusDownForIndex={(index) =>
+            index === 1
+              ? findNodeHandle(bannerRef.current) ?? undefined
+              : getSectionCardHandle(0, Math.min(index, HOME_SECTIONS[0].items.length - 1))
+          }
         />
 
         {HOME_SECTIONS.map((row, rowIndex) => (
@@ -405,15 +718,19 @@ export default function HomeScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.rowContent}
                 >
-                  {row.items.map((item, itemIndex) => (
+                  {row.items.map((item, itemIndex) => {
+                    const sectionItem = getSectionItem(item, itemIndex);
+
+                    return (
                     <MediaCard
-                      key={`${row.id}-${item}-${itemIndex}`}
+                      key={`${row.id}-${sectionItem.id}-${itemIndex}`}
                       ref={(node) => {
                         rowRefs.current[rowIndex][itemIndex] = node;
                       }}
-                      label={item}
+                      label={sectionItem.label}
+                      image={sectionItem.image}
                       variant={row.id === "continueWatching" ? "continue" : row.id === "match" ? "match" : "poster"}
-                      showLabel={row.id !== "continueWatching"}
+                      showLabel={false}
                       progress={row.id === "continueWatching" ? CONTINUE_WATCHING_PROGRESS[itemIndex] ?? 0.35 : 0}
                       nextFocusUp={
                         rowIndex === 0
@@ -428,80 +745,95 @@ export default function HomeScreen() {
                           : undefined
                       }
                     />
-                  ))}
+                    );
+                  })}
                 </ScrollView>
               )}
             </View>
             {rowIndex === 0 ? (
-              <Pressable
+              <SaleBannerCarousel
                 ref={bannerRef}
-                style={({ pressed, focused }) => [
-                  styles.saleBanner,
-                  (pressed || focused) ? styles.saleBannerFocused : null,
-                ]}
                 nextFocusUp={getFeaturedHandle(1)}
                 nextFocusDown={getSectionCardHandle(1, 0)}
-              >
-                <Text style={styles.saleTitle}>{SALE_BANNER.title}</Text>
-                <Text style={styles.saleSubtitle}>{SALE_BANNER.subtitle}</Text>
-              </Pressable>
+              />
             ) : null}
           </React.Fragment>
         ))}
       </ScrollView>
       {drawerOpen ? (
         <View style={styles.drawerOverlay} pointerEvents="box-none">
-          <Pressable style={styles.drawerBackdrop} onPress={() => setDrawerOpen(false)} />
           <View style={styles.drawerPanel}>
-            <View style={styles.drawerHeader}>
-              <Image
-                source={require("../assets/images/logo.png")}
-                resizeMode="contain"
-                style={styles.drawerLogo}
-              />
-              <Pressable
-                ref={minimizeButtonRef}
-                style={({ pressed, focused }) => [
-                  styles.minimizeButton,
-                  (pressed || focused) ? styles.minimizeButtonFocused : null,
-                ]}
-                onFocus={cancelDrawerBlurClose}
-                onBlur={scheduleDrawerBlurClose}
-                onPress={() => setDrawerOpen(false)}
-                nextFocusUp={findNodeHandle(menuButtonRef.current) ?? undefined}
-                nextFocusDown={getDrawerHandle(0)}
-                nextFocusRight={getContentFocusHandle()}
-              >
-                <Text style={styles.minimizeButtonText}>-</Text>
-              </Pressable>
+            <DrawerCurvedHeader topInset={ANDROID_TOP_INSET} width={DRAWER_PANEL_WIDTH} />
+            <View style={[styles.drawerList, styles.drawerBodyInset]}>
+              {(() => {
+                let itemIndex = 0;
+
+                return DRAWER_SECTIONS.map((section) => (
+                  <View key={section.title} style={styles.drawerSection}>
+                    <Text style={styles.drawerSectionTitle}>{section.title}</Text>
+                    {section.items.map((item) => {
+                      const index = itemIndex;
+                      itemIndex += 1;
+
+                      return (
+                        <Pressable
+                          key={item.label}
+                          ref={(node) => {
+                            drawerItemRefs.current[index] = node;
+                          }}
+                          style={({ pressed, focused }) => [
+                            styles.drawerItem,
+                            (pressed || focused || index === activeDrawerItem)
+                              ? styles.drawerItemFocused
+                              : null,
+                          ]}
+                          hasTVPreferredFocus={index === 0}
+                          onFocus={() => {
+                            cancelDrawerBlurClose();
+                            setActiveDrawerItem(index);
+                          }}
+                          onBlur={scheduleDrawerBlurClose}
+                          onPress={() => setDrawerOpen(false)}
+                          nextFocusUp={
+                            index > 0
+                              ? getDrawerHandle(index - 1)
+                              : findNodeHandle(menuButtonRef.current) ?? undefined
+                          }
+                          nextFocusDown={
+                            index < DRAWER_ITEMS.length - 1
+                              ? getDrawerHandle(index + 1)
+                              : undefined
+                          }
+                          nextFocusRight={getContentFocusHandle()}
+                        >
+                          <Ionicons name={item.icon} size={22} color="#D2D2D2" style={styles.drawerItemIcon} />
+                          <Text style={styles.drawerItemText}>{item.label}</Text>
+                          {item.showBadge ? <View style={styles.drawerNotificationDot} /> : null}
+                          {item.showExternal ? (
+                            <View style={styles.drawerExternalIconWrap}>
+                              <Ionicons name="open-outline" size={14} color="#D2D2D2" />
+                            </View>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ));
+              })()}
             </View>
-            <View style={styles.drawerList}>
-              {DRAWER_ITEMS.map((item, index) => (
-                <Pressable
-                  key={item}
-                  ref={(node) => {
-                    drawerItemRefs.current[index] = node;
-                  }}
-                  style={({ pressed, focused }) => [
-                    styles.drawerItem,
-                    (pressed || focused || index === activeDrawerItem) ? styles.drawerItemFocused : null,
-                  ]}
-                  hasTVPreferredFocus={index === 0}
-                  onFocus={() => {
-                    cancelDrawerBlurClose();
-                    setActiveDrawerItem(index);
-                  }}
-                  onBlur={scheduleDrawerBlurClose}
-                  onPress={() => setDrawerOpen(false)}
-                  nextFocusUp={index > 0 ? getDrawerHandle(index - 1) : findNodeHandle(minimizeButtonRef.current) ?? undefined}
-                  nextFocusDown={index < DRAWER_ITEMS.length - 1 ? getDrawerHandle(index + 1) : undefined}
-                  nextFocusRight={getContentFocusHandle()}
-                >
-                  <Text style={styles.drawerItemText}>{item}</Text>
-                </Pressable>
-              ))}
+            <View style={[styles.drawerFooter, styles.drawerBodyInset]} pointerEvents="none">
+              <View style={styles.logoutButton}>
+                <Text style={styles.logoutButtonText}>Log out</Text>
+              </View>
+              <View style={styles.deleteAccountButton}>
+                <Text style={styles.deleteAccountButtonText}>Delete my account</Text>
+              </View>
             </View>
           </View>
+          <Pressable
+            style={styles.drawerBackdrop}
+            onPress={() => setDrawerOpen(false)}
+          />
         </View>
       ) : null}
     </SafeAreaView>
@@ -522,91 +854,95 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   topBar: {
-    height: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#101521",
-    borderBottomWidth: 1,
-    borderBottomColor: "#1E2533",
-    paddingHorizontal: 7,
+    paddingTop: 8,
+    paddingRight: 16,
+    paddingBottom: 8,
+    paddingLeft: 16,
+    backgroundColor: "#1D1B20",
     marginHorizontal: -10,
   },
-  logo: {
-    width: 116,
-    height: 28,
-  },
-  iconButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
+  topBarIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
-  iconButtonFocused: {
-    borderColor: "#FF3B30",
-    backgroundColor: "#1A2130",
+  topBarIconButtonFocused: {
+    borderColor: "#FF5C4D",
+    backgroundColor: "rgba(255, 92, 77, 0.2)",
   },
-  menuIconWrapper: {
-    width: 12,
-    gap: 2,
+  topBarBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  menuIconLine: {
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: "#E7EAF0",
+  topBarLogoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
-  searchIconWrap: {
-    width: 13,
-    height: 13,
+  topBarBrandText: {
+    color: "#E71809",
+    fontSize: 22,
+    lineHeight: 28,
+    ...gillSans("700"),
   },
-  searchIconCircle: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    borderWidth: 1.5,
-    borderColor: "#E7EAF0",
+  featuredCarousel: {
+    height: FEATURED_CAROUSEL_HEIGHT,
+    marginBottom: 24,
   },
-  searchIconHandle: {
-    position: "absolute",
-    right: 0,
-    bottom: 0,
-    width: 5,
-    height: 1.5,
-    borderRadius: 1,
-    backgroundColor: "#E7EAF0",
-    transform: [{ rotate: "40deg" }],
+  featuredCarouselContent: {
+    paddingHorizontal: FEATURED_SIDE_PADDING,
+    alignItems: "flex-start",
   },
-  featuredContent: {
-    paddingTop: 10,
-    paddingBottom: 4,
-    paddingLeft: 8,
-    paddingRight: 8,
+  featuredSlot: {
+    width: FEATURED_SLOT_WIDTH,
+    height: FEATURED_CAROUSEL_HEIGHT,
+    alignItems: "center",
   },
-  featuredSeparator: {
-    width: FEATURED_CARD_GAP,
-  },
-  featuredCard: {
-    width: FEATURED_CARD_WIDTH,
-    height: 176,
+  featuredCardCenter: {
+    width: FEATURED_CENTER_WIDTH,
+    height: FEATURED_CENTER_HEIGHT,
+    marginTop: FEATURED_CENTER_TOP,
     borderRadius: 8,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "transparent",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingBottom: 14,
+  },
+  featuredCardSide: {
+    width: FEATURED_SIDE_WIDTH,
+    height: FEATURED_SIDE_HEIGHT,
+    marginTop: FEATURED_SIDE_TOP,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   featuredCardFocused: {
+    borderWidth: 2,
     borderColor: "#FF5C4D",
-    transform: [{ scale: 1.03 }],
+    shadowColor: "#FF5C4D",
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
-  featuredCardText: {
-    color: "#FFFFFF",
-    letterSpacing: 2,
-    fontSize: 12,
-    fontWeight: "700",
+  featuredImage: {
+    width: "100%",
+    height: "100%",
+  },
+  featuredImageCenter: {
+    opacity: 1,
+  },
+  featuredImageSide: {
+    opacity: 0.88,
+    mixBlendMode: "lighten",
   },
   rowSection: {
     marginTop: 11,
@@ -618,35 +954,49 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     color: "#FFFFFF",
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "600",
+    fontSize: 20,
+    lineHeight: 30,
+    letterSpacing: 0.15,
+    textTransform: "capitalize",
+    ...gillSans("600"),
   },
   seeAllText: {
-    color: "#A7AFC2",
-    fontSize: 11,
+    color: "#D2D2D2",
+    fontSize: 14,
     lineHeight: 16,
+    letterSpacing: 0.5,
+    ...gillSans("400"),
   },
   rowContent: {
     marginTop: 6,
-    gap: 7,
+    gap: 8,
     paddingRight: 6,
   },
   card: {
-    width: 74,
+    width: 80,
+    opacity: 1,
   },
   cardFocused: {
     transform: [{ scale: 1.03 }],
     opacity: 1,
   },
   cardPoster: {
-    height: 92,
-    borderRadius: 6,
+    width: 80,
+    height: 120,
+    borderRadius: 4,
+    opacity: 1,
     borderWidth: 1,
     borderColor: "#273146",
     backgroundColor: "#1A2741",
     alignItems: "center",
     justifyContent: "center",
+  },
+  cardPosterImage: {
+    width: 80,
+    height: 120,
+    borderRadius: 4,
+    opacity: 1,
+    backgroundColor: "#1A2741",
   },
   cardPosterText: {
     color: "#E5EDFF",
@@ -673,29 +1023,53 @@ const styles = StyleSheet.create({
     backgroundColor: "#F80D00",
   },
   saleBanner: {
-    marginTop: 10,
-    height: 72,
-    borderRadius: 8,
+    alignSelf: "center",
+    marginTop: 24,
+    marginBottom: 8,
+    width: SALE_BANNER_WIDTH,
+    height: SALE_BANNER_HEIGHT,
     borderWidth: 1,
     borderColor: "#2A3958",
-    backgroundColor: "#113D89",
-    paddingHorizontal: 14,
-    justifyContent: "center",
+    backgroundColor: "#0A0A0A",
+    overflow: "hidden",
   },
   saleBannerFocused: {
-    borderColor: "#FF5C4D",
+    borderColor: "#FFFFFF",
+    borderWidth: 2,
   },
-  saleTitle: {
-    color: "#FFD64C",
-    fontSize: 24,
-    fontWeight: "800",
-    lineHeight: 30,
+  saleBannerList: {
+    width: SALE_BANNER_WIDTH,
+    height: SALE_BANNER_HEIGHT,
   },
-  saleSubtitle: {
-    marginTop: 2,
-    color: "#E6F0FF",
-    fontSize: 12,
-    lineHeight: 16,
+  saleBannerSlide: {
+    width: SALE_BANNER_WIDTH,
+    height: SALE_BANNER_HEIGHT,
+  },
+  saleBannerSlideImage: {
+    width: SALE_BANNER_WIDTH,
+    height: SALE_BANNER_HEIGHT,
+    marginTop: 0.25,
+    opacity: 1,
+  },
+  saleBannerIndicators: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 10,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  saleBannerIndicator: {
+    width: 18,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.35)",
+  },
+  saleBannerIndicatorActive: {
+    width: 22,
+    backgroundColor: "#E71809",
   },
   matchCard: {
     height: 66,
@@ -718,151 +1092,248 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   footballList: {
-    marginTop: 12,
-    gap: 12,
+    marginTop: 6,
+    gap: 10,
   },
   footballCard: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#2F2E36",
+    position: "relative",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
     backgroundColor: "#2F2E37",
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 64,
+    justifyContent: "center",
+  },
+  fixturePillAnchor: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
   },
   footballCardFocused: {
-    borderColor: "#FF5C4D",
+    borderColor: "#FFFFFF",
     transform: [{ scale: 1.01 }],
   },
-  footballLeague: {
-    color: "#F80D00",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
-  },
   footballRow: {
-    marginTop: 3,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 6,
+    gap: 12,
   },
-  footballTeam: {
+  footballTeamHome: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     minWidth: 0,
+    paddingRight: 44,
   },
-  footballTeamRight: {
+  footballTeamAway: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "flex-end",
+    gap: 10,
+    minWidth: 0,
+    paddingLeft: 44,
   },
   footballTeamText: {
-    color: "#F4F1F1",
-    fontSize: 11,
-    fontWeight: "600",
-    lineHeight: 16,
-    flexShrink: 1,
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 14,
+    lineHeight: 20,
+    ...gillSans("600"),
   },
-  teamBadge: {
-    width: 35,
-    height: 35,
-    borderRadius: 6,
+  footballTeamTextAway: {
+    textAlign: "right",
+  },
+  teamLogoImage: {
+    width: 40,
+    height: 40,
+  },
+  teamLogoFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#5E2230",
   },
-  teamBadgeText: {
+  teamLogoFallbackText: {
     color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 9,
+    lineHeight: 12,
+    ...gillSans("700"),
   },
   fixturePill: {
-    width: 70,
-    borderRadius: 4,
-    backgroundColor: "rgba(79, 74, 74, 0.28)",
+    minWidth: 76,
+    borderRadius: 6,
+    backgroundColor: "rgba(79, 74, 74, 0.35)",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 4,
   },
-  fixturePillTop: {
+  liveBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: "#E71809",
+  },
+  liveBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    lineHeight: 14,
+    ...gillSans("600"),
+  },
+  fixtureTimeText: {
     color: "#FF988F",
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: "700",
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "center",
+    ...gillSans("600"),
   },
-  fixturePillBottom: {
-    color: "#F4F1F1",
+  fixtureDateText: {
+    color: "#FFFFFF",
     fontSize: 10,
     lineHeight: 14,
-    fontWeight: "600",
+    textAlign: "center",
+    ...gillSans("400"),
   },
   drawerOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
     flexDirection: "row",
-  },
-  drawerBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    alignItems: "stretch",
   },
   drawerPanel: {
-    width: 246,
-    backgroundColor: "#0E1320",
-    borderRightWidth: 1,
-    borderRightColor: "#273146",
-    paddingTop: ANDROID_TOP_INSET + 14,
-    paddingHorizontal: 14,
+    width: DRAWER_PANEL_WIDTH,
+    backgroundColor: "#121212",
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
     paddingBottom: 24,
+    overflow: "hidden",
   },
-  drawerHeader: {
-    flexDirection: "row",
+  drawerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  drawerHeaderArea: {
+    position: "relative",
+    height: DRAWER_HEADER_HEIGHT + 36,
+    marginBottom: 4,
     alignItems: "center",
-    justifyContent: "space-between",
+  },
+  drawerHeaderSvg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+  },
+  drawerLogoWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    zIndex: 2,
   },
   drawerLogo: {
-    width: 122,
-    height: 30,
+    width: DRAWER_LOGO_SIZE,
+    height: DRAWER_LOGO_SIZE,
+    borderRadius: DRAWER_LOGO_SIZE / 2,
   },
-  minimizeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#39465F",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#131B2B",
-  },
-  minimizeButtonFocused: {
-    borderColor: "#FF5C4D",
-    backgroundColor: "#1A2235",
-  },
-  minimizeButtonText: {
-    color: "#EFF3FF",
-    fontSize: 18,
-    fontWeight: "700",
-    lineHeight: 20,
+  drawerBodyInset: {
+    paddingHorizontal: 20,
   },
   drawerList: {
-    marginTop: 20,
-    gap: 8,
+    flex: 1,
+    paddingTop: 4,
+  },
+  drawerSection: {
+    marginBottom: 16,
+  },
+  drawerSectionTitle: {
+    color: "#8E8E8E",
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+    ...gillSans("400"),
   },
   drawerItem: {
-    minHeight: 40,
-    borderRadius: 8,
+    minHeight: 48,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "transparent",
-    justifyContent: "center",
-    paddingHorizontal: 12,
+    backgroundColor: "#1E1E1E",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    marginBottom: 8,
   },
   drawerItemFocused: {
     borderColor: "#FF5C4D",
-    backgroundColor: "#1A2235",
+    backgroundColor: "#2A2A2A",
+  },
+  drawerItemIcon: {
+    marginRight: 12,
   },
   drawerItemText: {
-    color: "#EFF3FF",
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "600",
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 22,
+    ...gillSans("400"),
+  },
+  drawerNotificationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E71809",
+    marginLeft: 8,
+  },
+  drawerExternalIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#4A4A4A",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  drawerFooter: {
+    gap: 12,
+    paddingTop: 8,
+  },
+  logoutButton: {
+    minHeight: 48,
+    borderRadius: 10,
+    backgroundColor: "#C80D00",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    lineHeight: 24,
+    ...gillSans("600"),
+  },
+  deleteAccountButton: {
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#C80D00",
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteAccountButtonText: {
+    color: "#C80D00",
+    fontSize: 18,
+    lineHeight: 24,
+    ...gillSans("600"),
   },
 });
