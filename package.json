@@ -17,11 +17,13 @@
     "expo-font": "~13.3.2",
     "expo-image": "~2.4.1",
     "expo-linear-gradient": "~14.1.5",
+    "expo-screen-orientation": "~8.1.7",
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "npm:react-native-tvos@0.79.7-1",
+    "react-native-safe-area-context": "^5.4.0",
     "react-native-svg": "^15.15.5",
     "react-native-web": "~0.20.0"
   },

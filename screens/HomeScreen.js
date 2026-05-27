@@ -5,18 +5,17 @@ import {
   findNodeHandle,
   FlatList,
   Image,
-  Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   useTVEventHandler,
   View,
 } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { gillSans } from "../constants/fonts";
+import { buildMovieDetail } from "../utils/movieDetail";
 
 const FEATURED_ITEMS = [
   {
@@ -110,7 +109,6 @@ const getPosterColor = (label) => {
   return POSTER_COLORS[seed % POSTER_COLORS.length];
 };
 
-const ANDROID_TOP_INSET = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SALE_BANNER_MAX_WIDTH = 380;
 const SALE_BANNER_HEIGHT = 120;
@@ -248,6 +246,7 @@ const FeaturedCarousel = forwardRef(function FeaturedCarousel(
     items,
     drawerOpen,
     onCloseDrawer,
+    onMoviePress,
     nextFocusUpForIndex,
     nextFocusDownForIndex,
   },
@@ -333,7 +332,10 @@ const FeaturedCarousel = forwardRef(function FeaturedCarousel(
               ref={(node) => {
                 itemRefs.current[index] = node;
               }}
-              onPress={() => selectIndex(index, true)}
+              onPress={() => {
+                selectIndex(index, true);
+                onMoviePress?.({ title: item.title, image: item.image });
+              }}
               onFocus={() => selectIndex(index, true)}
               onBlur={() => setFocusedIndex(null)}
               style={({ pressed }) => [
@@ -450,7 +452,16 @@ const SaleBannerCarousel = forwardRef(function SaleBannerCarousel(
 });
 
 const MediaCard = forwardRef(function MediaCard(
-  { label, image, nextFocusUp, nextFocusDown, variant = "poster", progress = 0, showLabel = false },
+  {
+    label,
+    image,
+    nextFocusUp,
+    nextFocusDown,
+    variant = "poster",
+    progress = 0,
+    showLabel = false,
+    onPress,
+  },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -464,6 +475,7 @@ const MediaCard = forwardRef(function MediaCard(
         styles.card,
         (pressed || focused) ? styles.cardFocused : null,
       ]}
+      onPress={onPress}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       nextFocusUp={nextFocusUp}
@@ -563,7 +575,15 @@ const FootballCard = forwardRef(function FootballCard(
   );
 });
 
-export default function HomeScreen() {
+export default function HomeScreen({ onMoviePress }) {
+  const insets = useSafeAreaInsets();
+
+  const openMovieDetail = useCallback(
+    (item) => {
+      onMoviePress?.(buildMovieDetail(item));
+    },
+    [onMoviePress],
+  );
   const menuButtonRef = useRef(null);
   const searchButtonRef = useRef(null);
   const drawerItemRefs = useRef(DRAWER_ITEMS.map(() => null));
@@ -620,7 +640,7 @@ export default function HomeScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
           <Pressable
@@ -672,6 +692,7 @@ export default function HomeScreen() {
           items={FEATURED_ITEMS}
           drawerOpen={drawerOpen}
           onCloseDrawer={() => setDrawerOpen(false)}
+          onMoviePress={openMovieDetail}
           nextFocusUpForIndex={(index) =>
             findNodeHandle(index === 0 ? menuButtonRef.current : searchButtonRef.current) ??
             undefined
@@ -732,6 +753,16 @@ export default function HomeScreen() {
                       variant={row.id === "continueWatching" ? "continue" : row.id === "match" ? "match" : "poster"}
                       showLabel={false}
                       progress={row.id === "continueWatching" ? CONTINUE_WATCHING_PROGRESS[itemIndex] ?? 0.35 : 0}
+                      onPress={
+                        row.id === "match"
+                          ? undefined
+                          : () =>
+                              openMovieDetail({
+                                title: sectionItem.label,
+                                label: sectionItem.label,
+                                image: sectionItem.image,
+                              })
+                      }
                       nextFocusUp={
                         rowIndex === 0
                           ? getFeaturedHandle(Math.min(itemIndex, FEATURED_ITEMS.length - 1))
@@ -763,7 +794,7 @@ export default function HomeScreen() {
       {drawerOpen ? (
         <View style={styles.drawerOverlay} pointerEvents="box-none">
           <View style={styles.drawerPanel}>
-            <DrawerCurvedHeader topInset={ANDROID_TOP_INSET} width={DRAWER_PANEL_WIDTH} />
+            <DrawerCurvedHeader topInset={insets.top} width={DRAWER_PANEL_WIDTH} />
             <View style={[styles.drawerList, styles.drawerBodyInset]}>
               {(() => {
                 let itemIndex = 0;
@@ -849,8 +880,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingTop: ANDROID_TOP_INSET,
-    paddingHorizontal: 10,
+    paddingHorizontal: CONTENT_HORIZONTAL_PADDING,
     paddingBottom: 32,
   },
   topBar: {

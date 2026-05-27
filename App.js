@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAppFonts } from "./hooks/useAppFonts";
 import HomeScreen from "./screens/HomeScreen";
+import MovieDetailScreen from "./screens/MovieDetailScreen";
+import MoviePlayScreen from "./screens/MoviePlayScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
 import OTPScreen from "./screens/OTPScreen";
@@ -18,6 +21,8 @@ const SCREEN = {
   FORGOT_PASSWORD_PHONE: "forgot_password_phone",
   RESET_PASSWORD: "reset_password",
   HOME: "home",
+  MOVIE_DETAIL: "movie_detail",
+  MOVIE_PLAY: "movie_play",
 };
 
 export default function App() {
@@ -25,6 +30,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(SCREEN.SPLASH);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [resumeOnboardingAtPhone, setResumeOnboardingAtPhone] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
 
   const goToOnboardingPhoneStep = () => {
     setResumeOnboardingAtPhone(true);
@@ -33,7 +39,30 @@ export default function App() {
 
   const screenComponent = useMemo(() => {
     const screens = {
-      [SCREEN.HOME]: <HomeScreen />,
+      [SCREEN.HOME]: (
+        <HomeScreen
+          onMoviePress={(movie) => {
+            setSelectedMovie(movie);
+            setCurrentPage(SCREEN.MOVIE_DETAIL);
+          }}
+        />
+      ),
+      [SCREEN.MOVIE_DETAIL]: (
+        <MovieDetailScreen
+          movie={selectedMovie}
+          onBack={() => {
+            setCurrentPage(SCREEN.HOME);
+            setSelectedMovie(null);
+          }}
+          onPlay={() => setCurrentPage(SCREEN.MOVIE_PLAY)}
+        />
+      ),
+      [SCREEN.MOVIE_PLAY]: (
+        <MoviePlayScreen
+          movie={selectedMovie}
+          onBack={() => setCurrentPage(SCREEN.MOVIE_DETAIL)}
+        />
+      ),
       [SCREEN.OTP]: (
         <OTPScreen
           phoneNumber={phoneNumber}
@@ -88,7 +117,7 @@ export default function App() {
     };
 
     return screens[currentPage] ?? screens[SCREEN.SPLASH];
-  }, [currentPage, phoneNumber, resumeOnboardingAtPhone]);
+  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie]);
 
   if (!fontsLoaded) {
     return (
@@ -98,5 +127,5 @@ export default function App() {
     );
   }
 
-  return screenComponent;
+  return <SafeAreaProvider>{screenComponent}</SafeAreaProvider>;
 }
