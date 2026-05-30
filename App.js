@@ -5,6 +5,9 @@ import { useAppFonts } from "./hooks/useAppFonts";
 import HomeScreen from "./screens/HomeScreen";
 import MovieDetailScreen from "./screens/MovieDetailScreen";
 import MoviePlayScreen from "./screens/MoviePlayScreen";
+import FootballDetailScreen from "./screens/FootballDetailScreen";
+import FootballScreen from "./screens/FootballScreen";
+import { buildFootballDetail } from "./utils/football";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
 import OTPScreen from "./screens/OTPScreen";
@@ -23,6 +26,8 @@ const SCREEN = {
   HOME: "home",
   MOVIE_DETAIL: "movie_detail",
   MOVIE_PLAY: "movie_play",
+  FOOTBALL_DETAIL: "football_detail",
+  FOOTBALL_LIST: "football_list",
 };
 
 export default function App() {
@@ -31,6 +36,20 @@ export default function App() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [resumeOnboardingAtPhone, setResumeOnboardingAtPhone] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [selectedFootballMatch, setSelectedFootballMatch] = useState(null);
+  const [footballReturnScreen, setFootballReturnScreen] = useState(SCREEN.HOME);
+  const [footballDetailReturnScreen, setFootballDetailReturnScreen] = useState(SCREEN.HOME);
+
+  const openFootballList = (returnScreen) => {
+    setFootballReturnScreen(returnScreen);
+    setCurrentPage(SCREEN.FOOTBALL_LIST);
+  };
+
+  const openFootballDetail = (fixture, returnScreen) => {
+    setFootballDetailReturnScreen(returnScreen);
+    setSelectedFootballMatch(buildFootballDetail(fixture));
+    setCurrentPage(SCREEN.FOOTBALL_DETAIL);
+  };
 
   const goToOnboardingPhoneStep = () => {
     setResumeOnboardingAtPhone(true);
@@ -45,6 +64,27 @@ export default function App() {
             setSelectedMovie(movie);
             setCurrentPage(SCREEN.MOVIE_DETAIL);
           }}
+          onFootballPress={(fixture) => openFootballDetail(fixture, SCREEN.HOME)}
+          onSeeAllFootball={() => openFootballList(SCREEN.HOME)}
+        />
+      ),
+      [SCREEN.FOOTBALL_LIST]: (
+        <FootballScreen
+          onBack={() => setCurrentPage(footballReturnScreen)}
+          onMatchPress={(fixture) => openFootballDetail(fixture, SCREEN.FOOTBALL_LIST)}
+        />
+      ),
+      [SCREEN.FOOTBALL_DETAIL]: (
+        <FootballDetailScreen
+          match={selectedFootballMatch}
+          onBack={() => {
+            setCurrentPage(footballDetailReturnScreen);
+            if (footballDetailReturnScreen === SCREEN.HOME) {
+              setSelectedFootballMatch(null);
+            }
+          }}
+          onMatchPress={(fixture) => openFootballDetail(fixture, footballDetailReturnScreen)}
+          onSeeAllFootball={() => openFootballList(SCREEN.FOOTBALL_DETAIL)}
         />
       ),
       [SCREEN.MOVIE_DETAIL]: (
@@ -117,7 +157,7 @@ export default function App() {
     };
 
     return screens[currentPage] ?? screens[SCREEN.SPLASH];
-  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie]);
+  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen]);
 
   if (!fontsLoaded) {
     return (

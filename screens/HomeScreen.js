@@ -12,9 +12,11 @@ import {
   useTVEventHandler,
   View,
 } from "react-native";
-import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import FootballMatchCard from "../components/FootballMatchCard";
 import { gillSans } from "../constants/fonts";
+import { buildFootballDetail, FOOTBALL_FIXTURES } from "../utils/football";
 import { buildMovieDetail } from "../utils/movieDetail";
 
 const FEATURED_ITEMS = [
@@ -129,48 +131,6 @@ const FEATURED_SIDE_PADDING = Math.max(0, (SCREEN_WIDTH - FEATURED_SLOT_WIDTH) /
 
 const clampFeaturedIndex = (index, length) => Math.max(0, Math.min(index, length - 1));
 
-const FOOTBALL_LOGOS = {
-  liverpool: require("../assets/images/football/liverpool.png"),
-  manchesterUnited: require("../assets/images/football/manchester-united.png"),
-  fcCopenhagen: require("../assets/images/football/fc-copenhagen.png"),
-  fcBasel: require("../assets/images/football/fc-basel.png"),
-};
-
-const FOOTBALL_FIXTURES = [
-  {
-    id: "fixture-1",
-    home: "Liverpool",
-    away: "Manchester United",
-    date: "21 AUG",
-    isLive: true,
-    homeLogo: FOOTBALL_LOGOS.liverpool,
-    awayLogo: FOOTBALL_LOGOS.manchesterUnited,
-    homeBadgeColor: "#C8102E",
-    awayBadgeColor: "#DA291C",
-  },
-  {
-    id: "fixture-2",
-    home: "Liverpool",
-    away: "Manchester United",
-    date: "21 AUG",
-    time: "03:00 AM",
-    homeLogo: FOOTBALL_LOGOS.liverpool,
-    awayLogo: FOOTBALL_LOGOS.manchesterUnited,
-    homeBadgeColor: "#C8102E",
-    awayBadgeColor: "#DA291C",
-  },
-  {
-    id: "fixture-3",
-    home: "FC Copenhagen",
-    away: "FC Basel",
-    date: "21 AUG",
-    time: "03:00 AM",
-    homeLogo: FOOTBALL_LOGOS.fcCopenhagen,
-    awayLogo: FOOTBALL_LOGOS.fcBasel,
-    homeBadgeColor: "#00529F",
-    awayBadgeColor: "#E30613",
-  },
-];
 const CONTINUE_WATCHING_PROGRESS = [0.68, 0.4, 0.52, 0.33, 0.74, 0.21, 0.57, 0.49, 0.62, 0.29];
 
 const DRAWER_PANEL_WIDTH = Math.min(
@@ -222,7 +182,7 @@ const DRAWER_SECTIONS = [
       { label: "Home", icon: "home-outline" },
       { label: "Series", icon: "grid-outline" },
       { label: "Movies", icon: "film-outline" },
-      { label: "Football matches", icon: "football-outline" },
+      { label: "Football matches", icon: "football-outline", navigate: "football_list" },
       { label: "Categories", icon: "apps-outline" },
       { label: "Notifications", icon: "notifications-outline", showBadge: true },
       { label: "History", icon: "time-outline" },
@@ -513,69 +473,7 @@ const MediaCard = forwardRef(function MediaCard(
   );
 });
 
-function TeamLogo({ logo, name, badgeColor }) {
-  if (logo) {
-    return <Image source={logo} resizeMode="contain" style={styles.teamLogoImage} />;
-  }
-
-  return (
-    <View style={[styles.teamLogoFallback, badgeColor ? { backgroundColor: badgeColor } : null]}>
-      <Text style={styles.teamLogoFallbackText}>{name.slice(0, 3).toUpperCase()}</Text>
-    </View>
-  );
-}
-
-const FootballCard = forwardRef(function FootballCard(
-  { fixture, nextFocusUp, nextFocusDown },
-  ref,
-) {
-  const [focused, setFocused] = useState(false);
-
-  return (
-    <Pressable
-      ref={ref}
-      style={({ pressed }) => [
-        styles.footballCard,
-        (pressed || focused) ? styles.footballCardFocused : null,
-      ]}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      nextFocusUp={nextFocusUp}
-      nextFocusDown={nextFocusDown}
-    >
-      <View style={styles.fixturePillAnchor} pointerEvents="none">
-        <View style={styles.fixturePill}>
-          {fixture.isLive ? (
-            <View style={styles.liveBadge}>
-              <Text style={styles.liveBadgeText}>Live</Text>
-            </View>
-          ) : (
-            <Text style={styles.fixtureTimeText}>{fixture.time}</Text>
-          )}
-          <Text style={styles.fixtureDateText}>{fixture.date}</Text>
-        </View>
-      </View>
-
-      <View style={styles.footballRow}>
-        <View style={styles.footballTeamHome}>
-          <TeamLogo logo={fixture.homeLogo} name={fixture.home} badgeColor={fixture.homeBadgeColor} />
-          <Text numberOfLines={2} style={styles.footballTeamText}>
-            {fixture.home}
-          </Text>
-        </View>
-
-        <View style={styles.footballTeamAway}>
-          <Text numberOfLines={2} style={[styles.footballTeamText, styles.footballTeamTextAway]}>
-            {fixture.away}
-          </Text>
-          <TeamLogo logo={fixture.awayLogo} name={fixture.away} badgeColor={fixture.awayBadgeColor} />
-        </View>
-      </View>
-    </Pressable>
-  );
-});
-
-export default function HomeScreen({ onMoviePress }) {
+export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFootball }) {
   const insets = useSafeAreaInsets();
 
   const openMovieDetail = useCallback(
@@ -583,6 +481,13 @@ export default function HomeScreen({ onMoviePress }) {
       onMoviePress?.(buildMovieDetail(item));
     },
     [onMoviePress],
+  );
+
+  const openFootballDetail = useCallback(
+    (fixture) => {
+      onFootballPress?.(buildFootballDetail(fixture));
+    },
+    [onFootballPress],
   );
   const menuButtonRef = useRef(null);
   const searchButtonRef = useRef(null);
@@ -709,17 +614,26 @@ export default function HomeScreen({ onMoviePress }) {
             <View style={styles.rowSection}>
               <View style={styles.rowHeader}>
                 <Text style={styles.rowTitle}>{row.title}</Text>
-                {row.showSeeAll ? <Text style={styles.seeAllText}>See all</Text> : null}
+                {row.showSeeAll ? (
+                  row.id === "continue" ? (
+                    <Pressable onPress={onSeeAllFootball}>
+                      <Text style={styles.seeAllText}>See all</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.seeAllText}>See all</Text>
+                  )
+                ) : null}
               </View>
               {row.id === "continue" ? (
                 <View style={styles.footballList}>
                   {FOOTBALL_FIXTURES.map((fixture, itemIndex) => (
-                    <FootballCard
+                    <FootballMatchCard
                       key={fixture.id}
                       ref={(node) => {
                         rowRefs.current[rowIndex][itemIndex] = node;
                       }}
                       fixture={fixture}
+                      onPress={() => openFootballDetail(fixture)}
                       nextFocusUp={
                         itemIndex === 0
                           ? getSectionCardHandle(rowIndex - 1, 0)
@@ -824,7 +738,12 @@ export default function HomeScreen({ onMoviePress }) {
                             setActiveDrawerItem(index);
                           }}
                           onBlur={scheduleDrawerBlurClose}
-                          onPress={() => setDrawerOpen(false)}
+                          onPress={() => {
+                            setDrawerOpen(false);
+                            if (item.navigate === "football_list") {
+                              onSeeAllFootball?.();
+                            }
+                          }}
                           nextFocusUp={
                             index > 0
                               ? getDrawerHandle(index - 1)
