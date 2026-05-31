@@ -7,7 +7,14 @@ import MovieDetailScreen from "./screens/MovieDetailScreen";
 import MoviePlayScreen from "./screens/MoviePlayScreen";
 import FootballDetailScreen from "./screens/FootballDetailScreen";
 import FootballScreen from "./screens/FootballScreen";
+import ProfileScreen from "./screens/ProfileScreen";
+import SetProfilePasswordScreen from "./screens/SetProfilePasswordScreen";
+import EditPhoneNumberScreen from "./screens/EditPhoneNumberScreen";
+import EditPhoneOtpScreen from "./screens/EditPhoneOtpScreen";
+import GetHelpScreen from "./screens/GetHelpScreen";
+import SearchScreen from "./screens/SearchScreen";
 import { buildFootballDetail } from "./utils/football";
+import { DEFAULT_RECENT_SEARCHES } from "./utils/search";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
 import OTPScreen from "./screens/OTPScreen";
@@ -28,6 +35,12 @@ const SCREEN = {
   MOVIE_PLAY: "movie_play",
   FOOTBALL_DETAIL: "football_detail",
   FOOTBALL_LIST: "football_list",
+  PROFILE: "profile",
+  SET_PROFILE_PASSWORD: "set_profile_password",
+  EDIT_PHONE_NUMBER: "edit_phone_number",
+  EDIT_PHONE_OTP: "edit_phone_otp",
+  GET_HELP: "get_help",
+  SEARCH: "search",
 };
 
 export default function App() {
@@ -39,6 +52,18 @@ export default function App() {
   const [selectedFootballMatch, setSelectedFootballMatch] = useState(null);
   const [footballReturnScreen, setFootballReturnScreen] = useState(SCREEN.HOME);
   const [footballDetailReturnScreen, setFootballDetailReturnScreen] = useState(SCREEN.HOME);
+  const [accountPassword, setAccountPassword] = useState("");
+  const [passwordUpdateSuccess, setPasswordUpdateSuccess] = useState(false);
+  const [pendingPhoneNumber, setPendingPhoneNumber] = useState("");
+  const [phoneUpdateSuccess, setPhoneUpdateSuccess] = useState(false);
+  const [accountUsername, setAccountUsername] = useState("");
+  const [searchReturnScreen, setSearchReturnScreen] = useState(SCREEN.HOME);
+  const [recentSearches, setRecentSearches] = useState(DEFAULT_RECENT_SEARCHES);
+
+  const openSearch = (returnScreen) => {
+    setSearchReturnScreen(returnScreen);
+    setCurrentPage(SCREEN.SEARCH);
+  };
 
   const openFootballList = (returnScreen) => {
     setFootballReturnScreen(returnScreen);
@@ -66,12 +91,90 @@ export default function App() {
           }}
           onFootballPress={(fixture) => openFootballDetail(fixture, SCREEN.HOME)}
           onSeeAllFootball={() => openFootballList(SCREEN.HOME)}
+          onProfilePress={() => setCurrentPage(SCREEN.PROFILE)}
+          onGetHelpPress={() => setCurrentPage(SCREEN.GET_HELP)}
+          onSearchPress={() => openSearch(SCREEN.HOME)}
+        />
+      ),
+      [SCREEN.SEARCH]: (
+        <SearchScreen
+          recentSearches={recentSearches}
+          onRecentSearchesChange={setRecentSearches}
+          onBack={() => setCurrentPage(searchReturnScreen)}
+        />
+      ),
+      [SCREEN.GET_HELP]: (
+        <GetHelpScreen
+          phoneNumber={phoneNumber}
+          onBack={() => setCurrentPage(SCREEN.HOME)}
+          onSearchPress={() => openSearch(SCREEN.GET_HELP)}
+        />
+      ),
+      [SCREEN.PROFILE]: (
+        <ProfileScreen
+          phoneNumber={phoneNumber}
+          username={accountUsername}
+          accountPassword={accountPassword}
+          passwordUpdateSuccess={passwordUpdateSuccess}
+          phoneUpdateSuccess={phoneUpdateSuccess}
+          onUsernameChange={setAccountUsername}
+          onBack={() => {
+            setPasswordUpdateSuccess(false);
+            setPhoneUpdateSuccess(false);
+            setCurrentPage(SCREEN.HOME);
+          }}
+          onCreatePasswordPress={() => {
+            setPasswordUpdateSuccess(false);
+            setPhoneUpdateSuccess(false);
+            setCurrentPage(SCREEN.SET_PROFILE_PASSWORD);
+          }}
+          onEditPhonePress={() => {
+            setPhoneUpdateSuccess(false);
+            setCurrentPage(SCREEN.EDIT_PHONE_NUMBER);
+          }}
+          onSearchPress={() => openSearch(SCREEN.PROFILE)}
+        />
+      ),
+      [SCREEN.EDIT_PHONE_NUMBER]: (
+        <EditPhoneNumberScreen
+          phoneNumber={phoneNumber}
+          onBack={() => setCurrentPage(SCREEN.PROFILE)}
+          onSearchPress={() => openSearch(SCREEN.EDIT_PHONE_NUMBER)}
+          onSendOtp={(newPhone) => {
+            setPendingPhoneNumber(newPhone);
+            setCurrentPage(SCREEN.EDIT_PHONE_OTP);
+          }}
+        />
+      ),
+      [SCREEN.EDIT_PHONE_OTP]: (
+        <EditPhoneOtpScreen
+          phoneNumber={pendingPhoneNumber}
+          onBack={() => setCurrentPage(SCREEN.EDIT_PHONE_NUMBER)}
+          onSearchPress={() => openSearch(SCREEN.EDIT_PHONE_OTP)}
+          onVerified={() => {
+            setPhoneNumber(pendingPhoneNumber);
+            setPhoneUpdateSuccess(true);
+            setPendingPhoneNumber("");
+            setCurrentPage(SCREEN.PROFILE);
+          }}
+        />
+      ),
+      [SCREEN.SET_PROFILE_PASSWORD]: (
+        <SetProfilePasswordScreen
+          onBack={() => setCurrentPage(SCREEN.PROFILE)}
+          onSearchPress={() => openSearch(SCREEN.SET_PROFILE_PASSWORD)}
+          onComplete={(password) => {
+            setAccountPassword(password);
+            setPasswordUpdateSuccess(true);
+            setCurrentPage(SCREEN.PROFILE);
+          }}
         />
       ),
       [SCREEN.FOOTBALL_LIST]: (
         <FootballScreen
           onBack={() => setCurrentPage(footballReturnScreen)}
           onMatchPress={(fixture) => openFootballDetail(fixture, SCREEN.FOOTBALL_LIST)}
+          onSearchPress={() => openSearch(SCREEN.FOOTBALL_LIST)}
         />
       ),
       [SCREEN.FOOTBALL_DETAIL]: (
@@ -85,6 +188,7 @@ export default function App() {
           }}
           onMatchPress={(fixture) => openFootballDetail(fixture, footballDetailReturnScreen)}
           onSeeAllFootball={() => openFootballList(SCREEN.FOOTBALL_DETAIL)}
+          onSearchPress={() => openSearch(SCREEN.FOOTBALL_DETAIL)}
         />
       ),
       [SCREEN.MOVIE_DETAIL]: (
@@ -95,6 +199,7 @@ export default function App() {
             setSelectedMovie(null);
           }}
           onPlay={() => setCurrentPage(SCREEN.MOVIE_PLAY)}
+          onSearchPress={() => openSearch(SCREEN.MOVIE_DETAIL)}
         />
       ),
       [SCREEN.MOVIE_PLAY]: (
@@ -157,7 +262,7 @@ export default function App() {
     };
 
     return screens[currentPage] ?? screens[SCREEN.SPLASH];
-  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen]);
+  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
 
   if (!fontsLoaded) {
     return (

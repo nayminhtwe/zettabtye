@@ -56,7 +56,7 @@ function DateTab({ tab, isSelected, onPress, focused, onFocus, onBlur }) {
   );
 }
 
-export default function FootballScreen({ onBack, onMatchPress }) {
+export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) {
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedDateId, setSelectedDateId] = useState(FOOTBALL_DEFAULT_DATE_ID);
@@ -87,6 +87,7 @@ export default function FootballScreen({ onBack, onMatchPress }) {
 
         <Pressable
           style={[styles.headerIconButton, searchFocused ? styles.headerIconButtonFocused : null]}
+          onPress={onSearchPress}
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
         >

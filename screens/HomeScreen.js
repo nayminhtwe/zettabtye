@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import FootballMatchCard from "../components/FootballMatchCard";
+import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
 import { buildFootballDetail, FOOTBALL_FIXTURES } from "../utils/football";
 import { buildMovieDetail } from "../utils/movieDetail";
@@ -54,13 +55,6 @@ const TRENDING_POSTERS = [
   require("../assets/images/trending/trending-4.jpg"),
 ];
 
-const SALE_BANNER_SLIDES = [
-  { id: "sale-1", image: require("../assets/images/sale/sale-1.jpg") },
-  { id: "sale-2", image: require("../assets/images/sale/sale-2.jpg") },
-  { id: "sale-3", image: require("../assets/images/sale/sale-3.jpg") },
-];
-
-const SALE_BANNER_AUTO_SCROLL_MS = 4500;
 const CONTENT_HORIZONTAL_PADDING = 10;
 
 const posterImageForIndex = (index) => TRENDING_POSTERS[index % TRENDING_POSTERS.length];
@@ -112,12 +106,6 @@ const getPosterColor = (label) => {
 };
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SALE_BANNER_MAX_WIDTH = 380;
-const SALE_BANNER_HEIGHT = 120;
-const SALE_BANNER_WIDTH = Math.min(
-  SALE_BANNER_MAX_WIDTH,
-  SCREEN_WIDTH - CONTENT_HORIZONTAL_PADDING * 2,
-);
 const FEATURED_CENTER_WIDTH = 196;
 const FEATURED_CENTER_HEIGHT = 250;
 const FEATURED_SIDE_WIDTH = 150;
@@ -191,8 +179,8 @@ const DRAWER_SECTIONS = [
   {
     title: "Account",
     items: [
-      { label: "My Profile", icon: "person-outline", showExternal: true },
-      { label: "Get Help", icon: "help-circle-outline", showExternal: true },
+      { label: "My Profile", icon: "person-outline", showExternal: true, navigate: "profile" },
+      { label: "Get Help", icon: "help-circle-outline", showExternal: true, navigate: "get_help" },
     ],
   },
 ];
@@ -343,74 +331,6 @@ const getSectionItem = (item, itemIndex) => {
   return item;
 };
 
-const SaleBannerCarousel = forwardRef(function SaleBannerCarousel(
-  { nextFocusUp, nextFocusDown },
-  ref,
-) {
-  const listRef = useRef(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [focused, setFocused] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveIndex((prev) => {
-        const next = (prev + 1) % SALE_BANNER_SLIDES.length;
-        listRef.current?.scrollToIndex({ index: next, animated: true });
-        return next;
-      });
-    }, SALE_BANNER_AUTO_SCROLL_MS);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <Pressable
-      ref={ref}
-      style={({ pressed, focused: nativeFocused }) => [
-        styles.saleBanner,
-        (pressed || focused || nativeFocused) ? styles.saleBannerFocused : null,
-      ]}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      nextFocusUp={nextFocusUp}
-      nextFocusDown={nextFocusDown}
-    >
-      <FlatList
-        ref={listRef}
-        style={styles.saleBannerList}
-        data={SALE_BANNER_SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
-        bounces={false}
-        keyExtractor={(slide) => slide.id}
-        getItemLayout={(_, index) => ({
-          length: SALE_BANNER_WIDTH,
-          offset: SALE_BANNER_WIDTH * index,
-          index,
-        })}
-        renderItem={({ item }) => (
-          <View style={styles.saleBannerSlide}>
-            <Image source={item.image} resizeMode="cover" style={styles.saleBannerSlideImage} />
-          </View>
-        )}
-      />
-      <View style={styles.saleBannerIndicators} pointerEvents="none">
-        {SALE_BANNER_SLIDES.map((slide, index) => (
-          <View
-            key={slide.id}
-            style={[
-              styles.saleBannerIndicator,
-              index === activeIndex ? styles.saleBannerIndicatorActive : null,
-            ]}
-          />
-        ))}
-      </View>
-    </Pressable>
-  );
-});
-
 const MediaCard = forwardRef(function MediaCard(
   {
     label,
@@ -473,7 +393,7 @@ const MediaCard = forwardRef(function MediaCard(
   );
 });
 
-export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFootball }) {
+export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFootball, onProfilePress, onGetHelpPress, onSearchPress }) {
   const insets = useSafeAreaInsets();
 
   const openMovieDetail = useCallback(
@@ -492,6 +412,10 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
   const menuButtonRef = useRef(null);
   const searchButtonRef = useRef(null);
   const drawerItemRefs = useRef(DRAWER_ITEMS.map(() => null));
+  const drawerScrollRef = useRef(null);
+  const drawerScrollContentRef = useRef(null);
+  const logoutButtonRef = useRef(null);
+  const deleteAccountButtonRef = useRef(null);
   const drawerBlurTimeoutRef = useRef(null);
   const featuredCarouselRef = useRef(null);
   const rowRefs = useRef(
@@ -502,6 +426,8 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
   const [searchFocused, setSearchFocused] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeDrawerItem, setActiveDrawerItem] = useState(0);
+  const [logoutFocused, setLogoutFocused] = useState(false);
+  const [deleteAccountFocused, setDeleteAccountFocused] = useState(false);
   const getFeaturedHandle = (index) =>
     featuredCarouselRef.current?.getNodeHandle(index) ?? undefined;
   const getSectionCardHandle = (sectionIndex, itemIndex) =>
@@ -513,6 +439,27 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
     findNodeHandle(searchButtonRef.current) ??
     findNodeHandle(menuButtonRef.current) ??
     undefined;
+  const getLogoutHandle = () => findNodeHandle(logoutButtonRef.current) ?? undefined;
+  const getDeleteAccountHandle = () => findNodeHandle(deleteAccountButtonRef.current) ?? undefined;
+  const scrollDrawerItemIntoView = (index) => {
+    const itemNode = drawerItemRefs.current[index];
+    const contentNode = drawerScrollContentRef.current;
+
+    if (!itemNode || !contentNode) {
+      drawerScrollRef.current?.scrollTo({ y: Math.max(0, index * 56 - 12), animated: true });
+      return;
+    }
+
+    itemNode.measureLayout(
+      contentNode,
+      (_x, y) => {
+        drawerScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+      },
+      () => {
+        drawerScrollRef.current?.scrollTo({ y: Math.max(0, index * 56 - 12), animated: true });
+      },
+    );
+  };
   const cancelDrawerBlurClose = () => {
     if (drawerBlurTimeoutRef.current) {
       clearTimeout(drawerBlurTimeoutRef.current);
@@ -524,7 +471,15 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
     cancelDrawerBlurClose();
     drawerBlurTimeoutRef.current = setTimeout(() => {
       setDrawerOpen(false);
-    }, 70);
+      setLogoutFocused(false);
+      setDeleteAccountFocused(false);
+    }, 120);
+  };
+
+  const handleDrawerItemFocus = (index) => {
+    cancelDrawerBlurClose();
+    setActiveDrawerItem(index);
+    scrollDrawerItemIntoView(index);
   };
 
   useEffect(() => {
@@ -578,6 +533,7 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
               styles.topBarIconButton,
               (pressed || searchFocused) ? styles.topBarIconButtonFocused : null,
             ]}
+            onPress={onSearchPress}
             onFocus={() => {
               setSearchFocused(true);
               if (drawerOpen) {
@@ -698,6 +654,7 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
             {rowIndex === 0 ? (
               <SaleBannerCarousel
                 ref={bannerRef}
+                style={styles.saleBanner}
                 nextFocusUp={getFeaturedHandle(1)}
                 nextFocusDown={getSectionCardHandle(1, 0)}
               />
@@ -709,7 +666,14 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
         <View style={styles.drawerOverlay} pointerEvents="box-none">
           <View style={styles.drawerPanel}>
             <DrawerCurvedHeader topInset={insets.top} width={DRAWER_PANEL_WIDTH} />
-            <View style={[styles.drawerList, styles.drawerBodyInset]}>
+            <ScrollView
+              ref={drawerScrollRef}
+              style={styles.drawerList}
+              contentContainerStyle={styles.drawerListContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View ref={drawerScrollContentRef}>
               {(() => {
                 let itemIndex = 0;
 
@@ -733,15 +697,17 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
                               : null,
                           ]}
                           hasTVPreferredFocus={index === 0}
-                          onFocus={() => {
-                            cancelDrawerBlurClose();
-                            setActiveDrawerItem(index);
-                          }}
-                          onBlur={scheduleDrawerBlurClose}
+                          onFocus={() => handleDrawerItemFocus(index)}
                           onPress={() => {
                             setDrawerOpen(false);
                             if (item.navigate === "football_list") {
                               onSeeAllFootball?.();
+                            }
+                            if (item.navigate === "profile") {
+                              onProfilePress?.();
+                            }
+                            if (item.navigate === "get_help") {
+                              onGetHelpPress?.();
                             }
                           }}
                           nextFocusUp={
@@ -752,7 +718,7 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
                           nextFocusDown={
                             index < DRAWER_ITEMS.length - 1
                               ? getDrawerHandle(index + 1)
-                              : undefined
+                              : getLogoutHandle()
                           }
                           nextFocusRight={getContentFocusHandle()}
                         >
@@ -770,14 +736,43 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
                   </View>
                 ));
               })()}
-            </View>
-            <View style={[styles.drawerFooter, styles.drawerBodyInset]} pointerEvents="none">
-              <View style={styles.logoutButton}>
+              </View>
+            </ScrollView>
+            <View style={[styles.drawerFooter, styles.drawerBodyInset]}>
+              <Pressable
+                ref={logoutButtonRef}
+                onFocus={() => {
+                  cancelDrawerBlurClose();
+                  setLogoutFocused(true);
+                }}
+                onBlur={() => {
+                  setLogoutFocused(false);
+                  scheduleDrawerBlurClose();
+                }}
+                style={[styles.logoutButton, logoutFocused ? styles.drawerFooterButtonFocused : null]}
+                nextFocusUp={getDrawerHandle(DRAWER_ITEMS.length - 1)}
+                nextFocusDown={getDeleteAccountHandle()}
+              >
                 <Text style={styles.logoutButtonText}>Log out</Text>
-              </View>
-              <View style={styles.deleteAccountButton}>
+              </Pressable>
+              <Pressable
+                ref={deleteAccountButtonRef}
+                onFocus={() => {
+                  cancelDrawerBlurClose();
+                  setDeleteAccountFocused(true);
+                }}
+                onBlur={() => {
+                  setDeleteAccountFocused(false);
+                  scheduleDrawerBlurClose();
+                }}
+                style={[
+                  styles.deleteAccountButton,
+                  deleteAccountFocused ? styles.drawerFooterButtonFocused : null,
+                ]}
+                nextFocusUp={getLogoutHandle()}
+              >
                 <Text style={styles.deleteAccountButtonText}>Delete my account</Text>
-              </View>
+              </Pressable>
             </View>
           </View>
           <Pressable
@@ -975,50 +970,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginTop: 24,
     marginBottom: 8,
-    width: SALE_BANNER_WIDTH,
-    height: SALE_BANNER_HEIGHT,
-    borderWidth: 1,
-    borderColor: "#2A3958",
-    backgroundColor: "#0A0A0A",
-    overflow: "hidden",
-  },
-  saleBannerFocused: {
-    borderColor: "#FFFFFF",
-    borderWidth: 2,
-  },
-  saleBannerList: {
-    width: SALE_BANNER_WIDTH,
-    height: SALE_BANNER_HEIGHT,
-  },
-  saleBannerSlide: {
-    width: SALE_BANNER_WIDTH,
-    height: SALE_BANNER_HEIGHT,
-  },
-  saleBannerSlideImage: {
-    width: SALE_BANNER_WIDTH,
-    height: SALE_BANNER_HEIGHT,
-    marginTop: 0.25,
-    opacity: 1,
-  },
-  saleBannerIndicators: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 10,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-  },
-  saleBannerIndicator: {
-    width: 18,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.35)",
-  },
-  saleBannerIndicatorActive: {
-    width: 22,
-    backgroundColor: "#E71809",
   },
   matchCard: {
     height: 66,
@@ -1165,6 +1116,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 16,
     paddingBottom: 24,
     overflow: "hidden",
+    flexDirection: "column",
+    maxHeight: "100%",
   },
   drawerBackdrop: {
     flex: 1,
@@ -1198,8 +1151,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   drawerList: {
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 1,
     paddingTop: 4,
+  },
+  drawerListContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
   drawerSection: {
     marginBottom: 16,
@@ -1256,6 +1214,11 @@ const styles = StyleSheet.create({
   drawerFooter: {
     gap: 12,
     paddingTop: 8,
+    flexShrink: 0,
+  },
+  drawerFooterButtonFocused: {
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   logoutButton: {
     minHeight: 48,

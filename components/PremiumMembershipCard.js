@@ -24,9 +24,10 @@ function FeatureValue({ value }) {
   return <Text style={styles.dashText}>—</Text>;
 }
 
-export default function PremiumMembershipCard({ onUpgrade }) {
+export default function PremiumMembershipCard({ onUpgrade, variant = "full", style }) {
   const [upgradeFocused, setUpgradeFocused] = useState(false);
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const isCompact = variant === "compact";
 
   const handleUpgradePress = () => {
     setUpgradeModalVisible(true);
@@ -39,40 +40,56 @@ export default function PremiumMembershipCard({ onUpgrade }) {
       colors={["rgba(80, 28, 24, 0.55)", "rgba(24, 12, 18, 0.92)", "rgba(12, 10, 14, 0.98)"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.card}
+      style={[styles.card, isCompact ? styles.cardCompact : null, style]}
     >
-      <Text style={styles.title}>
-        Enjoy <Text style={styles.titleAccent}>Premium</Text> Membership!
-      </Text>
-      <Text style={styles.subtitle}>Better in ~ Movies. Matches. Unlimited excitement.</Text>
-
-      <View style={styles.table}>
-        <View style={styles.tableHeader}>
-          <View style={styles.featureHeaderCell} />
-          <Text style={styles.columnHeader}>Free</Text>
-          <Text style={[styles.columnHeader, styles.premiumColumnHeader]}>Premium</Text>
+      {isCompact ? (
+        <View style={styles.compactDecor} pointerEvents="none">
+          <Ionicons name="film-outline" size={28} color="rgba(255,255,255,0.06)" style={styles.decorIconTop} />
+          <Ionicons name="videocam-outline" size={24} color="rgba(255,255,255,0.05)" style={styles.decorIconMid} />
+          <Ionicons name="football-outline" size={22} color="rgba(255,255,255,0.05)" style={styles.decorIconBottom} />
         </View>
+      ) : null}
 
-        <View style={styles.premiumColumnHighlight} pointerEvents="none" />
+      <Text style={[styles.title, isCompact ? styles.titleCompact : null]}>
+        Enjoy <Text style={styles.titleAccent}>{isCompact ? "Pro" : "Premium"}</Text> Membership!
+      </Text>
+      <Text style={[styles.subtitle, isCompact ? styles.subtitleCompact : null]}>
+        Better in ~ Movies. Matches. Unlimited excitement.
+      </Text>
 
-        {FEATURES.map((feature) => (
-          <View key={feature.label} style={styles.tableRow}>
-            <Text style={styles.featureLabel}>{feature.label}</Text>
-            <View style={styles.valueCell}>
-              <FeatureValue value={feature.free} />
-            </View>
-            <View style={[styles.valueCell, styles.premiumValueCell]}>
-              <FeatureValue value={feature.premium} />
-            </View>
+      {!isCompact ? (
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <View style={styles.featureHeaderCell} />
+            <Text style={styles.columnHeader}>Free</Text>
+            <Text style={[styles.columnHeader, styles.premiumColumnHeader]}>Premium</Text>
           </View>
-        ))}
-      </View>
+
+          <View style={styles.premiumColumnHighlight} pointerEvents="none" />
+
+          {FEATURES.map((feature) => (
+            <View key={feature.label} style={styles.tableRow}>
+              <Text style={styles.featureLabel}>{feature.label}</Text>
+              <View style={styles.valueCell}>
+                <FeatureValue value={feature.free} />
+              </View>
+              <View style={[styles.valueCell, styles.premiumValueCell]}>
+                <FeatureValue value={feature.premium} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <Pressable
         onPress={handleUpgradePress}
         onFocus={() => setUpgradeFocused(true)}
         onBlur={() => setUpgradeFocused(false)}
-        style={[styles.upgradeButtonWrap, upgradeFocused ? styles.upgradeButtonFocused : null]}
+        style={[
+          styles.upgradeButtonWrap,
+          isCompact ? styles.upgradeButtonWrapCompact : null,
+          upgradeFocused ? styles.upgradeButtonFocused : null,
+        ]}
       >
         <LinearGradient
           colors={["#E71809", "#FF6B3D"]}
@@ -104,6 +121,29 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     overflow: "hidden",
   },
+  cardCompact: {
+    marginTop: 0,
+    minHeight: 180,
+    justifyContent: "space-between",
+  },
+  compactDecor: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  decorIconTop: {
+    position: "absolute",
+    top: 18,
+    right: 24,
+  },
+  decorIconMid: {
+    position: "absolute",
+    top: 72,
+    right: 80,
+  },
+  decorIconBottom: {
+    position: "absolute",
+    bottom: 72,
+    right: 36,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 22,
@@ -113,6 +153,9 @@ const styles = StyleSheet.create({
   titleAccent: {
     color: "#FF6B3D",
   },
+  titleCompact: {
+    textAlign: "center",
+  },
   subtitle: {
     marginTop: 6,
     color: "rgba(255, 255, 255, 0.72)",
@@ -120,6 +163,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontStyle: "italic",
     ...gillSans("400"),
+  },
+  subtitleCompact: {
+    textAlign: "center",
   },
   table: {
     marginTop: 18,
@@ -190,6 +236,9 @@ const styles = StyleSheet.create({
     marginTop: 18,
     borderRadius: 10,
     overflow: "hidden",
+  },
+  upgradeButtonWrapCompact: {
+    marginTop: 24,
   },
   upgradeButtonFocused: {
     borderWidth: 2,

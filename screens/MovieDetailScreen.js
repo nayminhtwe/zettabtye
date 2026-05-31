@@ -17,7 +17,7 @@ const CONTENT_PADDING = 16;
 const HERO_WIDTH = SCREEN_WIDTH - CONTENT_PADDING * 2;
 const HERO_HEIGHT = Math.round(HERO_WIDTH * 0.56);
 
-export default function MovieDetailScreen({ movie, onBack, onPlay }) {
+export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress }) {
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [watchFocused, setWatchFocused] = useState(false);
@@ -47,6 +47,7 @@ export default function MovieDetailScreen({ movie, onBack, onPlay }) {
 
         <Pressable
           style={[styles.headerIconButton, searchFocused ? styles.headerIconButtonFocused : null]}
+          onPress={onSearchPress}
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
         >

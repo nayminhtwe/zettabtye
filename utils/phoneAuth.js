@@ -66,3 +66,9 @@ export function isFirstTimeUser(phone) {
 
   return !EXISTING_USER_PHONES.has(digits);
 }
+
+export const DUMMY_OTP_CODE = "1234";
+
+export function isValidOtpCode(otp) {
+  return (otp || "").trim() === DUMMY_OTP_CODE;
+}
