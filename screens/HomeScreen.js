@@ -74,11 +74,18 @@ const HOME_SECTIONS = [
       { id: "trending-5", label: "Spider-Man", image: TRENDING_POSTERS[0] },
     ],
   },
-  { id: "continue", title: "Today's Match", showSeeAll: true, items: ["fixture-1", "fixture-2", "fixture-3"] },
+  {
+    id: "continue",
+    title: "Today's Match",
+    showSeeAll: true,
+    seeAll: "football",
+    items: ["fixture-1", "fixture-2", "fixture-3"],
+  },
   {
     id: "continueWatching",
     title: "Continue watching",
     showSeeAll: true,
+    seeAll: "history",
     items: [
       "ASH",
       "WILD",
@@ -92,12 +99,47 @@ const HOME_SECTIONS = [
       "SPIDER",
     ],
   },
-  { id: "series", title: "TV Series", showSeeAll: true, items: ["FLASH", "BATMAN", "BIG HERO", "BLACK"] },
-  { id: "family", title: "Family/ Kids", showSeeAll: true, items: ["WONKA", "SPIDER", "ROBOT", "WILD"] },
-  { id: "romance", title: "Romance", showSeeAll: true, items: ["ME BEFORE YOU", "PURPLE", "EVERYTHING", "YOU"] },
-  { id: "animation", title: "Animations", showSeeAll: false, items: ["SPIDER", "JUNGLE", "WILD", "TOYS"] },
-  { id: "thriller", title: "Thriller/Actions", showSeeAll: true, items: ["DARK", "WICK", "CROW", "MISSING"] },
-  { id: "comedy", title: "Comedy", showSeeAll: false, items: ["FAMILY", "THIEF", "FIGHT", "PLAN"] },
+  { id: "series", title: "TV Series", showSeeAll: true, seeAll: "series", items: ["FLASH", "BATMAN", "BIG HERO", "BLACK"] },
+  {
+    id: "family",
+    title: "Family/ Kids",
+    showSeeAll: true,
+    seeAll: "movies",
+    moviesCategory: "Family/kids",
+    items: ["WONKA", "SPIDER", "ROBOT", "WILD"],
+  },
+  {
+    id: "romance",
+    title: "Romance",
+    showSeeAll: true,
+    seeAll: "movies",
+    moviesCategory: "Romance",
+    items: ["ME BEFORE YOU", "PURPLE", "EVERYTHING", "YOU"],
+  },
+  {
+    id: "animation",
+    title: "Animations",
+    showSeeAll: true,
+    seeAll: "movies",
+    moviesCategory: "Anime",
+    items: ["SPIDER", "JUNGLE", "WILD", "TOYS"],
+  },
+  {
+    id: "thriller",
+    title: "Thriller/Actions",
+    showSeeAll: true,
+    seeAll: "movies",
+    moviesCategory: "Thriller",
+    items: ["DARK", "WICK", "CROW", "MISSING"],
+  },
+  {
+    id: "comedy",
+    title: "Comedy",
+    showSeeAll: true,
+    seeAll: "movies",
+    moviesCategory: "Comedy",
+    items: ["FAMILY", "THIEF", "FIGHT", "PLAN"],
+  },
 ];
 
 const POSTER_COLORS = ["#22355A", "#3D2446", "#1E4D4A", "#4F3322", "#29304A", "#1E3A62"];
@@ -425,6 +467,27 @@ export default function HomeScreen({
     },
     [onFootballPress],
   );
+
+  const handleSeeAllPress = useCallback(
+    (section) => {
+      if (section.seeAll === "football") {
+        onSeeAllFootball?.();
+        return;
+      }
+      if (section.seeAll === "history") {
+        onHistoryPress?.();
+        return;
+      }
+      if (section.seeAll === "series") {
+        onSeriesPress?.();
+        return;
+      }
+      if (section.seeAll === "movies") {
+        onMoviesPress?.(section.moviesCategory ?? "All");
+      }
+    },
+    [onSeeAllFootball, onHistoryPress, onSeriesPress, onMoviesPress],
+  );
   const menuButtonRef = useRef(null);
   const searchButtonRef = useRef(null);
   const drawerItemRefs = useRef(DRAWER_ITEMS.map(() => null));
@@ -588,14 +651,10 @@ export default function HomeScreen({
             <View style={styles.rowSection}>
               <View style={styles.rowHeader}>
                 <Text style={styles.rowTitle}>{row.title}</Text>
-                {row.showSeeAll ? (
-                  row.id === "continue" ? (
-                    <Pressable onPress={onSeeAllFootball}>
-                      <Text style={styles.seeAllText}>See all</Text>
-                    </Pressable>
-                  ) : (
+                {row.showSeeAll && row.seeAll ? (
+                  <Pressable onPress={() => handleSeeAllPress(row)}>
                     <Text style={styles.seeAllText}>See all</Text>
-                  )
+                  </Pressable>
                 ) : null}
               </View>
               {row.id === "continue" ? (

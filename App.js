@@ -167,7 +167,7 @@ export default function App() {
       [SCREEN.HOME]: (
         <HomeScreen
           onMoviePress={(movie) => openMovieDetail(movie, SCREEN.HOME)}
-          onMoviesPress={() => openMovies(SCREEN.HOME)}
+          onMoviesPress={(category) => openMovies(SCREEN.HOME, category ?? "All")}
           onFootballPress={(fixture) => openFootballDetail(fixture, SCREEN.HOME)}
           onSeeAllFootball={() => openFootballList(SCREEN.HOME)}
           onProfilePress={() => setCurrentPage(SCREEN.PROFILE)}
