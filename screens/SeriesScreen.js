@@ -108,7 +108,12 @@ function HeroCard({ item, onSeriesPress, onWatchNow }) {
   );
 }
 
-export default function SeriesScreen({ onBack, onSearchPress, onSeriesPress, onWatchNow }) {
+export default function SeriesScreen({
+  onBack,
+  onSearchPress,
+  onSeriesPress,
+  onWatchNow,
+}) {
   const listRef = useRef(null);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);

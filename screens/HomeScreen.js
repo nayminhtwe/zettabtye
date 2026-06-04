@@ -401,6 +401,7 @@ export default function HomeScreen({
   onGetHelpPress,
   onSeriesPress,
   onMoviesPress,
+  onCategoriesPress,
   onSearchPress,
 }) {
   const insets = useSafeAreaInsets();
@@ -714,6 +715,9 @@ export default function HomeScreen({
                             }
                             if (item.label === "Movies") {
                               onMoviesPress?.();
+                            }
+                            if (item.label === "Categories") {
+                              onCategoriesPress?.();
                             }
                             if (item.navigate === "football_list") {
                               onSeeAllFootball?.();

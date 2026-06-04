@@ -139,12 +139,22 @@ function HeroCard({ item, onMoviePress, onWatchNow }) {
   );
 }
 
-export default function MoviesScreen({ onBack, onSearchPress, onMoviePress, onWatchNow }) {
+export default function MoviesScreen({
+  onBack,
+  onSearchPress,
+  onMoviePress,
+  onWatchNow,
+  initialCategory = "All",
+}) {
   const listRef = useRef(null);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
+
+  useEffect(() => {
+    setActiveCategory(initialCategory);
+  }, [initialCategory]);
 
   const postersBeforeBanner = MOVIE_POSTERS.slice(0, POSTERS_BEFORE_BANNER);
 
