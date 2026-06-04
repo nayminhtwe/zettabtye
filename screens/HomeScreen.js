@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import FootballMatchCard from "../components/FootballMatchCard";
+import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
 import { buildFootballDetail, FOOTBALL_FIXTURES } from "../utils/football";
@@ -405,6 +406,7 @@ export default function HomeScreen({
   onHistoryPress,
   onNotificationsPress,
   onSearchPress,
+  onLogoutPress,
 }) {
   const insets = useSafeAreaInsets();
 
@@ -439,6 +441,7 @@ export default function HomeScreen({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeDrawerItem, setActiveDrawerItem] = useState(0);
   const [logoutFocused, setLogoutFocused] = useState(false);
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [deleteAccountFocused, setDeleteAccountFocused] = useState(false);
   const getFeaturedHandle = (index) =>
     featuredCarouselRef.current?.getNodeHandle(index) ?? undefined;
@@ -768,6 +771,10 @@ export default function HomeScreen({
             <View style={[styles.drawerFooter, styles.drawerBodyInset]}>
               <Pressable
                 ref={logoutButtonRef}
+                onPress={() => {
+                  setDrawerOpen(false);
+                  setLogoutConfirmVisible(true);
+                }}
                 onFocus={() => {
                   cancelDrawerBlurClose();
                   setLogoutFocused(true);
@@ -808,6 +815,14 @@ export default function HomeScreen({
           />
         </View>
       ) : null}
+      <LogoutConfirmModal
+        visible={logoutConfirmVisible}
+        onClose={() => setLogoutConfirmVisible(false)}
+        onConfirm={() => {
+          setLogoutConfirmVisible(false);
+          onLogoutPress?.();
+        }}
+      />
     </SafeAreaView>
   );
 }

@@ -138,6 +138,30 @@ export default function App() {
     setCurrentPage(SCREEN.ONBOARDING);
   };
 
+  const handleLogout = () => {
+    setPhoneNumber("");
+    setResumeOnboardingAtPhone(false);
+    setSelectedMovie(null);
+    setSelectedSeries(null);
+    setSelectedFootballMatch(null);
+    setAccountPassword("");
+    setPasswordUpdateSuccess(false);
+    setPendingPhoneNumber("");
+    setPhoneUpdateSuccess(false);
+    setAccountUsername("");
+    setRecentSearches(DEFAULT_RECENT_SEARCHES);
+    setMoviesInitialCategory("All");
+    setSeriesDetailReturnScreen(SCREEN.SERIES);
+    setSeriesReturnScreen(SCREEN.HOME);
+    setMoviesReturnScreen(SCREEN.HOME);
+    setMovieDetailReturnScreen(SCREEN.HOME);
+    setMoviePlayReturnScreen(SCREEN.MOVIE_DETAIL);
+    setFootballReturnScreen(SCREEN.HOME);
+    setFootballDetailReturnScreen(SCREEN.HOME);
+    setSearchReturnScreen(SCREEN.HOME);
+    setCurrentPage(SCREEN.SPLASH);
+  };
+
   const screenComponent = useMemo(() => {
     const screens = {
       [SCREEN.HOME]: (
@@ -153,6 +177,7 @@ export default function App() {
           onHistoryPress={() => setCurrentPage(SCREEN.HISTORY)}
           onNotificationsPress={() => setCurrentPage(SCREEN.NOTIFICATIONS)}
           onSearchPress={() => openSearch(SCREEN.HOME)}
+          onLogoutPress={handleLogout}
         />
       ),
       [SCREEN.NOTIFICATIONS]: (
