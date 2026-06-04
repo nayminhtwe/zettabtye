@@ -14,8 +14,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { gillSans } from "../constants/fonts";
+import { buildMovieDetail } from "../utils/movieDetail";
 import {
   filterSearchSuggestions,
+  getSearchMovie,
   SEARCH_PLACEHOLDER_HINTS,
   TOP_CATEGORIES,
 } from "../utils/search";
@@ -78,7 +80,7 @@ function CategoryCard({ item, onPress }) {
 
   return (
     <Pressable
-      onPress={() => onPress?.(item.label)}
+      onPress={() => onPress?.(item)}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       style={[styles.categoryCard, focused ? styles.categoryCardFocused : null]}
@@ -151,6 +153,8 @@ function SuggestionRow({ label, onPress }) {
 
 export default function SearchScreen({
   onBack,
+  onCategoryPress,
+  onMoviePress,
   recentSearches,
   onRecentSearchesChange,
   initialQuery = "",
@@ -186,6 +190,17 @@ export default function SearchScreen({
     setQuery(term);
     addRecentSearch(term);
     inputRef.current?.focus();
+  };
+
+  const handleSuggestionSelect = (term) => {
+    const movie = getSearchMovie(term);
+    if (movie) {
+      addRecentSearch(term);
+      onMoviePress?.(buildMovieDetail(movie));
+      return;
+    }
+
+    applySearchTerm(term);
   };
 
   const handleSubmitSearch = () => {
@@ -259,7 +274,7 @@ export default function SearchScreen({
             <Text style={styles.emptySuggestionsText}>No results found</Text>
           }
           renderItem={({ item }) => (
-            <SuggestionRow label={item} onPress={() => applySearchTerm(item)} />
+            <SuggestionRow label={item} onPress={() => handleSuggestionSelect(item)} />
           )}
         />
       ) : (
@@ -276,7 +291,7 @@ export default function SearchScreen({
             contentContainerStyle={styles.categoriesContent}
           >
             {TOP_CATEGORIES.map((item) => (
-              <CategoryCard key={item.id} item={item} onPress={applySearchTerm} />
+              <CategoryCard key={item.id} item={item} onPress={onCategoryPress} />
             ))}
           </ScrollView>
 
@@ -286,7 +301,7 @@ export default function SearchScreen({
               <RecentSearchRow
                 key={item}
                 label={item}
-                onPress={() => applySearchTerm(item)}
+                onPress={() => handleSuggestionSelect(item)}
                 onDelete={() => removeRecentSearch(item)}
               />
             ))}

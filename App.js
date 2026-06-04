@@ -133,6 +133,22 @@ export default function App() {
     setCurrentPage(SCREEN.SERIES);
   };
 
+  const navigateFromCategory = (category, returnScreen) => {
+    if (category.destination === "football_list") {
+      openFootballList(returnScreen);
+      return;
+    }
+
+    if (category.destination === "series") {
+      openSeries(returnScreen);
+      return;
+    }
+
+    if (category.destination === "movies") {
+      openMovies(returnScreen, category.moviesCategory || "All");
+    }
+  };
+
   const goToOnboardingPhoneStep = () => {
     setResumeOnboardingAtPhone(true);
     setCurrentPage(SCREEN.ONBOARDING);
@@ -225,21 +241,7 @@ export default function App() {
         <CategoriesScreen
           onBack={() => setCurrentPage(SCREEN.HOME)}
           onSearchPress={() => openSearch(SCREEN.CATEGORIES)}
-          onCategoryPress={(category) => {
-            if (category.destination === "football_list") {
-              openFootballList(SCREEN.CATEGORIES);
-              return;
-            }
-
-            if (category.destination === "series") {
-              openSeries(SCREEN.CATEGORIES);
-              return;
-            }
-
-            if (category.destination === "movies") {
-              openMovies(SCREEN.CATEGORIES, category.moviesCategory || "All");
-            }
-          }}
+          onCategoryPress={(category) => navigateFromCategory(category, SCREEN.CATEGORIES)}
         />
       ),
       [SCREEN.MOVIES]: (
@@ -281,6 +283,8 @@ export default function App() {
           recentSearches={recentSearches}
           onRecentSearchesChange={setRecentSearches}
           onBack={() => setCurrentPage(searchReturnScreen)}
+          onCategoryPress={(category) => navigateFromCategory(category, SCREEN.SEARCH)}
+          onMoviePress={(item) => openMovieDetail(item, SCREEN.SEARCH)}
         />
       ),
       [SCREEN.GET_HELP]: (
