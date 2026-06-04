@@ -17,6 +17,8 @@ import SeriesScreen from "./screens/SeriesScreen";
 import SeriesDetailScreen from "./screens/SeriesDetailScreen";
 import MoviesScreen from "./screens/MoviesScreen";
 import CategoriesScreen from "./screens/CategoriesScreen";
+import HistoryScreen from "./screens/HistoryScreen";
+import NotificationsScreen from "./screens/NotificationsScreen";
 import { buildMovieDetail } from "./utils/movieDetail";
 import { buildFootballDetail } from "./utils/football";
 import { buildSeriesDetail, buildSeriesPlayItem } from "./utils/seriesDetail";
@@ -51,6 +53,8 @@ const SCREEN = {
   SERIES_DETAIL: "series_detail",
   MOVIES: "movies",
   CATEGORIES: "categories",
+  HISTORY: "history",
+  NOTIFICATIONS: "notifications",
 };
 
 export default function App() {
@@ -146,7 +150,49 @@ export default function App() {
           onGetHelpPress={() => setCurrentPage(SCREEN.GET_HELP)}
           onSeriesPress={() => openSeries(SCREEN.HOME)}
           onCategoriesPress={() => setCurrentPage(SCREEN.CATEGORIES)}
+          onHistoryPress={() => setCurrentPage(SCREEN.HISTORY)}
+          onNotificationsPress={() => setCurrentPage(SCREEN.NOTIFICATIONS)}
           onSearchPress={() => openSearch(SCREEN.HOME)}
+        />
+      ),
+      [SCREEN.NOTIFICATIONS]: (
+        <NotificationsScreen
+          onBack={() => setCurrentPage(SCREEN.HOME)}
+          onSearchPress={() => openSearch(SCREEN.NOTIFICATIONS)}
+          onStartWatching={(item) => {
+            if (item.type === "series") {
+              openPlayFromSeries(item, SCREEN.NOTIFICATIONS);
+            } else {
+              openPlayFromMovie(item, SCREEN.NOTIFICATIONS);
+            }
+          }}
+          onItemPress={(item) => {
+            if (item.type === "series") {
+              openSeriesDetail(item, SCREEN.NOTIFICATIONS);
+            } else {
+              openMovieDetail(item, SCREEN.NOTIFICATIONS);
+            }
+          }}
+        />
+      ),
+      [SCREEN.HISTORY]: (
+        <HistoryScreen
+          onBack={() => setCurrentPage(SCREEN.HOME)}
+          onSearchPress={() => openSearch(SCREEN.HISTORY)}
+          onContinuePress={(item) => {
+            if (item.type === "series") {
+              openPlayFromSeries(item, SCREEN.HISTORY);
+            } else {
+              openPlayFromMovie(item, SCREEN.HISTORY);
+            }
+          }}
+          onItemPress={(item) => {
+            if (item.type === "series") {
+              openSeriesDetail(item, SCREEN.HISTORY);
+            } else {
+              openMovieDetail(item, SCREEN.HISTORY);
+            }
+          }}
         />
       ),
       [SCREEN.CATEGORIES]: (
@@ -192,7 +238,11 @@ export default function App() {
           series={selectedSeries}
           onBack={() => {
             setCurrentPage(seriesDetailReturnScreen);
-            if (seriesDetailReturnScreen === SCREEN.SERIES) {
+            if (
+              seriesDetailReturnScreen === SCREEN.SERIES ||
+              seriesDetailReturnScreen === SCREEN.HISTORY ||
+              seriesDetailReturnScreen === SCREEN.NOTIFICATIONS
+            ) {
               setSelectedSeries(null);
             }
           }}

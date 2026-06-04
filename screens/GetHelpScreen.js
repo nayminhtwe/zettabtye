@@ -17,6 +17,33 @@ import { maskPhone } from "../utils/phoneAuth";
 const CONTENT_PADDING = 16;
 const HELP_PHONE = "+95 9 123456789";
 
+const FAQ_ITEMS = [
+  {
+    id: "free",
+    question: "Is this app free?",
+    answer:
+      "Yes! You can watch movies for free with ads. We also offer a premium plan for ad-free streaming and extra perks.",
+  },
+  {
+    id: "devices",
+    question: "Which devices are supported?",
+    answer:
+      "Zettabyte works on Android phones, Android TV, and supported streaming devices. More platforms are coming soon.",
+  },
+  {
+    id: "cancel",
+    question: "How do I cancel my subscription?",
+    answer:
+      "Open your profile, go to subscription settings, and choose Cancel plan. Your premium access stays active until the billing period ends.",
+  },
+  {
+    id: "genres",
+    question: "What genres are available?",
+    answer:
+      "We offer movies and series across Sci-fi, Drama, Romance, Animation, Thriller, Football, and many more categories.",
+  },
+];
+
 function formatHelpPhone(phone) {
   const masked = maskPhone(phone);
   if (masked.startsWith("+959")) {
@@ -32,6 +59,27 @@ function getViberChatUrl(phone) {
 
 function openViberChat(phone) {
   Linking.openURL(getViberChatUrl(phone)).catch(() => {});
+}
+
+function FaqItem({ item, expanded, onToggle }) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <Pressable
+      style={[styles.faqCard, focused ? styles.faqCardFocused : null]}
+      onPress={onToggle}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
+      <View style={styles.faqHeader}>
+        <Text style={styles.faqQuestion}>{item.question}</Text>
+        <View style={styles.faqToggle}>
+          <Ionicons name={expanded ? "remove" : "add"} size={20} color="#E71809" />
+        </View>
+      </View>
+      {expanded ? <Text style={styles.faqAnswer}>{item.answer}</Text> : null}
+    </Pressable>
+  );
 }
 
 function HelpContactRow({ icon, iconElement, iconBackgroundColor, label, actionIcon, onActionPress }) {
@@ -60,8 +108,13 @@ function HelpContactRow({ icon, iconElement, iconBackgroundColor, label, actionI
 export default function GetHelpScreen({ phoneNumber, onBack, onSearchPress }) {
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [expandedFaqId, setExpandedFaqId] = useState(FAQ_ITEMS[0].id);
 
   const displayPhone = formatHelpPhone(phoneNumber);
+
+  const toggleFaq = (faqId) => {
+    setExpandedFaqId((current) => (current === faqId ? null : faqId));
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -123,6 +176,18 @@ export default function GetHelpScreen({ phoneNumber, onBack, onSearchPress }) {
         </View>
 
         <PremiumMembershipCard variant="compact" style={styles.proCard} />
+
+        <Text style={styles.faqSectionTitle}>FAQs and Support</Text>
+        <View style={styles.faqList}>
+          {FAQ_ITEMS.map((item) => (
+            <FaqItem
+              key={item.id}
+              item={item}
+              expanded={expandedFaqId === item.id}
+              onToggle={() => toggleFaq(item.id)}
+            />
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -221,5 +286,56 @@ const styles = StyleSheet.create({
   },
   proCard: {
     marginTop: 0,
+    marginBottom: 24,
+  },
+  faqSectionTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 12,
+    ...gillSans("600"),
+  },
+  faqList: {
+    gap: 10,
+  },
+  faqCard: {
+    borderRadius: 10,
+    backgroundColor: "#D9D9D9",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  faqCardFocused: {
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  faqHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  faqQuestion: {
+    flex: 1,
+    color: "#000000",
+    fontSize: 15,
+    lineHeight: 22,
+    ...gillSans("700"),
+  },
+  faqToggle: {
+    width: 24,
+    height: 24,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#E71809",
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  faqAnswer: {
+    marginTop: 8,
+    color: "#000000",
+    fontSize: 14,
+    lineHeight: 22,
+    ...gillSans("400"),
   },
 });
