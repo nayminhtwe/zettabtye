@@ -15,6 +15,8 @@ import GetHelpScreen from "./screens/GetHelpScreen";
 import SearchScreen from "./screens/SearchScreen";
 import SeriesScreen from "./screens/SeriesScreen";
 import SeriesDetailScreen from "./screens/SeriesDetailScreen";
+import MoviesScreen from "./screens/MoviesScreen";
+import { buildMovieDetail } from "./utils/movieDetail";
 import { buildFootballDetail } from "./utils/football";
 import { buildSeriesDetail, buildSeriesPlayItem } from "./utils/seriesDetail";
 import { DEFAULT_RECENT_SEARCHES } from "./utils/search";
@@ -46,6 +48,7 @@ const SCREEN = {
   SEARCH: "search",
   SERIES: "series",
   SERIES_DETAIL: "series_detail",
+  MOVIES: "movies",
 };
 
 export default function App() {
@@ -56,6 +59,7 @@ export default function App() {
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [selectedSeries, setSelectedSeries] = useState(null);
   const [seriesDetailReturnScreen, setSeriesDetailReturnScreen] = useState(SCREEN.SERIES);
+  const [movieDetailReturnScreen, setMovieDetailReturnScreen] = useState(SCREEN.HOME);
   const [moviePlayReturnScreen, setMoviePlayReturnScreen] = useState(SCREEN.MOVIE_DETAIL);
   const [selectedFootballMatch, setSelectedFootballMatch] = useState(null);
   const [footballReturnScreen, setFootballReturnScreen] = useState(SCREEN.HOME);
@@ -97,6 +101,18 @@ export default function App() {
     setCurrentPage(SCREEN.MOVIE_PLAY);
   };
 
+  const openMovieDetail = (item, returnScreen = SCREEN.HOME) => {
+    setMovieDetailReturnScreen(returnScreen);
+    setSelectedMovie(buildMovieDetail(item));
+    setCurrentPage(SCREEN.MOVIE_DETAIL);
+  };
+
+  const openPlayFromMovie = (item, returnScreen) => {
+    setSelectedMovie(buildMovieDetail(item));
+    setMoviePlayReturnScreen(returnScreen);
+    setCurrentPage(SCREEN.MOVIE_PLAY);
+  };
+
   const goToOnboardingPhoneStep = () => {
     setResumeOnboardingAtPhone(true);
     setCurrentPage(SCREEN.ONBOARDING);
@@ -106,16 +122,22 @@ export default function App() {
     const screens = {
       [SCREEN.HOME]: (
         <HomeScreen
-          onMoviePress={(movie) => {
-            setSelectedMovie(movie);
-            setCurrentPage(SCREEN.MOVIE_DETAIL);
-          }}
+          onMoviePress={(movie) => openMovieDetail(movie, SCREEN.HOME)}
+          onMoviesPress={() => setCurrentPage(SCREEN.MOVIES)}
           onFootballPress={(fixture) => openFootballDetail(fixture, SCREEN.HOME)}
           onSeeAllFootball={() => openFootballList(SCREEN.HOME)}
           onProfilePress={() => setCurrentPage(SCREEN.PROFILE)}
           onGetHelpPress={() => setCurrentPage(SCREEN.GET_HELP)}
           onSeriesPress={() => setCurrentPage(SCREEN.SERIES)}
           onSearchPress={() => openSearch(SCREEN.HOME)}
+        />
+      ),
+      [SCREEN.MOVIES]: (
+        <MoviesScreen
+          onBack={() => setCurrentPage(SCREEN.HOME)}
+          onSearchPress={() => openSearch(SCREEN.MOVIES)}
+          onMoviePress={(item) => openMovieDetail(item, SCREEN.MOVIES)}
+          onWatchNow={(item) => openPlayFromMovie(item, SCREEN.MOVIES)}
         />
       ),
       [SCREEN.SERIES]: (
@@ -238,13 +260,12 @@ export default function App() {
         <MovieDetailScreen
           movie={selectedMovie}
           onBack={() => {
-            setCurrentPage(SCREEN.HOME);
-            setSelectedMovie(null);
+            setCurrentPage(movieDetailReturnScreen);
+            if (movieDetailReturnScreen === SCREEN.HOME) {
+              setSelectedMovie(null);
+            }
           }}
-          onPlay={() => {
-            setMoviePlayReturnScreen(SCREEN.MOVIE_DETAIL);
-            setCurrentPage(SCREEN.MOVIE_PLAY);
-          }}
+          onPlay={() => openPlayFromMovie(selectedMovie, SCREEN.MOVIE_DETAIL)}
           onSearchPress={() => openSearch(SCREEN.MOVIE_DETAIL)}
         />
       ),
@@ -308,7 +329,7 @@ export default function App() {
     };
 
     return screens[currentPage] ?? screens[SCREEN.SPLASH];
-  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedSeries, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, seriesDetailReturnScreen, moviePlayReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
+  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedSeries, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, seriesDetailReturnScreen, movieDetailReturnScreen, moviePlayReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
 
   if (!fontsLoaded) {
     return (
