@@ -393,7 +393,15 @@ const MediaCard = forwardRef(function MediaCard(
   );
 });
 
-export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFootball, onProfilePress, onGetHelpPress, onSearchPress }) {
+export default function HomeScreen({
+  onMoviePress,
+  onFootballPress,
+  onSeeAllFootball,
+  onProfilePress,
+  onGetHelpPress,
+  onSeriesPress,
+  onSearchPress,
+}) {
   const insets = useSafeAreaInsets();
 
   const openMovieDetail = useCallback(
@@ -700,6 +708,9 @@ export default function HomeScreen({ onMoviePress, onFootballPress, onSeeAllFoot
                           onFocus={() => handleDrawerItemFocus(index)}
                           onPress={() => {
                             setDrawerOpen(false);
+                            if (item.label === "Series") {
+                              onSeriesPress?.();
+                            }
                             if (item.navigate === "football_list") {
                               onSeeAllFootball?.();
                             }

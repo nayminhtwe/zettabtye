@@ -13,7 +13,10 @@ import EditPhoneNumberScreen from "./screens/EditPhoneNumberScreen";
 import EditPhoneOtpScreen from "./screens/EditPhoneOtpScreen";
 import GetHelpScreen from "./screens/GetHelpScreen";
 import SearchScreen from "./screens/SearchScreen";
+import SeriesScreen from "./screens/SeriesScreen";
+import SeriesDetailScreen from "./screens/SeriesDetailScreen";
 import { buildFootballDetail } from "./utils/football";
+import { buildSeriesDetail, buildSeriesPlayItem } from "./utils/seriesDetail";
 import { DEFAULT_RECENT_SEARCHES } from "./utils/search";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
@@ -41,6 +44,8 @@ const SCREEN = {
   EDIT_PHONE_OTP: "edit_phone_otp",
   GET_HELP: "get_help",
   SEARCH: "search",
+  SERIES: "series",
+  SERIES_DETAIL: "series_detail",
 };
 
 export default function App() {
@@ -49,6 +54,9 @@ export default function App() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [resumeOnboardingAtPhone, setResumeOnboardingAtPhone] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
+  const [selectedSeries, setSelectedSeries] = useState(null);
+  const [seriesDetailReturnScreen, setSeriesDetailReturnScreen] = useState(SCREEN.SERIES);
+  const [moviePlayReturnScreen, setMoviePlayReturnScreen] = useState(SCREEN.MOVIE_DETAIL);
   const [selectedFootballMatch, setSelectedFootballMatch] = useState(null);
   const [footballReturnScreen, setFootballReturnScreen] = useState(SCREEN.HOME);
   const [footballDetailReturnScreen, setFootballDetailReturnScreen] = useState(SCREEN.HOME);
@@ -76,6 +84,19 @@ export default function App() {
     setCurrentPage(SCREEN.FOOTBALL_DETAIL);
   };
 
+  const openSeriesDetail = (item, returnScreen = SCREEN.SERIES) => {
+    setSeriesDetailReturnScreen(returnScreen);
+    setSelectedSeries(buildSeriesDetail(item));
+    setCurrentPage(SCREEN.SERIES_DETAIL);
+  };
+
+  const openPlayFromSeries = (item, returnScreen) => {
+    const series = buildSeriesDetail(item);
+    setSelectedMovie(buildSeriesPlayItem(series));
+    setMoviePlayReturnScreen(returnScreen);
+    setCurrentPage(SCREEN.MOVIE_PLAY);
+  };
+
   const goToOnboardingPhoneStep = () => {
     setResumeOnboardingAtPhone(true);
     setCurrentPage(SCREEN.ONBOARDING);
@@ -93,7 +114,29 @@ export default function App() {
           onSeeAllFootball={() => openFootballList(SCREEN.HOME)}
           onProfilePress={() => setCurrentPage(SCREEN.PROFILE)}
           onGetHelpPress={() => setCurrentPage(SCREEN.GET_HELP)}
+          onSeriesPress={() => setCurrentPage(SCREEN.SERIES)}
           onSearchPress={() => openSearch(SCREEN.HOME)}
+        />
+      ),
+      [SCREEN.SERIES]: (
+        <SeriesScreen
+          onBack={() => setCurrentPage(SCREEN.HOME)}
+          onSearchPress={() => openSearch(SCREEN.SERIES)}
+          onSeriesPress={(item) => openSeriesDetail(item, SCREEN.SERIES)}
+          onWatchNow={(item) => openPlayFromSeries(item, SCREEN.SERIES)}
+        />
+      ),
+      [SCREEN.SERIES_DETAIL]: (
+        <SeriesDetailScreen
+          series={selectedSeries}
+          onBack={() => {
+            setCurrentPage(seriesDetailReturnScreen);
+            if (seriesDetailReturnScreen === SCREEN.SERIES) {
+              setSelectedSeries(null);
+            }
+          }}
+          onPlay={() => openPlayFromSeries(selectedSeries, SCREEN.SERIES_DETAIL)}
+          onSearchPress={() => openSearch(SCREEN.SERIES_DETAIL)}
         />
       ),
       [SCREEN.SEARCH]: (
@@ -198,14 +241,17 @@ export default function App() {
             setCurrentPage(SCREEN.HOME);
             setSelectedMovie(null);
           }}
-          onPlay={() => setCurrentPage(SCREEN.MOVIE_PLAY)}
+          onPlay={() => {
+            setMoviePlayReturnScreen(SCREEN.MOVIE_DETAIL);
+            setCurrentPage(SCREEN.MOVIE_PLAY);
+          }}
           onSearchPress={() => openSearch(SCREEN.MOVIE_DETAIL)}
         />
       ),
       [SCREEN.MOVIE_PLAY]: (
         <MoviePlayScreen
           movie={selectedMovie}
-          onBack={() => setCurrentPage(SCREEN.MOVIE_DETAIL)}
+          onBack={() => setCurrentPage(moviePlayReturnScreen)}
         />
       ),
       [SCREEN.OTP]: (
@@ -262,7 +308,7 @@ export default function App() {
     };
 
     return screens[currentPage] ?? screens[SCREEN.SPLASH];
-  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
+  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedSeries, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, seriesDetailReturnScreen, moviePlayReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
 
   if (!fontsLoaded) {
     return (

@@ -4,6 +4,29 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## Get started
 
+### Node version (important for Expo SDK 53)
+
+This project is pinned to Node `20` using `.nvmrc` and `.node-version`.
+
+If you use `nvm`:
+
+```bash
+nvm use
+```
+
+If you use `fnm`:
+
+```bash
+fnm use
+```
+
+If dependencies were installed with another Node version, reinstall:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
 1. Install dependencies
 
    ```bash
