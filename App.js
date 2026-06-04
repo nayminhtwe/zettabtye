@@ -178,6 +178,7 @@ export default function App() {
           onNotificationsPress={() => setCurrentPage(SCREEN.NOTIFICATIONS)}
           onSearchPress={() => openSearch(SCREEN.HOME)}
           onLogoutPress={handleLogout}
+          onDeleteAccountPress={handleLogout}
         />
       ),
       [SCREEN.NOTIFICATIONS]: (

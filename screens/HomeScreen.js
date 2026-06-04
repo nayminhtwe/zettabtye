@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import FootballMatchCard from "../components/FootballMatchCard";
+import DeleteAccountConfirmModal from "../components/DeleteAccountConfirmModal";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
@@ -407,6 +408,7 @@ export default function HomeScreen({
   onNotificationsPress,
   onSearchPress,
   onLogoutPress,
+  onDeleteAccountPress,
 }) {
   const insets = useSafeAreaInsets();
 
@@ -442,6 +444,7 @@ export default function HomeScreen({
   const [activeDrawerItem, setActiveDrawerItem] = useState(0);
   const [logoutFocused, setLogoutFocused] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
+  const [deleteAccountConfirmVisible, setDeleteAccountConfirmVisible] = useState(false);
   const [deleteAccountFocused, setDeleteAccountFocused] = useState(false);
   const getFeaturedHandle = (index) =>
     featuredCarouselRef.current?.getNodeHandle(index) ?? undefined;
@@ -707,7 +710,9 @@ export default function HomeScreen({
                           }}
                           style={({ pressed, focused }) => [
                             styles.drawerItem,
-                            (pressed || focused || index === activeDrawerItem)
+                            (pressed ||
+                              focused ||
+                              (activeDrawerItem >= 0 && index === activeDrawerItem))
                               ? styles.drawerItemFocused
                               : null,
                           ]}
@@ -777,12 +782,10 @@ export default function HomeScreen({
                 }}
                 onFocus={() => {
                   cancelDrawerBlurClose();
+                  setActiveDrawerItem(-1);
                   setLogoutFocused(true);
                 }}
-                onBlur={() => {
-                  setLogoutFocused(false);
-                  scheduleDrawerBlurClose();
-                }}
+                onBlur={() => setLogoutFocused(false)}
                 style={[styles.logoutButton, logoutFocused ? styles.drawerFooterButtonFocused : null]}
                 nextFocusUp={getDrawerHandle(DRAWER_ITEMS.length - 1)}
                 nextFocusDown={getDeleteAccountHandle()}
@@ -791,19 +794,22 @@ export default function HomeScreen({
               </Pressable>
               <Pressable
                 ref={deleteAccountButtonRef}
+                onPress={() => {
+                  setDrawerOpen(false);
+                  setDeleteAccountConfirmVisible(true);
+                }}
                 onFocus={() => {
                   cancelDrawerBlurClose();
+                  setActiveDrawerItem(-1);
                   setDeleteAccountFocused(true);
                 }}
-                onBlur={() => {
-                  setDeleteAccountFocused(false);
-                  scheduleDrawerBlurClose();
-                }}
+                onBlur={() => setDeleteAccountFocused(false)}
                 style={[
                   styles.deleteAccountButton,
                   deleteAccountFocused ? styles.drawerFooterButtonFocused : null,
                 ]}
                 nextFocusUp={getLogoutHandle()}
+                nextFocusRight={getContentFocusHandle()}
               >
                 <Text style={styles.deleteAccountButtonText}>Delete my account</Text>
               </Pressable>
@@ -821,6 +827,14 @@ export default function HomeScreen({
         onConfirm={() => {
           setLogoutConfirmVisible(false);
           onLogoutPress?.();
+        }}
+      />
+      <DeleteAccountConfirmModal
+        visible={deleteAccountConfirmVisible}
+        onClose={() => setDeleteAccountConfirmVisible(false)}
+        onConfirm={() => {
+          setDeleteAccountConfirmVisible(false);
+          onDeleteAccountPress?.();
         }}
       />
     </SafeAreaView>
