@@ -1,0 +1,1128 @@
+{
+  "info": {
+    "_postman_id": "374ce672-dfc9-4ed1-8ada-b35af0d2b196",
+    "name": "zplus",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "42453641"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Lamin Oo",
+                  "type": "text",
+                  "uuid": "7deb6ba6-5d6d-42c1-bfe9-146da957d95a"
+                },
+                {
+                  "key": "phone",
+                  "value": "09252799341",
+                  "type": "text",
+                  "uuid": "b36514e1-074c-470c-853a-5f713ab34753"
+                },
+                {
+                  "key": "password",
+                  "value": "password",
+                  "type": "text",
+                  "uuid": "56eacbdd-d9f4-405f-a748-04b852604e4f"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://150.107.29.185/api/register",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "1|w8XXUaCkTEEa4xm5g2DyhquHkvkiIKb4TA6KHYup6473398c",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "phone",
+                  "value": "09252799341",
+                  "type": "text",
+                  "uuid": "50b691c5-9836-427f-beaf-dbe07ff4ab6a"
+                },
+                {
+                  "key": "password",
+                  "value": "password",
+                  "type": "text",
+                  "uuid": "4915e70d-9a88-4757-ab9f-4e9033e4a6fb"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://150.107.29.185/api/login",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verify_otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/auth/verify-otp",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resend_otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/auth/resend-otp",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "resend-otp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "forgot_password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/auth/forgot-password",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "forgot-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "reset_password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/auth/reset-password",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "movies&series",
+      "item": [
+        {
+          "name": "generes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/generes",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "generes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "movies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/movies",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "movies"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "movie_detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/movies/1",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "movies",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "casts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/casts",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "casts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "series",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/series",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "series"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "cast_filter_movie",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/movies?genere_id=1",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "movies"
+              ],
+              "query": [
+                {
+                  "key": "genere_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "genere_filter_movie",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/movies?genere_id=1",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "movies"
+              ],
+              "query": [
+                {
+                  "key": "genere_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "genere_filter_series",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/series?genere_id=1",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "series"
+              ],
+              "query": [
+                {
+                  "key": "genere_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "cast_filter_series",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/series?cast_name=Dave Mustine",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "series"
+              ],
+              "query": [
+                {
+                  "key": "cast_name",
+                  "value": "Dave Mustine"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "episode_detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/series/2/season/1/episodes/1",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "series",
+                "2",
+                "season",
+                "1",
+                "episodes",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "series_detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/series/2",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "series",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "season_detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/seasons/1",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "seasons",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Football",
+      "item": [
+        {
+          "name": "matches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/matches",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "matches"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "match_detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/matches/1",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "matches",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "get_reviews_for_user",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "4|4Uch3DDJfur4lzDf7GeNFoUsOrVFOVshagjYm3wZ3b1bb9f8",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://150.107.29.185/api/reviews",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "reviews"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "store_review",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "4|4Uch3DDJfur4lzDf7GeNFoUsOrVFOVshagjYm3wZ3b1bb9f8",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user_id",
+                  "value": "4",
+                  "type": "text",
+                  "uuid": "ec94ef32-3121-4390-90fe-9fd6ec1cf575"
+                },
+                {
+                  "key": "content_id",
+                  "value": "1",
+                  "type": "text",
+                  "uuid": "805aa323-3df7-4999-b8bc-d1599cecadf9"
+                },
+                {
+                  "key": "content_type",
+                  "value": "movie",
+                  "type": "text",
+                  "uuid": "f2be39e4-6cca-41f4-badf-d190ddc5b09d"
+                },
+                {
+                  "key": "rating",
+                  "value": "3",
+                  "type": "text",
+                  "uuid": "08a3d04f-db68-4027-8c96-68c1ecdbac9b"
+                },
+                {
+                  "key": "comment",
+                  "value": "Good Reive",
+                  "type": "text",
+                  "uuid": "3a0ce1df-53a2-4399-899d-5e714313f572"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://150.107.29.185/api/reviews",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "reviews"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update_reivew",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "4|4Uch3DDJfur4lzDf7GeNFoUsOrVFOVshagjYm3wZ3b1bb9f8",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user_id",
+                  "value": "4",
+                  "type": "text",
+                  "uuid": "e0a21878-690c-433d-9d14-b91917bfc1f6"
+                },
+                {
+                  "key": "content_id",
+                  "value": "1",
+                  "type": "text",
+                  "uuid": "5787c0b7-c898-4369-adb7-7317c357ed07"
+                },
+                {
+                  "key": "content_type",
+                  "value": "1",
+                  "type": "text",
+                  "uuid": "e75c83d0-2ee1-4e87-a2cf-a93100ca301b"
+                },
+                {
+                  "key": "rating",
+                  "value": "4",
+                  "type": "text",
+                  "uuid": "14023a5b-3429-4103-b676-83f3a8c71c88"
+                },
+                {
+                  "key": "comment",
+                  "value": "Excellent",
+                  "type": "text",
+                  "uuid": "74b6c961-2388-456b-8c80-b512a0709ad3"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://150.107.29.185/api/reviews/4",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "4"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete_review",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "4|4Uch3DDJfur4lzDf7GeNFoUsOrVFOVshagjYm3wZ3b1bb9f8",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/reviews/4",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "4"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Favourites",
+      "item": [
+        {
+          "name": "get_favourite_for_user",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "5|fHIxyfGqsSMwWF0xA2jlu9EJSjA65SIUnePOcrIj12c62817",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/favorites",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "favorites"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "post_favourite",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "5|fHIxyfGqsSMwWF0xA2jlu9EJSjA65SIUnePOcrIj12c62817",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user_id",
+                  "value": "4",
+                  "type": "text",
+                  "uuid": "e21acf28-21e3-4650-8a06-d5b667fe4f31"
+                },
+                {
+                  "key": "favouritable_id",
+                  "value": "2",
+                  "type": "text",
+                  "uuid": "f4f81f65-2699-41aa-b2e5-0eee2bc66c4e"
+                },
+                {
+                  "key": "favouritable_type",
+                  "value": "movie",
+                  "type": "text",
+                  "uuid": "0550effc-36e8-469d-a8ee-d1116a5d1af9"
+                },
+                {
+                  "key": "status",
+                  "value": "watching",
+                  "type": "text",
+                  "uuid": "ca95c60b-290a-4add-b956-4e76420ed158"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://150.107.29.185/api/favorites",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "favorites"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete_favourite",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "5|fHIxyfGqsSMwWF0xA2jlu9EJSjA65SIUnePOcrIj12c62817",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://150.107.29.185/api/favorite/4",
+              "protocol": "http",
+              "host": [
+                "150",
+                "107",
+                "29",
+                "185"
+              ],
+              "path": [
+                "api",
+                "favorite",
+                "4"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "advertisements",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "6|uX8ok68RFtHJIGZbZ1NeczqDNmFuokS2o3b9aqko381a72b0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://150.107.29.185/api/advertisements",
+          "protocol": "http",
+          "host": [
+            "150",
+            "107",
+            "29",
+            "185"
+          ],
+          "path": [
+            "api",
+            "advertisements"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
