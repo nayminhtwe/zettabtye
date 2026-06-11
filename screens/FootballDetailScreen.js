@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Pressable,
@@ -10,27 +11,72 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import VsIcon from "../assets/images/football/vs.svg";
 import FootballMatchCard from "../components/FootballMatchCard";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import { gillSans } from "../constants/fonts";
-import { FOOTBALL_SERVERS, getServerStatusMessage } from "../utils/football";
+import { fetchMatchDetailRequest } from "../store/catalog/actions";
+import { selectMatchDetail, selectMatchDetailLoading } from "../store/catalog/selectors";
+import { getServerStatusMessage, mapMatchLinksToServers } from "../utils/football";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
 const HERO_WIDTH = SCREEN_WIDTH - CONTENT_PADDING * 2;
 const HERO_HEIGHT = Math.round(HERO_WIDTH * 0.56);
 
+function getLeagueAbbreviation(leagueName) {
+  if (!leagueName) {
+    return "—";
+  }
+
+  const words = leagueName.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
 export default function FootballDetailScreen({ match, onBack, onMatchPress, onSeeAllFootball, onSearchPress }) {
+  const dispatch = useDispatch();
+  const matchId = match?.id ?? match?.apiId;
+  const matchDetail = useSelector((state) => selectMatchDetail(state, matchId));
+  const detailLoading = useSelector((state) => selectMatchDetailLoading(state, matchId));
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [selectedServerId, setSelectedServerId] = useState(FOOTBALL_SERVERS[0].id);
+  const [selectedServerId, setSelectedServerId] = useState(null);
   const [serverTabFocused, setServerTabFocused] = useState(null);
 
-  const selectedServer = useMemo(
-    () => FOOTBALL_SERVERS.find((server) => server.id === selectedServerId) ?? FOOTBALL_SERVERS[0],
-    [selectedServerId],
-  );
+  useEffect(() => {
+    if (matchId) {
+      dispatch(fetchMatchDetailRequest(matchId));
+    }
+  }, [dispatch, matchId]);
+
+  const displayMatch = matchDetail ?? match;
+
+  const servers = useMemo(() => {
+    const links = matchDetail?.links ?? match?.links ?? [];
+    return mapMatchLinksToServers(links);
+  }, [matchDetail, match]);
+
+  useEffect(() => {
+    if (!servers.length) {
+      setSelectedServerId(null);
+      return;
+    }
+
+    if (!selectedServerId || !servers.some((server) => server.id === selectedServerId)) {
+      setSelectedServerId(servers[0].id);
+    }
+  }, [servers, selectedServerId]);
+
+  const selectedServer = servers.find((server) => server.id === selectedServerId) ?? null;
 
   if (!match) {
     return null;
@@ -68,8 +114,8 @@ export default function FootballDetailScreen({ match, onBack, onMatchPress, onSe
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroWrapper}>
-          {match.previewImage ? (
-            <Image source={match.previewImage} resizeMode="cover" style={styles.heroImage} />
+          {displayMatch.previewImage ? (
+            <Image source={displayMatch.previewImage} resizeMode="cover" style={styles.heroImage} />
           ) : (
             <View style={[styles.heroImage, styles.heroPlaceholder]} />
           )}
@@ -87,10 +133,10 @@ export default function FootballDetailScreen({ match, onBack, onMatchPress, onSe
 
           <View style={styles.matchNames}>
             <Text style={styles.matchTeamName} numberOfLines={2}>
-              {match.home}
+              {displayMatch.home}
             </Text>
             <Text style={styles.matchTeamName} numberOfLines={2}>
-              {match.away}
+              {displayMatch.away}
             </Text>
           </View>
         </View>
@@ -98,71 +144,85 @@ export default function FootballDetailScreen({ match, onBack, onMatchPress, onSe
         <View style={styles.metaChipRow}>
           <View style={styles.leagueChip}>
             <View style={styles.leagueIcon}>
-              <Text style={styles.leagueIconText}>PL</Text>
+              <Text style={styles.leagueIconText}>{getLeagueAbbreviation(displayMatch.league)}</Text>
             </View>
-            <Text style={styles.leagueChipText}>{match.league}</Text>
+            <Text style={styles.leagueChipText}>{displayMatch.league}</Text>
           </View>
 
           <View style={styles.durationChip}>
             <Ionicons name="time-outline" size={14} color="#D2D2D2" />
-            <Text style={styles.durationChipText}>{match.duration}</Text>
+            <Text style={styles.durationChipText}>{displayMatch.duration}</Text>
           </View>
         </View>
 
-        <View style={styles.serverTabs}>
-          {FOOTBALL_SERVERS.map((server) => {
-            const isSelected = server.id === selectedServerId;
+        {detailLoading && servers.length === 0 ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
 
-            return (
-              <Pressable
-                key={server.id}
-                style={styles.serverTabButton}
-                onPress={() => setSelectedServerId(server.id)}
-                onFocus={() => setServerTabFocused(server.id)}
-                onBlur={() => setServerTabFocused(null)}
+        {servers.length > 0 ? (
+          <>
+            <View style={styles.serverTabs}>
+              {servers.map((server) => {
+                const isSelected = server.id === selectedServerId;
+
+                return (
+                  <Pressable
+                    key={server.id}
+                    style={styles.serverTabButton}
+                    onPress={() => setSelectedServerId(server.id)}
+                    onFocus={() => setServerTabFocused(server.id)}
+                    onBlur={() => setServerTabFocused(null)}
+                  >
+                    <Text
+                      style={[
+                        styles.serverTabText,
+                        isSelected ? styles.serverTabTextActive : null,
+                        serverTabFocused === server.id ? styles.serverTabTextFocused : null,
+                      ]}
+                    >
+                      {server.label}
+                    </Text>
+                    {isSelected ? <View style={styles.serverTabUnderline} /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {selectedServer ? (
+              <Text
+                style={[
+                  styles.serverStatusText,
+                  selectedServer.status === "error" ? styles.serverStatusTextError : null,
+                ]}
               >
-                <Text
-                  style={[
-                    styles.serverTabText,
-                    isSelected ? styles.serverTabTextActive : null,
-                    serverTabFocused === server.id ? styles.serverTabTextFocused : null,
-                  ]}
-                >
-                  {server.label}
-                </Text>
-                {isSelected ? <View style={styles.serverTabUnderline} /> : null}
+                {getServerStatusMessage(selectedServer.status)}
+              </Text>
+            ) : null}
+          </>
+        ) : !detailLoading ? (
+          <Text style={styles.serverStatusText}>No stream servers available for this match.</Text>
+        ) : null}
+
+        {match.relatedMatches?.length > 0 ? (
+          <View style={styles.relatedSection}>
+            <View style={styles.relatedHeader}>
+              <Text style={styles.relatedTitle}>Matches You Might Like</Text>
+              <Pressable onPress={onSeeAllFootball}>
+                <Text style={styles.relatedSeeAll}>See all</Text>
               </Pressable>
-            );
-          })}
-        </View>
+            </View>
 
-        <Text
-          style={[
-            styles.serverStatusText,
-            selectedServer.status === "error" ? styles.serverStatusTextError : null,
-          ]}
-        >
-          {getServerStatusMessage(selectedServer.status)}
-        </Text>
-
-        <View style={styles.relatedSection}>
-          <View style={styles.relatedHeader}>
-            <Text style={styles.relatedTitle}>Matches You Might Like</Text>
-            <Pressable onPress={onSeeAllFootball}>
-              <Text style={styles.relatedSeeAll}>See all</Text>
-            </Pressable>
+            <View style={styles.relatedList}>
+              {match.relatedMatches.map((fixture) => (
+                <FootballMatchCard
+                  key={fixture.id}
+                  fixture={fixture}
+                  onPress={() => onMatchPress?.(fixture)}
+                />
+              ))}
+            </View>
           </View>
-
-          <View style={styles.relatedList}>
-            {match.relatedMatches?.map((fixture) => (
-              <FootballMatchCard
-                key={fixture.id}
-                fixture={fixture}
-                onPress={() => onMatchPress?.(fixture)}
-              />
-            ))}
-          </View>
-        </View>
+        ) : null}
 
         <PremiumMembershipCard />
       </ScrollView>
@@ -314,6 +374,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     ...gillSans("400"),
+  },
+  loadingIndicator: {
+    marginTop: 20,
   },
   serverTabs: {
     marginTop: 20,

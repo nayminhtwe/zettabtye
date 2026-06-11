@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -9,24 +10,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
-import { NOTIFICATION_SECTIONS } from "../utils/notifications";
-
-function getInitialUnreadIds() {
-  const ids = new Set();
-
-  NOTIFICATION_SECTIONS.forEach((section) => {
-    section.items.forEach((item) => {
-      if (item.unread) {
-        ids.add(item.id);
-      }
-    });
-  });
-
-  return ids;
-}
+import { fetchHomeRequest } from "../store/catalog/actions";
+import {
+  selectAdvertisements,
+  selectHomeLoading,
+  selectNotificationSections,
+} from "../store/catalog/selectors";
 
 const CONTENT_PADDING = 16;
 const THUMB_WIDTH = 72;
@@ -38,7 +31,11 @@ function NotificationRow({ item, isUnread, onPress, onStartWatching }) {
       style={[styles.notificationRow, isUnread ? styles.notificationRowUnread : null]}
       onPress={() => onPress?.(item)}
     >
-      <Image source={item.image} resizeMode="cover" style={styles.thumbImage} />
+      {item.image ? (
+        <Image source={item.image} resizeMode="cover" style={styles.thumbImage} />
+      ) : (
+        <View style={[styles.thumbImage, styles.thumbPlaceholder]} />
+      )}
       <View style={styles.notificationCopy}>
         <View style={styles.statusRow}>
           <Ionicons name="time-outline" size={12} color="#8D93A4" />
@@ -83,9 +80,17 @@ export default function NotificationsScreen({
   onItemPress,
   onStartWatching,
 }) {
+  const dispatch = useDispatch();
+  const notificationSections = useSelector(selectNotificationSections);
+  const advertisements = useSelector(selectAdvertisements);
+  const homeLoading = useSelector(selectHomeLoading);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [unreadIds, setUnreadIds] = useState(getInitialUnreadIds);
+  const [unreadIds, setUnreadIds] = useState(new Set());
+
+  useEffect(() => {
+    dispatch(fetchHomeRequest());
+  }, [dispatch]);
 
   const markAsRead = (itemId) => {
     setUnreadIds((current) => {
@@ -101,16 +106,25 @@ export default function NotificationsScreen({
 
   const handleItemPress = (item) => {
     markAsRead(item.id);
-    onItemPress?.(item);
+    onItemPress?.({
+      id: item.contentId,
+      title: item.title,
+      image: item.image,
+      categories: item.subtitle,
+      type: item.type,
+    });
   };
 
   const handleStartWatching = (item) => {
     markAsRead(item.id);
-    onStartWatching?.(item);
+    onStartWatching?.({
+      id: item.contentId,
+      title: item.title,
+      image: item.image,
+      categories: item.subtitle,
+      type: item.type,
+    });
   };
-
-  const todaySection = NOTIFICATION_SECTIONS.find((section) => section.id === "today");
-  const yesterdaySection = NOTIFICATION_SECTIONS.find((section) => section.id === "yesterday");
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -141,27 +155,27 @@ export default function NotificationsScreen({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <SaleBannerCarousel style={styles.saleBanner} />
+        <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
 
-        {todaySection ? (
+        {homeLoading && notificationSections.length === 0 ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
+
+        {notificationSections.length === 0 && !homeLoading ? (
+          <Text style={styles.emptyText}>No new content notifications.</Text>
+        ) : null}
+
+        {notificationSections.map((section) => (
           <NotificationSection
-            section={todaySection}
+            key={section.id}
+            section={section}
             unreadIds={unreadIds}
             onItemPress={handleItemPress}
             onStartWatching={handleStartWatching}
           />
-        ) : null}
+        ))}
 
         <PremiumMembershipCard style={styles.premiumCard} />
-
-        {yesterdaySection ? (
-          <NotificationSection
-            section={yesterdaySection}
-            unreadIds={unreadIds}
-            onItemPress={handleItemPress}
-            onStartWatching={handleStartWatching}
-          />
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -211,42 +225,53 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   saleBanner: {
-    marginBottom: 8,
+    marginBottom: 20,
   },
-  section: {
-    marginTop: 16,
+  loadingIndicator: {
+    marginVertical: 24,
   },
-  sectionTitle: {
+  emptyText: {
     color: "#8D93A4",
     fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 10,
+    textAlign: "center",
+    marginVertical: 24,
     ...gillSans("400"),
   },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    marginBottom: 12,
+    ...gillSans("600"),
+  },
   sectionList: {
-    gap: 10,
+    gap: 12,
   },
   notificationRow: {
     flexDirection: "row",
     gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "transparent",
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#12141C",
   },
   notificationRowUnread: {
-    backgroundColor: "#3E2A2A",
+    borderWidth: 1,
+    borderColor: "#E71809",
   },
   thumbImage: {
     width: THUMB_WIDTH,
     height: THUMB_HEIGHT,
-    borderRadius: 6,
+    borderRadius: 8,
+    backgroundColor: "#1A2741",
+  },
+  thumbPlaceholder: {
     backgroundColor: "#1A2741",
   },
   notificationCopy: {
     flex: 1,
-    justifyContent: "center",
-    gap: 2,
+    gap: 4,
   },
   statusRow: {
     flexDirection: "row",
@@ -256,29 +281,25 @@ const styles = StyleSheet.create({
   statusText: {
     color: "#8D93A4",
     fontSize: 12,
-    lineHeight: 16,
     ...gillSans("400"),
   },
   notificationTitle: {
     color: "#FFFFFF",
     fontSize: 16,
-    lineHeight: 22,
     ...gillSans("600"),
   },
   notificationSubtitle: {
     color: "#8D93A4",
     fontSize: 13,
-    lineHeight: 18,
     ...gillSans("400"),
   },
   startWatching: {
-    marginTop: 4,
     color: "#E71809",
     fontSize: 14,
-    lineHeight: 20,
+    marginTop: 4,
     ...gillSans("600"),
   },
   premiumCard: {
-    marginTop: 16,
+    marginTop: 8,
   },
 });

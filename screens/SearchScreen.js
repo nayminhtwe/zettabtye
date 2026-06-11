@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   FlatList,
   Image,
@@ -13,14 +14,21 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
-import { buildMovieDetail } from "../utils/movieDetail";
+import { fetchGenresRequest, fetchHomeRequest, searchRequest } from "../store/catalog/actions";
 import {
-  filterSearchSuggestions,
-  getSearchMovie,
-  SEARCH_PLACEHOLDER_HINTS,
-  TOP_CATEGORIES,
-} from "../utils/search";
+  selectCategoryCards,
+  selectGenres,
+  selectGenresLoading,
+  selectMovies,
+  selectSearchLoading,
+  selectSearchResults,
+  selectSeries,
+} from "../store/catalog/selectors";
+import { buildMovieDetail } from "../utils/movieDetail";
+import { buildSeriesDetail } from "../utils/seriesDetail";
+import { buildSearchSuggestions, SEARCH_PLACEHOLDER_HINTS } from "../utils/search";
 
 const CONTENT_PADDING = 16;
 const CATEGORY_CARD_WIDTH = 108;
@@ -155,10 +163,19 @@ export default function SearchScreen({
   onBack,
   onCategoryPress,
   onMoviePress,
+  onSeriesPress,
   recentSearches,
   onRecentSearchesChange,
   initialQuery = "",
 }) {
+  const dispatch = useDispatch();
+  const searchResults = useSelector(selectSearchResults);
+  const searchLoading = useSelector(selectSearchLoading);
+  const topCategories = useSelector(selectCategoryCards);
+  const genres = useSelector(selectGenres);
+  const genresLoading = useSelector(selectGenresLoading);
+  const movies = useSelector(selectMovies);
+  const series = useSelector(selectSeries);
   const [backFocused, setBackFocused] = useState(false);
   const [actionFocused, setActionFocused] = useState(false);
   const [query, setQuery] = useState(initialQuery);
@@ -168,9 +185,49 @@ export default function SearchScreen({
   const isSearching = trimmedQuery.length > 0;
 
   const suggestions = useMemo(
-    () => filterSearchSuggestions(query),
-    [query],
+    () => buildSearchSuggestions(query, { genres, movies, series }),
+    [query, genres, movies, series],
   );
+
+  useEffect(() => {
+    if (!genres.length && !genresLoading) {
+      dispatch(fetchGenresRequest());
+    }
+  }, [dispatch, genres.length, genresLoading]);
+
+  useEffect(() => {
+    if (!movies.length && !series.length) {
+      dispatch(fetchHomeRequest());
+    }
+  }, [dispatch, movies.length, series.length]);
+
+  useEffect(() => {
+    if (trimmedQuery.length < 2) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      dispatch(searchRequest(trimmedQuery));
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [dispatch, trimmedQuery]);
+
+  const listItems = useMemo(() => {
+    const apiItems = searchResults.map((item) => ({
+      key: `${item.type ?? "movie"}-${item.id}`,
+      kind: "result",
+      label: item.title,
+      item,
+    }));
+    const suggestionItems = suggestions.map((label) => ({
+      key: `suggestion-${label}`,
+      kind: "suggestion",
+      label,
+    }));
+
+    return [...apiItems, ...suggestionItems];
+  }, [searchResults, suggestions]);
 
   const addRecentSearch = (term) => {
     const value = term.trim();
@@ -192,11 +249,37 @@ export default function SearchScreen({
     inputRef.current?.focus();
   };
 
+  const handleResultSelect = (result) => {
+    addRecentSearch(result.title);
+    if (result.type === "series") {
+      onSeriesPress?.(buildSeriesDetail(result));
+      return;
+    }
+
+    onMoviePress?.(buildMovieDetail(result));
+  };
+
   const handleSuggestionSelect = (term) => {
-    const movie = getSearchMovie(term);
-    if (movie) {
+    const apiMatch = searchResults.find(
+      (item) => item.title?.toLowerCase() === term.trim().toLowerCase(),
+    );
+    if (apiMatch) {
+      handleResultSelect(apiMatch);
+      return;
+    }
+
+    const catalogMatch =
+      [...movies, ...series].find(
+        (item) => item.title?.toLowerCase() === term.trim().toLowerCase(),
+      ) ?? null;
+
+    if (catalogMatch) {
+      if (catalogMatch.type === "series") {
+        onSeriesPress?.(buildSeriesDetail(catalogMatch));
+      } else {
+        onMoviePress?.(buildMovieDetail(catalogMatch));
+      }
       addRecentSearch(term);
-      onMoviePress?.(buildMovieDetail(movie));
       return;
     }
 
@@ -265,16 +348,26 @@ export default function SearchScreen({
 
       {isSearching ? (
         <FlatList
-          data={suggestions}
-          keyExtractor={(item) => item}
+          data={listItems}
+          keyExtractor={(item) => item.key}
           style={styles.suggestionsList}
           contentContainerStyle={styles.suggestionsContent}
           keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            searchLoading ? <ActivityIndicator color="#FFFFFF" style={styles.searchLoading} /> : null
+          }
           ListEmptyComponent={
             <Text style={styles.emptySuggestionsText}>No results found</Text>
           }
           renderItem={({ item }) => (
-            <SuggestionRow label={item} onPress={() => handleSuggestionSelect(item)} />
+            <SuggestionRow
+              label={item.label}
+              onPress={() =>
+                item.kind === "result"
+                  ? handleResultSelect(item.item)
+                  : handleSuggestionSelect(item.label)
+              }
+            />
           )}
         />
       ) : (
@@ -285,12 +378,15 @@ export default function SearchScreen({
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.sectionTitle}>Top Categories</Text>
+          {genresLoading && topCategories.length === 0 ? (
+            <ActivityIndicator color="#FFFFFF" style={styles.searchLoading} />
+          ) : null}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContent}
           >
-            {TOP_CATEGORIES.map((item) => (
+            {topCategories.map((item) => (
               <CategoryCard key={item.id} item={item} onPress={onCategoryPress} />
             ))}
           </ScrollView>
@@ -470,6 +566,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 12,
     paddingBottom: 32,
+  },
+  searchLoading: {
+    marginBottom: 12,
   },
   emptySuggestionsText: {
     color: "#8E8E8E",

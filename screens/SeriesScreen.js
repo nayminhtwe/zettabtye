@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -13,48 +14,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
-
-const HERO_SLIDES = [
-  {
-    id: "simpsons",
-    title: "The Simpsons",
-    imdb: "8.7/10",
-    seasons: "12 Seasons",
-    year: "2014",
-    image: require("../assets/images/featured/featured-1.jpg"),
-  },
-  {
-    id: "mandalorian",
-    title: "The Mandalorian",
-    imdb: "8.6/10",
-    seasons: "3 Seasons",
-    year: "2020",
-    image: require("../assets/images/featured/featured-2.jpg"),
-  },
-  {
-    id: "flash",
-    title: "The Flash",
-    imdb: "7.5/10",
-    seasons: "9 Seasons",
-    year: "2019",
-    image: require("../assets/images/featured/featured-3.jpg"),
-  },
-];
-
-const SERIES_CATEGORIES = ["All", "Anime", "Family/kids", "Romance", "Science", "Thriller", "History", "Horror", "Action", "Comedy", "Drama", "Fantasy", "Mystery", "Sci-Fi", "War", "Western"];
-
-const POSTER_IMAGES = [
-  require("../assets/images/trending/trending-1.jpg"),
-  require("../assets/images/trending/trending-2.jpg"),
-  require("../assets/images/trending/trending-3.jpg"),
-  require("../assets/images/trending/trending-4.jpg"),
-];
-
-const SERIES_POSTERS = Array.from({ length: 24 }, (_, index) => ({
-  id: `series-${index + 1}`,
-  image: POSTER_IMAGES[index % POSTER_IMAGES.length],
-}));
+import { fetchGenresRequest, fetchSeriesRequest } from "../store/catalog/actions";
+import {
+  selectCategoryFilterChips,
+  selectGenres,
+  selectGenresLoading,
+  selectSeries,
+  selectSeriesLoading,
+} from "../store/catalog/selectors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 14;
@@ -114,27 +83,54 @@ export default function SeriesScreen({
   onSeriesPress,
   onWatchNow,
 }) {
+  const dispatch = useDispatch();
   const listRef = useRef(null);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState("All");
+  const series = useSelector(selectSeries);
+  const seriesLoading = useSelector(selectSeriesLoading);
+  const genres = useSelector(selectGenres);
+  const genresLoading = useSelector(selectGenresLoading);
+  const categories = useSelector(selectCategoryFilterChips);
+
+  const heroSlides = useMemo(
+    () =>
+      series.slice(0, 2).map((item) => ({
+        ...item,
+        imdb: item.imdb ?? `${item.imdbRating}/10`,
+      })),
+    [series],
+  );
+
+  const seriesPosters = series;
 
   useEffect(() => {
-    if (HERO_SLIDES.length <= 1) {
+    if (!genres.length && !genresLoading) {
+      dispatch(fetchGenresRequest());
+    }
+  }, [dispatch, genres.length, genresLoading]);
+
+  useEffect(() => {
+    dispatch(fetchSeriesRequest({ genere_name: activeCategory }));
+  }, [dispatch, activeCategory]);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) {
       return undefined;
     }
 
     const timer = setInterval(() => {
       setActiveHeroIndex((prev) => {
-        const next = (prev + 1) % HERO_SLIDES.length;
+        const next = (prev + 1) % heroSlides.length;
         listRef.current?.scrollToIndex({ index: next, animated: true });
         return next;
       });
     }, HERO_AUTO_SCROLL_MS);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [heroSlides.length]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -161,42 +157,47 @@ export default function SeriesScreen({
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <FlatList
-          ref={listRef}
-          data={HERO_SLIDES}
-          horizontal
-          pagingEnabled
-          scrollEnabled={false}
-          bounces={false}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          getItemLayout={(_, index) => ({
-            length: HERO_WIDTH,
-            offset: HERO_WIDTH * index,
-            index,
-          })}
-          renderItem={({ item }) => (
-            <HeroCard item={item} onSeriesPress={onSeriesPress} onWatchNow={onWatchNow} />
-          )}
-        />
-
-        <View style={styles.heroIndicatorWrap}>
-          <View style={styles.heroIndicatorTrack}>
-            <View
-              style={[
-                styles.heroIndicatorActive,
-                {
-                  width: HERO_INDICATOR_TRACK_WIDTH / HERO_SLIDES.length,
-                  transform: [
-                    {
-                      translateX: activeHeroIndex * (HERO_INDICATOR_TRACK_WIDTH / HERO_SLIDES.length),
-                    },
-                  ],
-                },
-              ]}
+        {heroSlides.length > 0 ? (
+          <>
+            <FlatList
+              ref={listRef}
+              data={heroSlides}
+              horizontal
+              pagingEnabled
+              scrollEnabled={false}
+              bounces={false}
+              keyExtractor={(item) => String(item.id)}
+              showsHorizontalScrollIndicator={false}
+              getItemLayout={(_, index) => ({
+                length: HERO_WIDTH,
+                offset: HERO_WIDTH * index,
+                index,
+              })}
+              renderItem={({ item }) => (
+                <HeroCard item={item} onSeriesPress={onSeriesPress} onWatchNow={onWatchNow} />
+              )}
             />
-          </View>
-        </View>
+
+            <View style={styles.heroIndicatorWrap}>
+              <View style={styles.heroIndicatorTrack}>
+                <View
+                  style={[
+                    styles.heroIndicatorActive,
+                    {
+                      width: HERO_INDICATOR_TRACK_WIDTH / heroSlides.length,
+                      transform: [
+                        {
+                          translateX:
+                            activeHeroIndex * (HERO_INDICATOR_TRACK_WIDTH / heroSlides.length),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          </>
+        ) : null}
 
         <ScrollView
           horizontal
@@ -204,7 +205,7 @@ export default function SeriesScreen({
           style={styles.categoryScroll}
           contentContainerStyle={styles.categoryContent}
         >
-          {SERIES_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <Pressable
               key={category}
               onPress={() => setActiveCategory(category)}
@@ -221,8 +222,12 @@ export default function SeriesScreen({
           ))}
         </ScrollView>
 
+        {(seriesLoading || genresLoading) && seriesPosters.length === 0 ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
+
         <View style={styles.posterGrid}>
-          {SERIES_POSTERS.map((item) => (
+          {seriesPosters.map((item) => (
             <Pressable
               key={item.id}
               style={styles.posterCard}
@@ -418,6 +423,9 @@ const styles = StyleSheet.create({
   categoryTextActive: {
     color: "#FFFFFF",
     ...gillSans("600"),
+  },
+  loadingIndicator: {
+    marginVertical: 24,
   },
   posterGrid: {
     marginTop: 14,

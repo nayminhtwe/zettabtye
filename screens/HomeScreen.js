@@ -13,132 +13,51 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import FootballMatchCard from "../components/FootballMatchCard";
 import DeleteAccountConfirmModal from "../components/DeleteAccountConfirmModal";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
-import { buildFootballDetail, FOOTBALL_FIXTURES } from "../utils/football";
+import { fetchHomeRequest } from "../store/catalog/actions";
+import {
+  selectAdvertisements,
+  selectFeaturedMovies,
+  selectHomeGenreRows,
+  selectHomeMatches,
+  selectHomeSeriesItems,
+  selectTrendingMovies,
+} from "../store/catalog/selectors";
+import { fetchFavoritesRequest } from "../store/favorites/actions";
+import { selectAuthAuthenticated } from "../store/auth/selectors";
+import { buildFootballDetail } from "../utils/football";
 import { buildMovieDetail } from "../utils/movieDetail";
-
-const FEATURED_ITEMS = [
-  {
-    id: "featured-1",
-    title: "Interstellar",
-    image: require("../assets/images/featured/featured-1.jpg"),
-  },
-  {
-    id: "featured-2",
-    title: "Superman",
-    image: require("../assets/images/featured/featured-2.jpg"),
-  },
-  {
-    id: "featured-3",
-    title: "Mask",
-    image: require("../assets/images/featured/featured-3.jpg"),
-  },
-  {
-    id: "featured-4",
-    title: "Terminator",
-    image: require("../assets/images/featured/featured-4.jpg"),
-  },
-  {
-    id: "featured-5",
-    title: "Wish",
-    image: require("../assets/images/featured/featured-5.jpg"),
-  },
-];
-
-const TRENDING_POSTERS = [
-  require("../assets/images/trending/trending-1.jpg"),
-  require("../assets/images/trending/trending-2.jpg"),
-  require("../assets/images/trending/trending-3.jpg"),
-  require("../assets/images/trending/trending-4.jpg"),
-];
+import { buildSeriesDetail } from "../utils/seriesDetail";
+import { selectFavoriteMediaItems } from "../store/favorites/selectors";
 
 const CONTENT_HORIZONTAL_PADDING = 10;
 
-const posterImageForIndex = (index) => TRENDING_POSTERS[index % TRENDING_POSTERS.length];
-
-const HOME_SECTIONS = [
+const BASE_HOME_SECTIONS = [
   {
     id: "trending",
     title: "Trending Now",
     showSeeAll: false,
-    items: [
-      { id: "trending-1", label: "FURIOSA", image: TRENDING_POSTERS[0] },
-      { id: "trending-2", label: "BOLT", image: TRENDING_POSTERS[1] },
-      { id: "trending-3", label: "GOAT", image: TRENDING_POSTERS[2] },
-      { id: "trending-4", label: "MAD MAX", image: TRENDING_POSTERS[3] },
-      { id: "trending-5", label: "Spider-Man", image: TRENDING_POSTERS[0] },
-    ],
+    items: [],
   },
   {
     id: "continue",
     title: "Today's Match",
     showSeeAll: true,
     seeAll: "football",
-    items: ["fixture-1", "fixture-2", "fixture-3"],
+    items: [],
   },
   {
-    id: "continueWatching",
-    title: "Continue watching",
+    id: "series",
+    title: "TV Series",
     showSeeAll: true,
-    seeAll: "history",
-    items: [
-      "ASH",
-      "WILD",
-      "MASK",
-      "TERMINATOR",
-      "SUPERMAN",
-      "AVATAR",
-      "MATRIX",
-      "BATMAN",
-      "DUNE",
-      "SPIDER",
-    ],
-  },
-  { id: "series", title: "TV Series", showSeeAll: true, seeAll: "series", items: ["FLASH", "BATMAN", "BIG HERO", "BLACK"] },
-  {
-    id: "family",
-    title: "Family/ Kids",
-    showSeeAll: true,
-    seeAll: "movies",
-    moviesCategory: "Family/kids",
-    items: ["WONKA", "SPIDER", "ROBOT", "WILD"],
-  },
-  {
-    id: "romance",
-    title: "Romance",
-    showSeeAll: true,
-    seeAll: "movies",
-    moviesCategory: "Romance",
-    items: ["ME BEFORE YOU", "PURPLE", "EVERYTHING", "YOU"],
-  },
-  {
-    id: "animation",
-    title: "Animations",
-    showSeeAll: true,
-    seeAll: "movies",
-    moviesCategory: "Anime",
-    items: ["SPIDER", "JUNGLE", "WILD", "TOYS"],
-  },
-  {
-    id: "thriller",
-    title: "Thriller/Actions",
-    showSeeAll: true,
-    seeAll: "movies",
-    moviesCategory: "Thriller",
-    items: ["DARK", "WICK", "CROW", "MISSING"],
-  },
-  {
-    id: "comedy",
-    title: "Comedy",
-    showSeeAll: true,
-    seeAll: "movies",
-    moviesCategory: "Comedy",
-    items: ["FAMILY", "THIEF", "FIGHT", "PLAN"],
+    seeAll: "series",
+    items: [],
   },
 ];
 
@@ -162,8 +81,6 @@ const FEATURED_CAROUSEL_HEIGHT = FEATURED_CENTER_TOP + FEATURED_CENTER_HEIGHT;
 const FEATURED_SIDE_PADDING = Math.max(0, (SCREEN_WIDTH - FEATURED_SLOT_WIDTH) / 2);
 
 const clampFeaturedIndex = (index, length) => Math.max(0, Math.min(index, length - 1));
-
-const CONTINUE_WATCHING_PROGRESS = [0.68, 0.4, 0.52, 0.33, 0.74, 0.21, 0.57, 0.49, 0.62, 0.29];
 
 const DRAWER_PANEL_WIDTH = Math.min(
   400,
@@ -363,18 +280,6 @@ const FeaturedCarousel = forwardRef(function FeaturedCarousel(
   );
 });
 
-const getSectionItem = (item, itemIndex) => {
-  if (typeof item === "string") {
-    return {
-      id: `${item}-${itemIndex}`,
-      label: item,
-      image: posterImageForIndex(itemIndex),
-    };
-  }
-
-  return item;
-};
-
 const MediaCard = forwardRef(function MediaCard(
   {
     label,
@@ -444,6 +349,7 @@ export default function HomeScreen({
   onProfilePress,
   onGetHelpPress,
   onSeriesPress,
+  onSeriesItemPress,
   onMoviesPress,
   onCategoriesPress,
   onHistoryPress,
@@ -452,20 +358,100 @@ export default function HomeScreen({
   onLogoutPress,
   onDeleteAccountPress,
 }) {
+  const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const isAuthenticated = useSelector(selectAuthAuthenticated);
+  const featuredMovies = useSelector(selectFeaturedMovies);
+  const trendingMovies = useSelector(selectTrendingMovies);
+  const homeSeries = useSelector(selectHomeSeriesItems);
+  const homeMatches = useSelector(selectHomeMatches);
+  const advertisements = useSelector(selectAdvertisements);
+  const genreRows = useSelector(selectHomeGenreRows);
+  const favoriteItems = useSelector(selectFavoriteMediaItems);
 
-  const openMovieDetail = useCallback(
+  const featuredItems = featuredMovies;
+  const footballFixtures = homeMatches;
+
+  const homeSections = React.useMemo(() => {
+    const baseSections = BASE_HOME_SECTIONS.map((section) => {
+      if (section.id === "trending" && trendingMovies.length > 0) {
+        return { ...section, items: trendingMovies };
+      }
+      if (section.id === "series" && homeSeries.length > 0) {
+        return { ...section, items: homeSeries };
+      }
+      return section;
+    });
+
+    const sections = [
+      ...baseSections.filter((section) => {
+        if (section.id === "continue") {
+          return footballFixtures.length > 0;
+        }
+
+        return section.items.length > 0;
+      }),
+      ...genreRows.filter((row) => row.items.length > 0),
+    ];
+
+    if (favoriteItems.length > 0) {
+      const continueIndex = sections.findIndex((section) => section.id === "continue");
+      const continueWatchingSection = {
+        id: "continueWatching",
+        title: "Saved for later",
+        showSeeAll: true,
+        seeAll: "history",
+        items: favoriteItems.map((item) => ({
+          ...item,
+          id: item.id,
+          label: item.title,
+          image: item.image,
+        })),
+      };
+
+      if (continueIndex >= 0) {
+        sections.splice(continueIndex + 1, 0, continueWatchingSection);
+      } else {
+        sections.push(continueWatchingSection);
+      }
+    }
+
+    return sections.filter((section) => {
+      if (section.id === "continue") {
+        return footballFixtures.length > 0;
+      }
+
+      return section.items.length > 0;
+    });
+  }, [trendingMovies, homeSeries, genreRows, favoriteItems, footballFixtures.length]);
+
+  useEffect(() => {
+    dispatch(fetchHomeRequest());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchFavoritesRequest());
+    }
+  }, [dispatch, isAuthenticated]);
+
+  const openItemDetail = useCallback(
     (item) => {
+      if (item?.type === "series") {
+        onSeriesItemPress?.(buildSeriesDetail(item));
+        return;
+      }
+
       onMoviePress?.(buildMovieDetail(item));
     },
-    [onMoviePress],
+    [onMoviePress, onSeriesItemPress],
   );
 
   const openFootballDetail = useCallback(
     (fixture) => {
-      onFootballPress?.(buildFootballDetail(fixture));
+      onFootballPress?.(buildFootballDetail(fixture, homeMatches));
     },
-    [onFootballPress],
+    [onFootballPress, homeMatches],
   );
 
   const handleSeeAllPress = useCallback(
@@ -497,9 +483,7 @@ export default function HomeScreen({
   const deleteAccountButtonRef = useRef(null);
   const drawerBlurTimeoutRef = useRef(null);
   const featuredCarouselRef = useRef(null);
-  const rowRefs = useRef(
-    HOME_SECTIONS.map((section) => Array.from({ length: section.items.length }, () => null)),
-  );
+  const rowRefs = useRef([]);
   const bannerRef = useRef(null);
   const [menuFocused, setMenuFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -629,24 +613,26 @@ export default function HomeScreen({
           </Pressable>
         </View>
 
-        <FeaturedCarousel
-          ref={featuredCarouselRef}
-          items={FEATURED_ITEMS}
-          drawerOpen={drawerOpen}
-          onCloseDrawer={() => setDrawerOpen(false)}
-          onMoviePress={openMovieDetail}
-          nextFocusUpForIndex={(index) =>
-            findNodeHandle(index === 0 ? menuButtonRef.current : searchButtonRef.current) ??
-            undefined
-          }
-          nextFocusDownForIndex={(index) =>
-            index === 1
-              ? findNodeHandle(bannerRef.current) ?? undefined
-              : getSectionCardHandle(0, Math.min(index, HOME_SECTIONS[0].items.length - 1))
-          }
-        />
+        {featuredItems.length > 0 ? (
+          <FeaturedCarousel
+            ref={featuredCarouselRef}
+            items={featuredItems}
+            drawerOpen={drawerOpen}
+            onCloseDrawer={() => setDrawerOpen(false)}
+            onMoviePress={openItemDetail}
+            nextFocusUpForIndex={(index) =>
+              findNodeHandle(index === 0 ? menuButtonRef.current : searchButtonRef.current) ??
+              undefined
+            }
+            nextFocusDownForIndex={(index) =>
+              index === 1
+                ? findNodeHandle(bannerRef.current) ?? undefined
+                : getSectionCardHandle(0, Math.min(index, homeSections[0]?.items.length - 1 ?? 0))
+            }
+          />
+        ) : null}
 
-        {HOME_SECTIONS.map((row, rowIndex) => (
+        {homeSections.map((row, rowIndex) => (
           <React.Fragment key={row.id}>
             <View style={styles.rowSection}>
               <View style={styles.rowHeader}>
@@ -659,10 +645,13 @@ export default function HomeScreen({
               </View>
               {row.id === "continue" ? (
                 <View style={styles.footballList}>
-                  {FOOTBALL_FIXTURES.map((fixture, itemIndex) => (
+                  {footballFixtures.map((fixture, itemIndex) => (
                     <FootballMatchCard
                       key={fixture.id}
                       ref={(node) => {
+                        if (!rowRefs.current[rowIndex]) {
+                          rowRefs.current[rowIndex] = [];
+                        }
                         rowRefs.current[rowIndex][itemIndex] = node;
                       }}
                       fixture={fixture}
@@ -673,7 +662,7 @@ export default function HomeScreen({
                           : getSectionCardHandle(rowIndex, itemIndex - 1)
                       }
                       nextFocusDown={
-                        itemIndex < FOOTBALL_FIXTURES.length - 1
+                        itemIndex < footballFixtures.length - 1
                           ? getSectionCardHandle(rowIndex, itemIndex + 1)
                           : getSectionCardHandle(rowIndex + 1, 0)
                       }
@@ -686,51 +675,46 @@ export default function HomeScreen({
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.rowContent}
                 >
-                  {row.items.map((item, itemIndex) => {
-                    const sectionItem = getSectionItem(item, itemIndex);
-
-                    return (
+                  {row.items.map((item, itemIndex) => (
                     <MediaCard
-                      key={`${row.id}-${sectionItem.id}-${itemIndex}`}
+                      key={`${row.id}-${item.id}-${itemIndex}`}
                       ref={(node) => {
+                        if (!rowRefs.current[rowIndex]) {
+                          rowRefs.current[rowIndex] = [];
+                        }
                         rowRefs.current[rowIndex][itemIndex] = node;
                       }}
-                      label={sectionItem.label}
-                      image={sectionItem.image}
+                      label={item.label ?? item.title}
+                      image={item.image}
                       variant={row.id === "continueWatching" ? "continue" : row.id === "match" ? "match" : "poster"}
                       showLabel={false}
-                      progress={row.id === "continueWatching" ? CONTINUE_WATCHING_PROGRESS[itemIndex] ?? 0.35 : 0}
+                      progress={item.progress ?? 0}
                       onPress={
                         row.id === "match"
                           ? undefined
-                          : () =>
-                              openMovieDetail({
-                                title: sectionItem.label,
-                                label: sectionItem.label,
-                                image: sectionItem.image,
-                              })
+                          : () => openItemDetail(item)
                       }
                       nextFocusUp={
-                        rowIndex === 0
-                          ? getFeaturedHandle(Math.min(itemIndex, FEATURED_ITEMS.length - 1))
+                        rowIndex === 0 && featuredItems.length > 0
+                          ? getFeaturedHandle(Math.min(itemIndex, featuredItems.length - 1))
                           : rowIndex === 1
                             ? findNodeHandle(bannerRef.current) ?? undefined
-                            : getSectionCardHandle(rowIndex - 1, Math.min(itemIndex, HOME_SECTIONS[rowIndex - 1].items.length - 1))
+                            : getSectionCardHandle(rowIndex - 1, Math.min(itemIndex, homeSections[rowIndex - 1].items.length - 1))
                       }
                       nextFocusDown={
-                        rowIndex < HOME_SECTIONS.length - 1
-                          ? getSectionCardHandle(rowIndex + 1, Math.min(itemIndex, HOME_SECTIONS[rowIndex + 1].items.length - 1))
+                        rowIndex < homeSections.length - 1
+                          ? getSectionCardHandle(rowIndex + 1, Math.min(itemIndex, homeSections[rowIndex + 1].items.length - 1))
                           : undefined
                       }
                     />
-                    );
-                  })}
+                  ))}
                 </ScrollView>
               )}
             </View>
             {rowIndex === 0 ? (
               <SaleBannerCarousel
                 ref={bannerRef}
+                slides={advertisements}
                 style={styles.saleBanner}
                 nextFocusUp={getFeaturedHandle(1)}
                 nextFocusDown={getSectionCardHandle(1, 0)}

@@ -1,12 +1,6 @@
 import React, { forwardRef, useEffect, useState } from "react";
 import { Dimensions, FlatList, Image, Pressable, StyleSheet, View } from "react-native";
 
-const SALE_BANNER_SLIDES = [
-  { id: "sale-1", image: require("../assets/images/sale/sale-1.jpg") },
-  { id: "sale-2", image: require("../assets/images/sale/sale-2.jpg") },
-  { id: "sale-3", image: require("../assets/images/sale/sale-3.jpg") },
-];
-
 const SALE_BANNER_AUTO_SCROLL_MS = 4500;
 const CONTENT_HORIZONTAL_PADDING = 10;
 const SALE_BANNER_MAX_WIDTH = 380;
@@ -21,24 +15,33 @@ const SALE_BANNER_WIDTH = Math.min(
 );
 
 const SaleBannerCarousel = forwardRef(function SaleBannerCarousel(
-  { nextFocusUp, nextFocusDown, style },
+  { slides, nextFocusUp, nextFocusDown, style },
   ref,
 ) {
+  const bannerSlides = slides ?? [];
   const listRef = React.useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
+    if (bannerSlides.length <= 1) {
+      return undefined;
+    }
+
     const timer = setInterval(() => {
       setActiveIndex((prev) => {
-        const next = (prev + 1) % SALE_BANNER_SLIDES.length;
+        const next = (prev + 1) % bannerSlides.length;
         listRef.current?.scrollToIndex({ index: next, animated: true });
         return next;
       });
     }, SALE_BANNER_AUTO_SCROLL_MS);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [bannerSlides.length]);
+
+  if (!bannerSlides.length) {
+    return null;
+  }
 
   return (
     <Pressable
@@ -56,7 +59,7 @@ const SaleBannerCarousel = forwardRef(function SaleBannerCarousel(
       <FlatList
         ref={listRef}
         style={styles.saleBannerList}
-        data={SALE_BANNER_SLIDES}
+        data={bannerSlides}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -80,11 +83,11 @@ const SaleBannerCarousel = forwardRef(function SaleBannerCarousel(
             style={[
               styles.saleBannerIndicatorActive,
               {
-                width: INDICATOR_TRACK_WIDTH / SALE_BANNER_SLIDES.length,
+                width: INDICATOR_TRACK_WIDTH / bannerSlides.length,
                 transform: [
                   {
                     translateX:
-                      activeIndex * (INDICATOR_TRACK_WIDTH / SALE_BANNER_SLIDES.length),
+                      activeIndex * (INDICATOR_TRACK_WIDTH / bannerSlides.length),
                   },
                 ],
               },

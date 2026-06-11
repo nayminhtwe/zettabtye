@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Pressable,
@@ -10,7 +11,19 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { fetchMovieDetailRequest } from "../store/catalog/actions";
+import {
+  selectMovieDetail,
+  selectMovieDetailLoading,
+} from "../store/catalog/selectors";
+import { addFavoriteRequest, removeFavoriteRequest } from "../store/favorites/actions";
+import {
+  selectFavoriteId,
+  selectIsFavorited,
+} from "../store/favorites/selectors";
+import { buildMovieDetail } from "../utils/movieDetail";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
@@ -18,11 +31,46 @@ const HERO_WIDTH = SCREEN_WIDTH - CONTENT_PADDING * 2;
 const HERO_HEIGHT = Math.round(HERO_WIDTH * 0.56);
 
 export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress }) {
+  const dispatch = useDispatch();
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [watchFocused, setWatchFocused] = useState(false);
   const [saveFocused, setSaveFocused] = useState(false);
   const backRef = useRef(null);
+  const movieId = movie?.id;
+  const fetchedMovie = useSelector((state) => selectMovieDetail(state, movieId));
+  const detailLoading = useSelector((state) => selectMovieDetailLoading(state, movieId));
+  const isFavorited = useSelector((state) =>
+    selectIsFavorited(state, "movie", movieId),
+  );
+  const favoriteId = useSelector((state) => selectFavoriteId(state, "movie", movieId));
+
+  const displayMovie = useMemo(() => {
+    if (fetchedMovie) {
+      return buildMovieDetail(fetchedMovie);
+    }
+
+    return buildMovieDetail(movie);
+  }, [fetchedMovie, movie]);
+
+  useEffect(() => {
+    if (movieId) {
+      dispatch(fetchMovieDetailRequest(movieId));
+    }
+  }, [dispatch, movieId]);
+
+  const handleToggleFavorite = () => {
+    if (!movieId) {
+      return;
+    }
+
+    if (isFavorited && favoriteId) {
+      dispatch(removeFavoriteRequest(favoriteId));
+      return;
+    }
+
+    dispatch(addFavoriteRequest({ favoritableType: "movie", favoritableId: movieId }));
+  };
 
   if (!movie) {
     return null;
@@ -42,7 +90,7 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
         </Pressable>
 
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {movie.title}
+          {displayMovie.title}
         </Text>
 
         <Pressable
@@ -60,35 +108,39 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {detailLoading && !fetchedMovie ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
+
         <View style={styles.heroWrapper}>
-          {movie.image ? (
-            <Image source={movie.image} resizeMode="cover" style={styles.heroImage} />
+          {displayMovie.image ? (
+            <Image source={displayMovie.image} resizeMode="cover" style={styles.heroImage} />
           ) : (
             <View style={[styles.heroImage, styles.heroPlaceholder]} />
           )}
-          <Pressable style={styles.playButtonOverlay} onPress={onPlay}>
+          <Pressable style={styles.playButtonOverlay} onPress={() => onPlay?.(displayMovie)}>
             <View style={styles.playButton}>
               <Ionicons name="play" size={28} color="#1D1B20" style={styles.playIcon} />
             </View>
           </Pressable>
         </View>
 
-        <Text style={styles.categories}>{movie.categories}</Text>
+        <Text style={styles.categories}>{displayMovie.categories}</Text>
 
-        <Text style={styles.movieTitle}>{movie.title}</Text>
+        <Text style={styles.movieTitle}>{displayMovie.title}</Text>
 
         <View style={styles.metaRow}>
           <View style={styles.metaPill}>
             <Ionicons name="calendar-outline" size={14} color="#D2D2D2" />
-            <Text style={styles.metaPillText}>{movie.year}</Text>
+            <Text style={styles.metaPillText}>{displayMovie.year}</Text>
           </View>
           <View style={styles.metaPill}>
             <Ionicons name="time-outline" size={14} color="#D2D2D2" />
-            <Text style={styles.metaPillText}>{movie.duration}</Text>
+            <Text style={styles.metaPillText}>{displayMovie.duration}</Text>
           </View>
           <View style={styles.metaPill}>
             <Text style={styles.metaImdbLabel}>IMDb</Text>
-            <Text style={styles.metaPillText}>IMDb {movie.imdbRating}/10</Text>
+            <Text style={styles.metaPillText}>IMDb {displayMovie.imdbRating}/10</Text>
           </View>
         </View>
 
@@ -98,7 +150,7 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
               styles.watchNowButton,
               (pressed || watchFocused) ? styles.watchNowButtonFocused : null,
             ]}
-            onPress={onPlay}
+            onPress={() => onPlay?.(displayMovie)}
             onFocus={() => setWatchFocused(true)}
             onBlur={() => setWatchFocused(false)}
           >
@@ -110,18 +162,19 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
               styles.saveLaterButton,
               (pressed || saveFocused) ? styles.saveLaterButtonFocused : null,
             ]}
+            onPress={handleToggleFavorite}
             onFocus={() => setSaveFocused(true)}
             onBlur={() => setSaveFocused(false)}
           >
-            <Text style={styles.saveLaterText}>Save for later</Text>
+            <Text style={styles.saveLaterText}>
+              {isFavorited ? "Saved" : "Save for later"}
+            </Text>
           </Pressable>
         </View>
 
         <Text style={styles.overviewHeading}>Overview</Text>
         <Text style={styles.overviewBody}>
-          When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph
-          Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new
-          planet for humans.
+          {displayMovie.overview || "No overview available."}
         </Text>
 
         <Text style={styles.overviewLabel}>Directed by:</Text>
@@ -313,6 +366,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     ...gillSans("400"),
+  },
+  loadingIndicator: {
+    marginVertical: 16,
   },
   overviewLabel: {
     marginTop: 20,

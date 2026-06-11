@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -13,63 +14,21 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
-
-const HERO_SLIDES = [
-  {
-    id: "1917",
-    title: "1917",
-    imdb: "8.7/10",
-    duration: "01:39:21",
-    year: "2014",
-    image: require("../assets/images/featured/featured-1.jpg"),
-  },
-  {
-    id: "interstellar",
-    title: "Interstellar",
-    imdb: "8.7/10",
-    duration: "02:49:00",
-    year: "2014",
-    image: require("../assets/images/featured/featured-2.jpg"),
-  },
-];
-
-const MOVIE_CATEGORIES = [
-  "All",
-  "Anime",
-  "Family/kids",
-  "Romance",
-  "Science",
-  "Thriller",
-  "History",
-  "Horror",
-  "Action",
-  "Comedy",
-  "Drama",
-  "Fantasy",
-  "Mystery",
-  "Sci-Fi",
-  "War",
-  "Western",
-];
-
-const POSTER_IMAGES = [
-  require("../assets/images/trending/trending-1.jpg"),
-  require("../assets/images/trending/trending-2.jpg"),
-  require("../assets/images/trending/trending-3.jpg"),
-  require("../assets/images/trending/trending-4.jpg"),
-];
-
-const MOVIE_POSTERS = Array.from({ length: 20 }, (_, index) => ({
-  id: `movie-${index + 1}`,
-  title: index === 0 ? "1917" : undefined,
-  image: POSTER_IMAGES[index % POSTER_IMAGES.length],
-}));
+import { fetchGenresRequest, fetchMoviesRequest } from "../store/catalog/actions";
+import {
+  selectAdvertisements,
+  selectCategoryFilterChips,
+  selectGenres,
+  selectGenresLoading,
+  selectMovies,
+  selectMoviesLoading,
+} from "../store/catalog/selectors";
 
 const POSTERS_BEFORE_BANNER = 8;
-const POSTERS_AFTER_BANNER = MOVIE_POSTERS.slice(POSTERS_BEFORE_BANNER);
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 14;
@@ -146,33 +105,62 @@ export default function MoviesScreen({
   onWatchNow,
   initialCategory = "All",
 }) {
+  const dispatch = useDispatch();
   const listRef = useRef(null);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const movies = useSelector(selectMovies);
+  const moviesLoading = useSelector(selectMoviesLoading);
+  const advertisements = useSelector(selectAdvertisements);
+  const genres = useSelector(selectGenres);
+  const genresLoading = useSelector(selectGenresLoading);
+  const categories = useSelector(selectCategoryFilterChips);
+
+  const heroSlides = useMemo(
+    () =>
+      movies.slice(0, 2).map((movie) => ({
+        ...movie,
+        imdb: movie.imdb ?? `${movie.imdbRating}/10`,
+      })),
+    [movies],
+  );
+
+  const filteredMovies = movies;
+
+  const postersBeforeBanner = filteredMovies.slice(0, POSTERS_BEFORE_BANNER);
+  const postersAfterBanner = filteredMovies.slice(POSTERS_BEFORE_BANNER);
 
   useEffect(() => {
     setActiveCategory(initialCategory);
   }, [initialCategory]);
 
-  const postersBeforeBanner = MOVIE_POSTERS.slice(0, POSTERS_BEFORE_BANNER);
+  useEffect(() => {
+    if (!genres.length && !genresLoading) {
+      dispatch(fetchGenresRequest());
+    }
+  }, [dispatch, genres.length, genresLoading]);
 
   useEffect(() => {
-    if (HERO_SLIDES.length <= 1) {
+    dispatch(fetchMoviesRequest({ genere_name: activeCategory }));
+  }, [dispatch, activeCategory]);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) {
       return undefined;
     }
 
     const timer = setInterval(() => {
       setActiveHeroIndex((prev) => {
-        const next = (prev + 1) % HERO_SLIDES.length;
+        const next = (prev + 1) % heroSlides.length;
         listRef.current?.scrollToIndex({ index: next, animated: true });
         return next;
       });
     }, HERO_AUTO_SCROLL_MS);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [heroSlides.length]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -199,42 +187,47 @@ export default function MoviesScreen({
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <FlatList
-          ref={listRef}
-          data={HERO_SLIDES}
-          horizontal
-          pagingEnabled
-          scrollEnabled={false}
-          bounces={false}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          getItemLayout={(_, index) => ({
-            length: HERO_WIDTH,
-            offset: HERO_WIDTH * index,
-            index,
-          })}
-          renderItem={({ item }) => (
-            <HeroCard item={item} onMoviePress={onMoviePress} onWatchNow={onWatchNow} />
-          )}
-        />
-
-        <View style={styles.heroIndicatorWrap}>
-          <View style={styles.heroIndicatorTrack}>
-            <View
-              style={[
-                styles.heroIndicatorActive,
-                {
-                  width: HERO_INDICATOR_TRACK_WIDTH / HERO_SLIDES.length,
-                  transform: [
-                    {
-                      translateX: activeHeroIndex * (HERO_INDICATOR_TRACK_WIDTH / HERO_SLIDES.length),
-                    },
-                  ],
-                },
-              ]}
+        {heroSlides.length > 0 ? (
+          <>
+            <FlatList
+              ref={listRef}
+              data={heroSlides}
+              horizontal
+              pagingEnabled
+              scrollEnabled={false}
+              bounces={false}
+              keyExtractor={(item) => String(item.id)}
+              showsHorizontalScrollIndicator={false}
+              getItemLayout={(_, index) => ({
+                length: HERO_WIDTH,
+                offset: HERO_WIDTH * index,
+                index,
+              })}
+              renderItem={({ item }) => (
+                <HeroCard item={item} onMoviePress={onMoviePress} onWatchNow={onWatchNow} />
+              )}
             />
-          </View>
-        </View>
+
+            <View style={styles.heroIndicatorWrap}>
+              <View style={styles.heroIndicatorTrack}>
+                <View
+                  style={[
+                    styles.heroIndicatorActive,
+                    {
+                      width: HERO_INDICATOR_TRACK_WIDTH / heroSlides.length,
+                      transform: [
+                        {
+                          translateX:
+                            activeHeroIndex * (HERO_INDICATOR_TRACK_WIDTH / heroSlides.length),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          </>
+        ) : null}
 
         <ScrollView
           horizontal
@@ -242,7 +235,7 @@ export default function MoviesScreen({
           style={styles.categoryScroll}
           contentContainerStyle={styles.categoryContent}
         >
-          {MOVIE_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <Pressable
               key={category}
               onPress={() => setActiveCategory(category)}
@@ -259,11 +252,15 @@ export default function MoviesScreen({
           ))}
         </ScrollView>
 
+        {(moviesLoading || genresLoading) && filteredMovies.length === 0 ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
+
         <PosterGrid posters={postersBeforeBanner} onMoviePress={onMoviePress} />
 
-        <SaleBannerCarousel style={styles.saleBanner} />
+        <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
 
-        <PosterGrid posters={POSTERS_AFTER_BANNER} onMoviePress={onMoviePress} />
+        <PosterGrid posters={postersAfterBanner} onMoviePress={onMoviePress} />
 
         <PremiumMembershipCard style={styles.premiumCard} />
       </ScrollView>
@@ -471,6 +468,9 @@ const styles = StyleSheet.create({
   posterImage: {
     width: "100%",
     aspectRatio: 0.67,
+  },
+  loadingIndicator: {
+    marginVertical: 24,
   },
   saleBanner: {
     marginTop: 16,

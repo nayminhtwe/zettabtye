@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,13 +10,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import FootballMatchCard from "../components/FootballMatchCard";
 import { gillSans } from "../constants/fonts";
+import { fetchMatchesRequest } from "../store/catalog/actions";
+import { selectMatches, selectMatchesLoading } from "../store/catalog/selectors";
 import {
-  FOOTBALL_DATE_TABS,
-  FOOTBALL_DEFAULT_DATE_ID,
-  FOOTBALL_LEAGUES,
-  getFixturesForDateAndLeague,
+  buildDateTabsFromMatches,
+  buildLeagueOptionsFromMatches,
 } from "../utils/football";
 
 function DateTab({ tab, isSelected, onPress, focused, onFocus, onBlur }) {
@@ -57,17 +59,43 @@ function DateTab({ tab, isSelected, onPress, focused, onFocus, onBlur }) {
 }
 
 export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) {
+  const dispatch = useDispatch();
+  const apiMatches = useSelector(selectMatches);
+  const matchesLoading = useSelector(selectMatchesLoading);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [selectedDateId, setSelectedDateId] = useState(FOOTBALL_DEFAULT_DATE_ID);
+  const [selectedDateId, setSelectedDateId] = useState(null);
   const [selectedLeagueId, setSelectedLeagueId] = useState("all");
   const [focusedDateId, setFocusedDateId] = useState(null);
   const [focusedLeagueId, setFocusedLeagueId] = useState(null);
 
-  const fixtures = useMemo(
-    () => getFixturesForDateAndLeague(selectedDateId, selectedLeagueId),
-    [selectedDateId, selectedLeagueId],
-  );
+  useEffect(() => {
+    dispatch(fetchMatchesRequest({ per_page: 50 }));
+  }, [dispatch]);
+
+  const dateTabs = useMemo(() => buildDateTabsFromMatches(apiMatches), [apiMatches]);
+  const leagueOptions = useMemo(() => buildLeagueOptionsFromMatches(apiMatches), [apiMatches]);
+
+  useEffect(() => {
+    if (!selectedDateId && dateTabs.length > 0) {
+      const todayTab = dateTabs.find((tab) => tab.isToday);
+      setSelectedDateId(todayTab?.id ?? dateTabs[0].id);
+    }
+  }, [dateTabs, selectedDateId]);
+
+  const fixtures = useMemo(() => {
+    let filtered = apiMatches;
+
+    if (selectedLeagueId !== "all") {
+      filtered = filtered.filter((match) => match.leagueId === selectedLeagueId);
+    }
+
+    if (selectedDateId) {
+      filtered = filtered.filter((match) => match.dateKey === selectedDateId);
+    }
+
+    return filtered;
+  }, [apiMatches, selectedDateId, selectedLeagueId]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -100,58 +128,65 @@ export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) 
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.dateBar}>
+        {dateTabs.length > 0 ? (
+          <View style={styles.dateBar}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dateBarContent}
+            >
+              {dateTabs.map((tab) => (
+                <DateTab
+                  key={tab.id}
+                  tab={tab}
+                  isSelected={tab.id === selectedDateId}
+                  onPress={() => setSelectedDateId(tab.id)}
+                  focused={focusedDateId === tab.id}
+                  onFocus={() => setFocusedDateId(tab.id)}
+                  onBlur={() => setFocusedDateId(null)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {leagueOptions.length > 1 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dateBarContent}
+            contentContainerStyle={styles.leagueBarContent}
+            style={styles.leagueBar}
           >
-            {FOOTBALL_DATE_TABS.map((tab) => (
-              <DateTab
-                key={tab.id}
-                tab={tab}
-                isSelected={tab.id === selectedDateId}
-                onPress={() => setSelectedDateId(tab.id)}
-                focused={focusedDateId === tab.id}
-                onFocus={() => setFocusedDateId(tab.id)}
-                onBlur={() => setFocusedDateId(null)}
-              />
-            ))}
-          </ScrollView>
-        </View>
+            {leagueOptions.map((league) => {
+              const isSelected = league.id === selectedLeagueId;
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.leagueBarContent}
-          style={styles.leagueBar}
-        >
-          {FOOTBALL_LEAGUES.map((league) => {
-            const isSelected = league.id === selectedLeagueId;
-
-            return (
-              <Pressable
-                key={league.id}
-                style={styles.leagueTabButton}
-                onPress={() => setSelectedLeagueId(league.id)}
-                onFocus={() => setFocusedLeagueId(league.id)}
-                onBlur={() => setFocusedLeagueId(null)}
-              >
-                <Text
-                  style={[
-                    styles.leagueTabText,
-                    isSelected ? styles.leagueTabTextActive : null,
-                    focusedLeagueId === league.id ? styles.leagueTabTextFocused : null,
-                  ]}
+              return (
+                <Pressable
+                  key={league.id}
+                  style={styles.leagueTabButton}
+                  onPress={() => setSelectedLeagueId(league.id)}
+                  onFocus={() => setFocusedLeagueId(league.id)}
+                  onBlur={() => setFocusedLeagueId(null)}
                 >
-                  {league.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <Text
+                    style={[
+                      styles.leagueTabText,
+                      isSelected ? styles.leagueTabTextActive : null,
+                      focusedLeagueId === league.id ? styles.leagueTabTextFocused : null,
+                    ]}
+                  >
+                    {league.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
 
         <View style={styles.matchList}>
+          {matchesLoading && fixtures.length === 0 ? (
+            <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+          ) : null}
           {fixtures.map((fixture) => (
             <FootballMatchCard
               key={fixture.id}
@@ -168,7 +203,7 @@ export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#06080F",
   },
   header: {
     flexDirection: "row",
@@ -204,22 +239,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
     paddingBottom: 32,
   },
   dateBar: {
-    borderRadius: 12,
-    backgroundColor: "#1D1B20",
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   dateBarContent: {
-    gap: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: 16,
+    gap: 8,
   },
   dateTabButton: {
-    borderRadius: 4,
+    minWidth: 64,
+    borderRadius: 8,
     overflow: "hidden",
   },
   dateTabButtonFocused: {
@@ -227,75 +259,62 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   dateTabSelected: {
-    width: 48,
-    height: 56,
-    borderRadius: 4,
-    opacity: 1,
-    paddingTop: 4,
-    paddingRight: 6,
-    paddingBottom: 4,
-    paddingLeft: 6,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
   dateTabUnselected: {
-    width: 48,
-    height: 56,
-    paddingTop: 4,
-    paddingRight: 6,
-    paddingBottom: 4,
-    paddingLeft: 6,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   dateTabInner: {
     alignItems: "center",
-    justifyContent: "center",
   },
   dateTabTop: {
-    fontSize: 11,
-    lineHeight: 14,
-    textAlign: "center",
+    fontSize: 12,
+    lineHeight: 16,
     ...gillSans("600"),
   },
   dateTabBottom: {
+    fontSize: 11,
+    lineHeight: 14,
     marginTop: 2,
-    fontSize: 10,
-    lineHeight: 12,
-    textAlign: "center",
     ...gillSans("400"),
   },
   dateTabText: {
-    color: "#79747E",
+    color: "#8D93A4",
   },
   dateTabTextActive: {
     color: "#FFFFFF",
   },
   leagueBar: {
-    marginTop: 16,
+    marginTop: 4,
   },
   leagueBarContent: {
-    gap: 20,
-    paddingRight: 8,
+    paddingHorizontal: 16,
+    gap: 16,
   },
   leagueTabButton: {
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
   leagueTabText: {
-    color: "#79747E",
+    color: "#8D93A4",
     fontSize: 14,
-    lineHeight: 20,
-    ...gillSans("400"),
+    ...gillSans("500"),
   },
   leagueTabTextActive: {
     color: "#FFFFFF",
-    ...gillSans("600"),
+    ...gillSans("700"),
   },
   leagueTabTextFocused: {
     color: "#FFFFFF",
   },
   matchList: {
     marginTop: 16,
+    paddingHorizontal: 16,
     gap: 10,
+  },
+  loadingIndicator: {
+    marginVertical: 24,
   },
 });

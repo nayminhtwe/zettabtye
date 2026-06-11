@@ -21,6 +21,7 @@
       "package": "zettabyte.movies",
       "versionCode": 5,
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false
     },
     "web": {

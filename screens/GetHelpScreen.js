@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Linking,
   Pressable,
@@ -9,15 +9,17 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import ViberIcon from "../assets/images/help/basil_viber-outline.svg";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import { gillSans } from "../constants/fonts";
+import { fetchGenresRequest } from "../store/catalog/actions";
+import { selectGenres, selectGenresLoading } from "../store/catalog/selectors";
 import { maskPhone } from "../utils/phoneAuth";
 
 const CONTENT_PADDING = 16;
-const HELP_PHONE = "+95 9 123456789";
 
-const FAQ_ITEMS = [
+const STATIC_FAQ_ITEMS = [
   {
     id: "free",
     question: "Is this app free?",
@@ -36,20 +38,31 @@ const FAQ_ITEMS = [
     answer:
       "Open your profile, go to subscription settings, and choose Cancel plan. Your premium access stays active until the billing period ends.",
   },
-  {
-    id: "genres",
-    question: "What genres are available?",
-    answer:
-      "We offer movies and series across Sci-fi, Drama, Romance, Animation, Thriller, Football, and many more categories.",
-  },
 ];
 
 function formatHelpPhone(phone) {
   const masked = maskPhone(phone);
+  if (!masked) {
+    return "—";
+  }
   if (masked.startsWith("+959")) {
     return `+95 ${masked.slice(3, 4)} ${masked.slice(4)}`;
   }
-  return HELP_PHONE;
+  return masked;
+}
+
+function buildGenreFaqItem(genres) {
+  const genreNames = genres.map((genre) => genre.name).filter(Boolean);
+  const answer =
+    genreNames.length > 0
+      ? `We offer movies and series across ${genreNames.join(", ")}.`
+      : "Browse the Categories tab to see available genres.";
+
+  return {
+    id: "genres",
+    question: "What genres are available?",
+    answer,
+  };
 }
 
 function getViberChatUrl(phone) {
@@ -106,9 +119,23 @@ function HelpContactRow({ icon, iconElement, iconBackgroundColor, label, actionI
 }
 
 export default function GetHelpScreen({ phoneNumber, onBack, onSearchPress }) {
+  const dispatch = useDispatch();
+  const genres = useSelector(selectGenres);
+  const genresLoading = useSelector(selectGenresLoading);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [expandedFaqId, setExpandedFaqId] = useState(FAQ_ITEMS[0].id);
+  const [expandedFaqId, setExpandedFaqId] = useState(STATIC_FAQ_ITEMS[0].id);
+
+  const faqItems = useMemo(
+    () => [...STATIC_FAQ_ITEMS, buildGenreFaqItem(genres)],
+    [genres],
+  );
+
+  useEffect(() => {
+    if (!genres.length && !genresLoading) {
+      dispatch(fetchGenresRequest());
+    }
+  }, [dispatch, genres.length, genresLoading]);
 
   const displayPhone = formatHelpPhone(phoneNumber);
 
@@ -179,7 +206,7 @@ export default function GetHelpScreen({ phoneNumber, onBack, onSearchPress }) {
 
         <Text style={styles.faqSectionTitle}>FAQs and Support</Text>
         <View style={styles.faqList}>
-          {FAQ_ITEMS.map((item) => (
+          {faqItems.map((item) => (
             <FaqItem
               key={item.id}
               item={item}

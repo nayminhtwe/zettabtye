@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Pressable,
@@ -11,8 +12,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
-import { CATEGORY_ITEMS } from "../utils/categories";
+import { fetchGenresRequest } from "../store/catalog/actions";
+import {
+  selectCategoryCards,
+  selectGenres,
+  selectGenresLoading,
+} from "../store/catalog/selectors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
@@ -42,8 +49,18 @@ function CategoryCard({ item, onPress }) {
 }
 
 export default function CategoriesScreen({ onBack, onSearchPress, onCategoryPress }) {
+  const dispatch = useDispatch();
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const categoryItems = useSelector(selectCategoryCards);
+  const genres = useSelector(selectGenres);
+  const genresLoading = useSelector(selectGenresLoading);
+
+  useEffect(() => {
+    if (!genres.length && !genresLoading) {
+      dispatch(fetchGenresRequest());
+    }
+  }, [dispatch, genres.length, genresLoading]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -74,8 +91,12 @@ export default function CategoriesScreen({ onBack, onSearchPress, onCategoryPres
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {genresLoading && categoryItems.length === 0 ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
+
         <View style={styles.grid}>
-          {CATEGORY_ITEMS.map((item) => (
+          {categoryItems.map((item) => (
             <CategoryCard key={item.id} item={item} onPress={onCategoryPress} />
           ))}
         </View>
@@ -126,6 +147,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
     paddingBottom: 32,
+  },
+  loadingIndicator: {
+    marginBottom: 24,
   },
   grid: {
     flexDirection: "row",

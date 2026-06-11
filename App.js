@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
@@ -23,7 +23,7 @@ import NotificationsScreen from "./screens/NotificationsScreen";
 import { buildMovieDetail } from "./utils/movieDetail";
 import { buildFootballDetail } from "./utils/football";
 import { buildSeriesDetail, buildSeriesPlayItem } from "./utils/seriesDetail";
-import { DEFAULT_RECENT_SEARCHES } from "./utils/search";
+import { selectMatches } from "./store/catalog/selectors";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
 import OTPScreen from "./screens/OTPScreen";
@@ -69,6 +69,16 @@ const SCREEN = {
   NOTIFICATIONS: "notifications",
 };
 
+const AUTH_FLOW_SCREENS = new Set([
+  SCREEN.SPLASH,
+  SCREEN.ONBOARDING,
+  SCREEN.OTP,
+  SCREEN.PASSWORD,
+  SCREEN.CREATE_PASSWORD,
+  SCREEN.FORGOT_PASSWORD_PHONE,
+  SCREEN.RESET_PASSWORD,
+]);
+
 export default function App() {
   const { fontsLoaded } = useAppFonts();
   const dispatch = useDispatch();
@@ -102,45 +112,71 @@ export default function App() {
   const [phoneUpdateSuccess, setPhoneUpdateSuccess] = useState(false);
   const [accountUsername, setAccountUsername] = useState("");
   const [searchReturnScreen, setSearchReturnScreen] = useState(SCREEN.HOME);
-  const [recentSearches, setRecentSearches] = useState(DEFAULT_RECENT_SEARCHES);
+  const [recentSearches, setRecentSearches] = useState([]);
+  const catalogMatches = useSelector(selectMatches);
 
   const displayPhone = authUser?.phone ?? authPhone ?? "";
+
+  const authSnapshotRef = useRef(null);
 
   useEffect(() => {
     dispatch(bootstrapRequest());
   }, [dispatch]);
 
+  // Only redirect on auth *transitions* — never re-run routing for normal in-app navigation.
   useEffect(() => {
     if (!bootstrapped) return;
 
-    // New user just verified OTP — needs to create a password
-    if (needsPasswordSetup) {
+    const snapshot = {
+      isAuthenticated,
+      needsPasswordSetup,
+      otpRequired,
+      passwordRequired,
+    };
+    const previous = authSnapshotRef.current;
+    authSnapshotRef.current = snapshot;
+
+    if (splashFinished) {
+      setCurrentPage((page) => {
+        if (page !== SCREEN.SPLASH) {
+          return page;
+        }
+        if (snapshot.needsPasswordSetup) {
+          return SCREEN.CREATE_PASSWORD;
+        }
+        if (snapshot.isAuthenticated) {
+          return SCREEN.HOME;
+        }
+        return SCREEN.ONBOARDING;
+      });
+    }
+
+    if (!previous) {
+      return;
+    }
+
+    if (snapshot.needsPasswordSetup && !previous.needsPasswordSetup) {
       setCurrentPage(SCREEN.CREATE_PASSWORD);
       return;
     }
 
-    // Fully authenticated and no pending setup
-    if (isAuthenticated) {
-      if (splashFinished || currentPage !== SCREEN.SPLASH) {
-        setCurrentPage(SCREEN.HOME);
-      }
+    if (previous.needsPasswordSetup && !snapshot.needsPasswordSetup && snapshot.isAuthenticated) {
+      setCurrentPage(SCREEN.HOME);
       return;
     }
 
-    // Route to appropriate auth screen after splash
-    if (splashFinished || currentPage !== SCREEN.SPLASH) {
-      if (otpRequired) {
-        setCurrentPage(SCREEN.OTP);
-        return;
-      }
-      if (passwordRequired) {
-        setCurrentPage(SCREEN.PASSWORD);
-        return;
-      }
+    if (snapshot.isAuthenticated && !previous.isAuthenticated) {
+      setCurrentPage((page) => (AUTH_FLOW_SCREENS.has(page) ? SCREEN.HOME : page));
+      return;
     }
 
-    if (splashFinished && currentPage === SCREEN.SPLASH) {
-      setCurrentPage(SCREEN.ONBOARDING);
+    if (snapshot.otpRequired && !previous.otpRequired) {
+      setCurrentPage(SCREEN.OTP);
+      return;
+    }
+
+    if (snapshot.passwordRequired && !previous.passwordRequired) {
+      setCurrentPage(SCREEN.PASSWORD);
     }
   }, [
     bootstrapped,
@@ -149,7 +185,6 @@ export default function App() {
     otpRequired,
     passwordRequired,
     needsPasswordSetup,
-    currentPage,
   ]);
 
   const openSearch = (returnScreen) => {
@@ -164,7 +199,7 @@ export default function App() {
 
   const openFootballDetail = (fixture, returnScreen) => {
     setFootballDetailReturnScreen(returnScreen);
-    setSelectedFootballMatch(buildFootballDetail(fixture));
+    setSelectedFootballMatch(buildFootballDetail(fixture, catalogMatches));
     setCurrentPage(SCREEN.FOOTBALL_DETAIL);
   };
 
@@ -238,7 +273,7 @@ export default function App() {
     setPendingPhoneNumber("");
     setPhoneUpdateSuccess(false);
     setAccountUsername("");
-    setRecentSearches(DEFAULT_RECENT_SEARCHES);
+    setRecentSearches([]);
     setMoviesInitialCategory("All");
     setSeriesDetailReturnScreen(SCREEN.SERIES);
     setSeriesReturnScreen(SCREEN.HOME);
@@ -252,9 +287,10 @@ export default function App() {
     setCurrentPage(SCREEN.ONBOARDING);
   };
 
-  const screenComponent = useMemo(() => {
-    const screens = {
-      [SCREEN.HOME]: (
+  const renderScreen = () => {
+    switch (currentPage) {
+      case SCREEN.HOME:
+        return (
         <HomeScreen
           onMoviePress={(movie) => openMovieDetail(movie, SCREEN.HOME)}
           onMoviesPress={(category) => openMovies(SCREEN.HOME, category ?? "All")}
@@ -263,6 +299,7 @@ export default function App() {
           onProfilePress={() => setCurrentPage(SCREEN.PROFILE)}
           onGetHelpPress={() => setCurrentPage(SCREEN.GET_HELP)}
           onSeriesPress={() => openSeries(SCREEN.HOME)}
+          onSeriesItemPress={(item) => openSeriesDetail(item, SCREEN.HOME)}
           onCategoriesPress={() => setCurrentPage(SCREEN.CATEGORIES)}
           onHistoryPress={() => setCurrentPage(SCREEN.HISTORY)}
           onNotificationsPress={() => setCurrentPage(SCREEN.NOTIFICATIONS)}
@@ -270,8 +307,9 @@ export default function App() {
           onLogoutPress={handleLogout}
           onDeleteAccountPress={handleLogout}
         />
-      ),
-      [SCREEN.NOTIFICATIONS]: (
+        );
+      case SCREEN.NOTIFICATIONS:
+        return (
         <NotificationsScreen
           onBack={() => setCurrentPage(SCREEN.HOME)}
           onSearchPress={() => openSearch(SCREEN.NOTIFICATIONS)}
@@ -290,8 +328,9 @@ export default function App() {
             }
           }}
         />
-      ),
-      [SCREEN.HISTORY]: (
+        );
+      case SCREEN.HISTORY:
+        return (
         <HistoryScreen
           onBack={() => setCurrentPage(SCREEN.HOME)}
           onSearchPress={() => openSearch(SCREEN.HISTORY)}
@@ -310,15 +349,17 @@ export default function App() {
             }
           }}
         />
-      ),
-      [SCREEN.CATEGORIES]: (
+        );
+      case SCREEN.CATEGORIES:
+        return (
         <CategoriesScreen
           onBack={() => setCurrentPage(SCREEN.HOME)}
           onSearchPress={() => openSearch(SCREEN.CATEGORIES)}
           onCategoryPress={(category) => navigateFromCategory(category, SCREEN.CATEGORIES)}
         />
-      ),
-      [SCREEN.MOVIES]: (
+        );
+      case SCREEN.MOVIES:
+        return (
         <MoviesScreen
           onBack={() => setCurrentPage(moviesReturnScreen)}
           onSearchPress={() => openSearch(SCREEN.MOVIES)}
@@ -326,16 +367,18 @@ export default function App() {
           onWatchNow={(item) => openPlayFromMovie(item, SCREEN.MOVIES)}
           initialCategory={moviesInitialCategory}
         />
-      ),
-      [SCREEN.SERIES]: (
+        );
+      case SCREEN.SERIES:
+        return (
         <SeriesScreen
           onBack={() => setCurrentPage(seriesReturnScreen)}
           onSearchPress={() => openSearch(SCREEN.SERIES)}
           onSeriesPress={(item) => openSeriesDetail(item, SCREEN.SERIES)}
           onWatchNow={(item) => openPlayFromSeries(item, SCREEN.SERIES)}
         />
-      ),
-      [SCREEN.SERIES_DETAIL]: (
+        );
+      case SCREEN.SERIES_DETAIL:
+        return (
         <SeriesDetailScreen
           series={selectedSeries}
           onBack={() => {
@@ -348,27 +391,31 @@ export default function App() {
               setSelectedSeries(null);
             }
           }}
-          onPlay={() => openPlayFromSeries(selectedSeries, SCREEN.SERIES_DETAIL)}
+          onPlay={(series) => openPlayFromSeries(series ?? selectedSeries, SCREEN.SERIES_DETAIL)}
           onSearchPress={() => openSearch(SCREEN.SERIES_DETAIL)}
         />
-      ),
-      [SCREEN.SEARCH]: (
+        );
+      case SCREEN.SEARCH:
+        return (
         <SearchScreen
           recentSearches={recentSearches}
           onRecentSearchesChange={setRecentSearches}
           onBack={() => setCurrentPage(searchReturnScreen)}
           onCategoryPress={(category) => navigateFromCategory(category, SCREEN.SEARCH)}
           onMoviePress={(item) => openMovieDetail(item, SCREEN.SEARCH)}
+          onSeriesPress={(item) => openSeriesDetail(item, SCREEN.SEARCH)}
         />
-      ),
-      [SCREEN.GET_HELP]: (
+        );
+      case SCREEN.GET_HELP:
+        return (
         <GetHelpScreen
           phoneNumber={displayPhone}
           onBack={() => setCurrentPage(SCREEN.HOME)}
           onSearchPress={() => openSearch(SCREEN.GET_HELP)}
         />
-      ),
-      [SCREEN.PROFILE]: (
+        );
+      case SCREEN.PROFILE:
+        return (
         <ProfileScreen
           phoneNumber={displayPhone}
           username={authUser?.name ?? accountUsername}
@@ -392,8 +439,9 @@ export default function App() {
           }}
           onSearchPress={() => openSearch(SCREEN.PROFILE)}
         />
-      ),
-      [SCREEN.EDIT_PHONE_NUMBER]: (
+        );
+      case SCREEN.EDIT_PHONE_NUMBER:
+        return (
         <EditPhoneNumberScreen
           phoneNumber={displayPhone}
           onBack={() => setCurrentPage(SCREEN.PROFILE)}
@@ -403,8 +451,9 @@ export default function App() {
             setCurrentPage(SCREEN.EDIT_PHONE_OTP);
           }}
         />
-      ),
-      [SCREEN.EDIT_PHONE_OTP]: (
+        );
+      case SCREEN.EDIT_PHONE_OTP:
+        return (
         <EditPhoneOtpScreen
           phoneNumber={pendingPhoneNumber}
           onBack={() => setCurrentPage(SCREEN.EDIT_PHONE_NUMBER)}
@@ -415,8 +464,9 @@ export default function App() {
             setCurrentPage(SCREEN.PROFILE);
           }}
         />
-      ),
-      [SCREEN.SET_PROFILE_PASSWORD]: (
+        );
+      case SCREEN.SET_PROFILE_PASSWORD:
+        return (
         <SetProfilePasswordScreen
           onBack={() => setCurrentPage(SCREEN.PROFILE)}
           onSearchPress={() => openSearch(SCREEN.SET_PROFILE_PASSWORD)}
@@ -426,15 +476,17 @@ export default function App() {
             setCurrentPage(SCREEN.PROFILE);
           }}
         />
-      ),
-      [SCREEN.FOOTBALL_LIST]: (
+        );
+      case SCREEN.FOOTBALL_LIST:
+        return (
         <FootballScreen
           onBack={() => setCurrentPage(footballReturnScreen)}
           onMatchPress={(fixture) => openFootballDetail(fixture, SCREEN.FOOTBALL_LIST)}
           onSearchPress={() => openSearch(SCREEN.FOOTBALL_LIST)}
         />
-      ),
-      [SCREEN.FOOTBALL_DETAIL]: (
+        );
+      case SCREEN.FOOTBALL_DETAIL:
+        return (
         <FootballDetailScreen
           match={selectedFootballMatch}
           onBack={() => {
@@ -447,8 +499,9 @@ export default function App() {
           onSeeAllFootball={() => openFootballList(SCREEN.FOOTBALL_DETAIL)}
           onSearchPress={() => openSearch(SCREEN.FOOTBALL_DETAIL)}
         />
-      ),
-      [SCREEN.MOVIE_DETAIL]: (
+        );
+      case SCREEN.MOVIE_DETAIL:
+        return (
         <MovieDetailScreen
           movie={selectedMovie}
           onBack={() => {
@@ -457,41 +510,45 @@ export default function App() {
               setSelectedMovie(null);
             }
           }}
-          onPlay={() => openPlayFromMovie(selectedMovie, SCREEN.MOVIE_DETAIL)}
+          onPlay={(movie) => openPlayFromMovie(movie ?? selectedMovie, SCREEN.MOVIE_DETAIL)}
           onSearchPress={() => openSearch(SCREEN.MOVIE_DETAIL)}
         />
-      ),
-      [SCREEN.MOVIE_PLAY]: (
+        );
+      case SCREEN.MOVIE_PLAY:
+        return (
         <MoviePlayScreen
           movie={selectedMovie}
           onBack={() => setCurrentPage(moviePlayReturnScreen)}
         />
-      ),
-      [SCREEN.OTP]: (
-        <OTPScreen onBack={goToOnboardingPhoneStep} />
-      ),
-      [SCREEN.PASSWORD]: (
+        );
+      case SCREEN.OTP:
+        return <OTPScreen onBack={goToOnboardingPhoneStep} />;
+      case SCREEN.PASSWORD:
+        return (
         <PasswordScreen
           phoneNumber={phoneNumber}
           countryId={selectedCountryId}
           onBack={goToOnboardingPhoneStep}
           onForgotPassword={() => setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE)}
         />
-      ),
-      [SCREEN.FORGOT_PASSWORD_PHONE]: (
+        );
+      case SCREEN.FORGOT_PASSWORD_PHONE:
+        return (
         <ForgotPasswordPhoneScreen
           onBack={() => setCurrentPage(SCREEN.PASSWORD)}
           onContinue={() => setCurrentPage(SCREEN.RESET_PASSWORD)}
         />
-      ),
-      [SCREEN.RESET_PASSWORD]: (
+        );
+      case SCREEN.RESET_PASSWORD:
+        return (
         <ResetPasswordScreen
           phoneNumber={displayPhone}
           onBack={() => setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE)}
           onContinue={() => setCurrentPage(SCREEN.HOME)}
         />
-      ),
-      [SCREEN.ONBOARDING]: (
+        );
+      case SCREEN.ONBOARDING:
+        return (
         <OnboardingScreen
           key={resumeOnboardingAtPhone ? `phone-${phoneNumber}` : "start"}
           initialSlideIndex={resumeOnboardingAtPhone ? 2 : 0}
@@ -503,20 +560,21 @@ export default function App() {
             dispatch(authInitiateRequest({ phone, countryId }));
           }}
         />
-      ),
-      [SCREEN.CREATE_PASSWORD]: <CreatePasswordScreen />,
-      [SCREEN.SPLASH]: (
+        );
+      case SCREEN.CREATE_PASSWORD:
+        return <CreatePasswordScreen />;
+      case SCREEN.SPLASH:
+      default:
+        return (
         <SplashScreen
           onFinish={() => {
             setResumeOnboardingAtPhone(false);
             setSplashFinished(true);
           }}
         />
-      ),
-    };
-
-    return screens[currentPage] ?? screens[SCREEN.SPLASH];
-  }, [currentPage, phoneNumber, selectedCountryId, displayPhone, authUser, resumeOnboardingAtPhone, selectedMovie, selectedSeries, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, seriesDetailReturnScreen, seriesReturnScreen, moviesReturnScreen, moviesInitialCategory, movieDetailReturnScreen, moviePlayReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
+        );
+    }
+  };
 
   if (!fontsLoaded) {
     return (
@@ -526,5 +584,5 @@ export default function App() {
     );
   }
 
-  return <SafeAreaProvider>{screenComponent}</SafeAreaProvider>;
+  return <SafeAreaProvider>{renderScreen()}</SafeAreaProvider>;
 }

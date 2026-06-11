@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,10 +9,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchSubscriptionStatus } from "../api/contentService";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import EditUsernameModal from "../components/EditUsernameModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
+import { selectAuthUser } from "../store/auth/selectors";
+import { fetchHomeRequest } from "../store/catalog/actions";
+import { selectAdvertisements } from "../store/catalog/selectors";
 import { maskPhone, normalizePhone } from "../utils/phoneAuth";
 
 const CONTENT_PADDING = 16;
@@ -25,8 +31,28 @@ function formatProfilePhone(phone) {
 }
 
 function buildUsername(phone) {
-  const digits = normalizePhone(phone) || "129847521";
+  const digits = normalizePhone(phone);
+  if (!digits) {
+    return "User";
+  }
   return `User${digits.slice(-9).padStart(9, "0")}`;
+}
+
+function formatSubscriptionDate(isoDate) {
+  if (!isoDate) {
+    return "—";
+  }
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function SettingRow({ icon, label, onEditPress }) {
@@ -64,12 +90,49 @@ export default function ProfileScreen({
   onUsernameChange,
   onSearchPress,
 }) {
+  const dispatch = useDispatch();
+  const authUser = useSelector(selectAuthUser);
+  const advertisements = useSelector(selectAdvertisements);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [passwordLinkFocused, setPasswordLinkFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordToggleFocused, setPasswordToggleFocused] = useState(false);
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
+  useEffect(() => {
+    dispatch(fetchHomeRequest());
+  }, [dispatch]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchSubscriptionStatus()
+      .then((response) => {
+        if (!cancelled) {
+          setSubscriptionStatus(response);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSubscriptionStatus({
+            success: false,
+            message: "Unable to load subscription status.",
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const defaultUsername = buildUsername(phoneNumber);
   const username = usernameProp || defaultUsername;
@@ -77,6 +140,12 @@ export default function ProfileScreen({
   const hasPassword = Boolean(accountPassword);
   const maskedPassword = "•".repeat(Math.max(accountPassword?.length ?? 0, 7));
   const visiblePassword = accountPassword ?? "";
+  const subscriptionEndDate = authUser?.subscription_end_date ?? null;
+  const subscriptionStartDate = authUser?.subscription_start_date ?? null;
+  const isSubscriptionActive = subscriptionStatus?.success === true;
+  const subscriptionPlanLabel = isSubscriptionActive ? "Active subscription" : "No active subscription";
+  const subscriptionMessage = subscriptionStatus?.message ?? "—";
+  const subscriptionExpiryLabel = isSubscriptionActive ? "Expires on" : "Status";
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -109,7 +178,7 @@ export default function ProfileScreen({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <SaleBannerCarousel style={styles.saleBanner} />
+        <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
 
         {passwordUpdateSuccess ? (
           <View style={styles.successBanner}>
@@ -174,19 +243,38 @@ export default function ProfileScreen({
         <Text style={[styles.sectionTitle, hasPassword ? styles.sectionTitleAfterPassword : null]}>
           Subscription status
         </Text>
-        <View style={styles.subscriptionCard}>
-          <View style={styles.subscriptionIconWrap}>
-            <Ionicons name="checkbox-outline" size={22} color="#FFFFFF" />
+        {subscriptionLoading ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.subscriptionLoading} />
+        ) : (
+          <View style={styles.subscriptionCard}>
+            <View style={styles.subscriptionIconWrap}>
+              <Ionicons
+                name={isSubscriptionActive ? "checkbox-outline" : "close-circle-outline"}
+                size={22}
+                color="#FFFFFF"
+              />
+            </View>
+            <View style={styles.subscriptionInfo}>
+              <Text style={styles.subscriptionPlan}>{subscriptionPlanLabel}</Text>
+              <Text style={styles.subscriptionPrice} numberOfLines={2}>
+                {subscriptionMessage}
+              </Text>
+              {subscriptionStartDate ? (
+                <Text style={styles.subscriptionStarted}>
+                  Started {formatSubscriptionDate(subscriptionStartDate)}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.subscriptionExpiry}>
+              <Text style={styles.subscriptionExpiryLabel}>{subscriptionExpiryLabel}</Text>
+              <Text style={styles.subscriptionExpiryDate}>
+                {isSubscriptionActive
+                  ? formatSubscriptionDate(subscriptionEndDate)
+                  : subscriptionMessage}
+              </Text>
+            </View>
           </View>
-          <View style={styles.subscriptionInfo}>
-            <Text style={styles.subscriptionPlan}>Free trial</Text>
-            <Text style={styles.subscriptionPrice}>0.0 mmk/month</Text>
-          </View>
-          <View style={styles.subscriptionExpiry}>
-            <Text style={styles.subscriptionExpiryLabel}>Expired on</Text>
-            <Text style={styles.subscriptionExpiryDate}>24/Dec/2025</Text>
-          </View>
-        </View>
+        )}
 
         <PremiumMembershipCard variant="compact" style={styles.proCard} />
       </ScrollView>
@@ -385,6 +473,9 @@ const styles = StyleSheet.create({
   sectionTitleAfterPassword: {
     marginTop: 0,
   },
+  subscriptionLoading: {
+    marginBottom: 8,
+  },
   subscriptionCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -417,6 +508,13 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.55)",
     fontSize: 12,
     lineHeight: 16,
+    ...gillSans("400"),
+  },
+  subscriptionStarted: {
+    marginTop: 4,
+    color: "rgba(255, 255, 255, 0.45)",
+    fontSize: 11,
+    lineHeight: 14,
     ...gillSans("400"),
   },
   subscriptionExpiry: {

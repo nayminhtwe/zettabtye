@@ -4,6 +4,9 @@ import {
   Dimensions,
   findNodeHandle,
   FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -51,6 +54,9 @@ const COUNTRIES = [
 ];
 
 const DEFAULT_COUNTRY_ID = "MM";
+const STATUS_BAR_SPACER_HEIGHT = 52;
+const KEYBOARD_VERTICAL_OFFSET = Platform.OS === "ios" ? STATUS_BAR_SPACER_HEIGHT : 0;
+const SLIDE_KEYBOARD_MAX_HEIGHT = Math.round(Dimensions.get("window").height * 0.22);
 
 export default function OnboardingScreen({
   onContinue,
@@ -73,6 +79,7 @@ export default function OnboardingScreen({
   const [nextFocused, setNextFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
   const [phoneError, setPhoneError] = useState("");
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const selectedCountry =
     COUNTRIES.find((country) => country.id === selectedCountryId) ?? COUNTRIES[0];
@@ -100,6 +107,19 @@ export default function OnboardingScreen({
       setIsCountryDropdownOpen(false);
     }
   }, [isLastSlide]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const goToSlide = (index) => {
     listRef.current?.scrollToIndex({ index, animated: true });
@@ -138,7 +158,12 @@ export default function OnboardingScreen({
   };
 
   const toggleCountryDropdown = () => {
-    setIsCountryDropdownOpen((open) => !open);
+    setIsCountryDropdownOpen((open) => {
+      if (!open) {
+        Keyboard.dismiss();
+      }
+      return !open;
+    });
   };
 
   const getCountryOptionDownTarget = (countryId) => {
@@ -168,51 +193,75 @@ export default function OnboardingScreen({
       undefined
     : findNodeHandle(countrySelectorRef.current) ?? undefined;
 
+  const compactLastSlide = keyboardVisible && isLastSlide;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.statusBarSpacer} />
 
-      <FlatList
-        ref={listRef}
-        data={ONBOARDING_SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
-        onMomentumScrollEnd={(event) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-          setActiveIndex(index);
-        }}
-        onScrollToIndexFailed={({ index }) => {
-          listRef.current?.scrollToOffset({
-            offset: index * SCREEN_WIDTH,
-            animated: false,
-          });
-          setActiveIndex(index);
-        }}
-        renderItem={({ item }) => (
-          <View style={styles.page}>
-            <View style={styles.heroSection}>
-              <OnboardingHeroImage slideId={item.id} />
-            </View>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={Platform.OS === "ios"}
+        keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
+      >
+        <FlatList
+          ref={listRef}
+          style={[styles.slideList, compactLastSlide ? styles.slideListWithKeyboard : null]}
+          data={ONBOARDING_SLIDES}
+          horizontal
+          pagingEnabled
+          scrollEnabled={!compactLastSlide}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(item) => item.id}
+          onMomentumScrollEnd={(event) => {
+            const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+            setActiveIndex(index);
+          }}
+          onScrollToIndexFailed={({ index }) => {
+            listRef.current?.scrollToOffset({
+              offset: index * SCREEN_WIDTH,
+              animated: false,
+            });
+            setActiveIndex(index);
+          }}
+          renderItem={({ item, index }) => {
+            const isPhoneSlide = index === LAST_SLIDE_INDEX;
+            const hideForKeyboard = keyboardVisible && isPhoneSlide;
 
-            <View style={styles.content}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.subtitle}>{item.subtitle}</Text>
-              <Text style={styles.description}>{item.description}</Text>
+            return (
+              <View style={styles.page}>
+                {hideForKeyboard ? null : (
+                  <View style={styles.heroSection}>
+                    <OnboardingHeroImage slideId={item.id} />
+                  </View>
+                )}
 
-              <View style={styles.progressWrapper}>
-                <StepProgressBar
-                  totalSteps={ONBOARDING_SLIDES.length}
-                  currentStep={activeIndex + 1}
-                />
+                <View style={[styles.content, hideForKeyboard ? styles.contentCompact : null]}>
+                  <Text style={[styles.title, hideForKeyboard ? styles.titleCompact : null]}>
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.subtitle, hideForKeyboard ? styles.subtitleCompact : null]}>
+                    {item.subtitle}
+                  </Text>
+                  {hideForKeyboard ? null : (
+                    <Text style={styles.description}>{item.description}</Text>
+                  )}
+
+                  <View style={[styles.progressWrapper, hideForKeyboard ? styles.progressCompact : null]}>
+                    <StepProgressBar
+                      totalSteps={ONBOARDING_SLIDES.length}
+                      currentStep={activeIndex + 1}
+                    />
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
-        )}
-      />
+            );
+          }}
+        />
 
-      <View style={styles.footer}>
+        <View style={[styles.footer, compactLastSlide ? styles.footerWithKeyboard : null]}>
         {isLastSlide ? (
           <>
             <View style={styles.countrySection}>
@@ -320,7 +369,8 @@ export default function OnboardingScreen({
             </Pressable>
           </View>
         )}
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -330,9 +380,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#141218",
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
   statusBarSpacer: {
-    height: 52,
+    height: STATUS_BAR_SPACER_HEIGHT,
     backgroundColor: "#1D1B20",
+  },
+  slideList: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  slideListWithKeyboard: {
+    flexGrow: 0,
+    maxHeight: SLIDE_KEYBOARD_MAX_HEIGHT,
   },
   page: {
     width: SCREEN_WIDTH,
@@ -349,6 +410,9 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     alignItems: "center",
   },
+  contentCompact: {
+    paddingTop: 0,
+  },
   title: {
     width: "100%",
     color: "#FFFFFF",
@@ -357,6 +421,10 @@ const styles = StyleSheet.create({
     lineHeight: 54,
     letterSpacing: 1,
     textAlign: "center",
+  },
+  titleCompact: {
+    fontSize: 22,
+    lineHeight: 30,
   },
   subtitle: {
     width: "100%",
@@ -367,6 +435,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     letterSpacing: 1,
     textAlign: "center",
+  },
+  subtitleCompact: {
+    marginTop: 8,
+    fontSize: 16,
+    lineHeight: 22,
   },
   description: {
     width: "100%",
@@ -382,10 +455,18 @@ const styles = StyleSheet.create({
     marginTop: 24,
     alignItems: "center",
   },
+  progressCompact: {
+    marginTop: 12,
+  },
   footer: {
     paddingHorizontal: 20,
     paddingBottom: 24,
-    marginTop: 16,
+    marginTop: 8,
+    flexShrink: 0,
+  },
+  footerWithKeyboard: {
+    marginTop: 0,
+    paddingBottom: 12,
   },
   footerRow: {
     flexDirection: "row",

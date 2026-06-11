@@ -1,18 +1,19 @@
-const DEFAULT_CATEGORIES = "Sci-fi | Adventure | Family";
-
 export function buildMovieDetail(item = {}) {
-  const movieTitle = item.title || item.label || "1917";
+  const movieTitle = item.title || item.label || "";
   const imdbRating =
     item.imdbRating ||
-    (item.imdb ? String(item.imdb).replace("/10", "").trim() : "8.7");
+    (item.imdb ? String(item.imdb).replace("/10", "").trim() : "");
 
   return {
+    id: item.id ?? null,
     title: movieTitle,
-    image: item.image,
-    categories: item.categories || DEFAULT_CATEGORIES,
-    year: item.year || "2014",
-    duration: item.duration || "01:39:21",
+    image: item.image ?? null,
+    categories: item.categories ?? "",
+    year: item.year ?? "",
+    duration: item.duration ?? "",
     imdbRating,
-    overview: item.overview || "",
+    overview: item.overview ?? "",
+    movieUrl: item.movieUrl ?? null,
+    type: item.type ?? "movie",
   };
 }

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Pressable,
@@ -10,7 +11,19 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { fetchSeriesDetailRequest } from "../store/catalog/actions";
+import {
+  selectSeriesDetail,
+  selectSeriesDetailLoading,
+} from "../store/catalog/selectors";
+import { addFavoriteRequest, removeFavoriteRequest } from "../store/favorites/actions";
+import {
+  selectFavoriteId,
+  selectIsFavorited,
+} from "../store/favorites/selectors";
+import { buildSeriesDetail } from "../utils/seriesDetail";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
@@ -34,20 +47,64 @@ export default function SeriesDetailScreen({
   onPlay,
   onSearchPress,
 }) {
+  const dispatch = useDispatch();
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [watchFocused, setWatchFocused] = useState(false);
   const [saveFocused, setSaveFocused] = useState(false);
   const [heroPlayFocused, setHeroPlayFocused] = useState(false);
   const [overviewDetailsExpanded, setOverviewDetailsExpanded] = useState(false);
+  const seriesId = series?.id;
+  const fetchedSeries = useSelector((state) => selectSeriesDetail(state, seriesId));
+  const detailLoading = useSelector((state) => selectSeriesDetailLoading(state, seriesId));
+  const isFavorited = useSelector((state) =>
+    selectIsFavorited(state, "series", seriesId),
+  );
+  const favoriteId = useSelector((state) => selectFavoriteId(state, "series", seriesId));
+
+  const displaySeries = useMemo(() => {
+    if (fetchedSeries) {
+      return buildSeriesDetail(fetchedSeries);
+    }
+
+    return buildSeriesDetail(series);
+  }, [fetchedSeries, series]);
+
   const [selectedSeasonId, setSelectedSeasonId] = useState(
-    series?.seasonsList?.[0]?.id ?? null,
+    displaySeries?.seasonsList?.[0]?.id ?? null,
   );
 
+  useEffect(() => {
+    if (seriesId) {
+      dispatch(fetchSeriesDetailRequest(seriesId));
+    }
+  }, [dispatch, seriesId]);
+
+  useEffect(() => {
+    if (displaySeries?.seasonsList?.[0]?.id && !selectedSeasonId) {
+      setSelectedSeasonId(displaySeries.seasonsList[0].id);
+    }
+  }, [displaySeries, selectedSeasonId]);
+
   const selectedSeason = useMemo(
-    () => series?.seasonsList?.find((season) => season.id === selectedSeasonId) ?? series?.seasonsList?.[0],
-    [series, selectedSeasonId],
+    () =>
+      displaySeries?.seasonsList?.find((season) => season.id === selectedSeasonId) ??
+      displaySeries?.seasonsList?.[0],
+    [displaySeries, selectedSeasonId],
   );
+
+  const handleToggleFavorite = () => {
+    if (!seriesId) {
+      return;
+    }
+
+    if (isFavorited && favoriteId) {
+      dispatch(removeFavoriteRequest(favoriteId));
+      return;
+    }
+
+    dispatch(addFavoriteRequest({ favoritableType: "series", favoritableId: seriesId }));
+  };
 
   if (!series) {
     return null;
@@ -66,7 +123,7 @@ export default function SeriesDetailScreen({
         </Pressable>
 
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {series.title}
+          {displaySeries.title}
         </Text>
 
         <Pressable
@@ -84,15 +141,19 @@ export default function SeriesDetailScreen({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {detailLoading && !fetchedSeries ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
+
         <View style={styles.heroWrapper}>
-          {series.image ? (
-            <Image source={series.image} resizeMode="cover" style={styles.heroImage} />
+          {displaySeries.image ? (
+            <Image source={displaySeries.image} resizeMode="cover" style={styles.heroImage} />
           ) : (
             <View style={[styles.heroImage, styles.heroPlaceholder]} />
           )}
           <Pressable
             style={styles.playButtonOverlay}
-            onPress={onPlay}
+            onPress={() => onPlay?.(displaySeries)}
             onFocus={() => setHeroPlayFocused(true)}
             onBlur={() => setHeroPlayFocused(false)}
           >
@@ -102,29 +163,29 @@ export default function SeriesDetailScreen({
           </Pressable>
         </View>
 
-        <Text style={styles.categories}>{series.categories}</Text>
+        <Text style={styles.categories}>{displaySeries.categories}</Text>
 
-        <Text style={styles.seriesTitle}>{series.title}</Text>
+        <Text style={styles.seriesTitle}>{displaySeries.title}</Text>
 
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <Ionicons name="star" size={14} color="#F2C94C" />
-            <Text style={styles.metaText}>IMDB {series.imdbRating}/10</Text>
+            <Text style={styles.metaText}>IMDB {displaySeries.imdbRating}/10</Text>
           </View>
           <View style={styles.metaItem}>
             <Ionicons name="time-outline" size={14} color="#FFFFFF" />
-            <Text style={styles.metaText}>{series.seasons}</Text>
+            <Text style={styles.metaText}>{displaySeries.seasons}</Text>
           </View>
           <View style={styles.metaItem}>
             <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
-            <Text style={styles.metaText}>{series.year}</Text>
+            <Text style={styles.metaText}>{displaySeries.year}</Text>
           </View>
         </View>
 
         <View style={styles.actionRow}>
           <Pressable
             style={[styles.watchNowButton, watchFocused ? styles.watchNowButtonFocused : null]}
-            onPress={onPlay}
+            onPress={() => onPlay?.(displaySeries)}
             onFocus={() => setWatchFocused(true)}
             onBlur={() => setWatchFocused(false)}
           >
@@ -133,15 +194,18 @@ export default function SeriesDetailScreen({
 
           <Pressable
             style={[styles.saveLaterButton, saveFocused ? styles.saveLaterButtonFocused : null]}
+            onPress={handleToggleFavorite}
             onFocus={() => setSaveFocused(true)}
             onBlur={() => setSaveFocused(false)}
           >
-            <Text style={styles.saveLaterText}>Save for later</Text>
+            <Text style={styles.saveLaterText}>
+              {isFavorited ? "Saved" : "Save for later"}
+            </Text>
           </Pressable>
         </View>
 
         <Text style={styles.overviewHeading}>Overview</Text>
-        <Text style={styles.overviewBody}>{series.overview}</Text>
+        <Text style={styles.overviewBody}>{displaySeries.overview}</Text>
 
         <View style={styles.overviewDetailsSection}>
           <Pressable
@@ -157,9 +221,9 @@ export default function SeriesDetailScreen({
           </Pressable>
           {overviewDetailsExpanded ? (
             <View style={styles.overviewDetailsContent}>
-              <OverviewDetailField label="Directed by:" value={series.director} />
-              <OverviewDetailField label="Cast:" value={series.cast} />
-              <OverviewDetailField label="Awards:" value={series.awards} />
+              <OverviewDetailField label="Directed by:" value={displaySeries.director} />
+              <OverviewDetailField label="Cast:" value={displaySeries.cast} />
+              <OverviewDetailField label="Awards:" value={displaySeries.awards} />
             </View>
           ) : null}
         </View>
@@ -361,6 +425,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     ...gillSans("600"),
+  },
+  loadingIndicator: {
+    marginVertical: 16,
   },
   overviewHeading: {
     marginTop: 24,

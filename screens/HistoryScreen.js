@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Pressable,
@@ -12,13 +13,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { fetchHomeRequest } from "../store/catalog/actions";
+import { selectAuthAuthenticated } from "../store/auth/selectors";
+import { fetchFavoritesRequest } from "../store/favorites/actions";
 import {
-  filterHistorySections,
-  HISTORY_FEATURED,
-  HISTORY_FILTER_OPTIONS,
-  HISTORY_SECTIONS,
-} from "../utils/history";
+  selectFavoriteHistorySections,
+  selectFavoriteMediaItems,
+  selectFavoritesLoading,
+} from "../store/favorites/selectors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
@@ -104,21 +108,24 @@ export default function HistoryScreen({
   onContinuePress,
   onItemPress,
 }) {
+  const dispatch = useDispatch();
+  const isAuthenticated = useSelector(selectAuthAuthenticated);
+  const historySections = useSelector(selectFavoriteHistorySections);
+  const favoriteItems = useSelector(selectFavoriteMediaItems);
+  const favoritesLoading = useSelector(selectFavoritesLoading);
+  const featuredItem = favoriteItems[0] ?? null;
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [filterFocused, setFilterFocused] = useState(false);
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [activeFilterId, setActiveFilterId] = useState(null);
 
-  const filteredSections = useMemo(
-    () => filterHistorySections(HISTORY_SECTIONS, activeFilterId),
-    [activeFilterId],
-  );
+  useEffect(() => {
+    dispatch(fetchHomeRequest());
+  }, [dispatch]);
 
-  const activeFilterLabel =
-    HISTORY_FILTER_OPTIONS.find((option) => option.id === activeFilterId)?.label ?? "Filter";
-
-  const closeFilterMenu = () => setFilterMenuOpen(false);
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchFavoritesRequest());
+    }
+  }, [dispatch, isAuthenticated]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
@@ -148,51 +155,20 @@ export default function HistoryScreen({
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={closeFilterMenu}
       >
-        <FeaturedHistoryCard item={HISTORY_FEATURED} onContinuePress={onContinuePress} />
+        {favoritesLoading && favoriteItems.length === 0 ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
+        ) : null}
 
-        <View style={styles.filterBar}>
-          <Text style={styles.dateLabel}>Date</Text>
-          <View style={styles.filterWrap}>
-            <Pressable
-              style={[styles.filterButton, filterFocused ? styles.filterButtonFocused : null]}
-              onPress={() => setFilterMenuOpen((open) => !open)}
-              onFocus={() => setFilterFocused(true)}
-              onBlur={() => setFilterFocused(false)}
-            >
-              <Text style={styles.filterButtonText}>{activeFilterLabel}</Text>
-              <Ionicons name="filter" size={18} color="#FFFFFF" />
-            </Pressable>
-            {filterMenuOpen ? (
-              <View style={styles.filterMenu}>
-                {HISTORY_FILTER_OPTIONS.map((option) => (
-                  <Pressable
-                    key={option.id}
-                    style={styles.filterMenuItem}
-                    onPress={() => {
-                      setActiveFilterId((current) =>
-                        current === option.id ? null : option.id,
-                      );
-                      closeFilterMenu();
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.filterMenuItemText,
-                        activeFilterId === option.id ? styles.filterMenuItemTextActive : null,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </View>
+        {featuredItem ? (
+          <FeaturedHistoryCard item={featuredItem} onContinuePress={onContinuePress} />
+        ) : null}
 
-        {filteredSections.map((section) => (
+        {historySections.length === 0 && !favoritesLoading ? (
+          <Text style={styles.emptyText}>No saved items yet.</Text>
+        ) : null}
+
+        {historySections.map((section) => (
           <View key={section.id} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.label}</Text>
             {section.items.map((item) => (
@@ -206,10 +182,6 @@ export default function HistoryScreen({
           </View>
         ))}
       </ScrollView>
-
-      {filterMenuOpen ? (
-        <Pressable style={styles.filterBackdrop} onPress={closeFilterMenu} />
-      ) : null}
     </SafeAreaView>
   );
 }
@@ -256,6 +228,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
     paddingBottom: 32,
+  },
+  loadingIndicator: {
+    marginVertical: 24,
+  },
+  emptyText: {
+    color: "#8D93A4",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 24,
+    ...gillSans("400"),
   },
   featuredCard: {
     width: FEATURED_WIDTH,
