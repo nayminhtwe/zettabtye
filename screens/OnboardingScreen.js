@@ -14,7 +14,7 @@ import FloatingPhoneInput from "../components/FloatingPhoneInput";
 import OnboardingHeroImage from "../components/OnboardingHeroImage";
 import StepProgressBar from "../components/StepProgressBar";
 import { gillSans } from "../constants/fonts";
-import { DUMMY_PHONES, getPhoneValidationError } from "../utils/phoneAuth";
+import { getPhoneValidationError } from "../utils/phoneAuth";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -126,7 +126,7 @@ export default function OnboardingScreen({
       return;
     }
 
-    onContinue?.(phoneNumber);
+    onContinue?.(phoneNumber, selectedCountryId);
   };
 
   const selectCountry = (countryId) => {
@@ -215,11 +215,6 @@ export default function OnboardingScreen({
       <View style={styles.footer}>
         {isLastSlide ? (
           <>
-            <Text style={styles.testHint}>
-              Test new user: {DUMMY_PHONES.NEW_USER} · Returning:{" "}
-              {DUMMY_PHONES.EXISTING_USER}
-            </Text>
-
             <View style={styles.countrySection}>
               <Pressable
                 ref={countrySelectorRef}
@@ -272,6 +267,7 @@ export default function OnboardingScreen({
             <View>
               <FloatingPhoneInput
                 inputRef={phoneInputRef}
+                autoFocus={isLastSlide}
                 value={phoneNumber}
                 onChangeText={(value) => {
                   setPhoneNumber(value);
@@ -286,6 +282,7 @@ export default function OnboardingScreen({
               />
               {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
             </View>
+
             <Pressable
               ref={continueRef}
               style={[styles.continueButton, continueFocused ? styles.continueButtonFocused : null]}
@@ -433,14 +430,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     ...gillSans("600"),
     textDecorationLine: "underline",
-    textAlign: "center",
-  },
-  testHint: {
-    marginBottom: 12,
-    color: "#8E8E8E",
-    fontSize: 12,
-    lineHeight: 18,
-    ...gillSans("400"),
     textAlign: "center",
   },
   countrySection: {

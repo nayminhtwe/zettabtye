@@ -1,0 +1,12 @@
+export const selectAuth = (state) => state.auth;
+export const selectAuthBootstrapped = (state) => state.auth.bootstrapped;
+export const selectAuthLoading = (state) => state.auth.isLoading;
+export const selectAuthAuthenticated = (state) => state.auth.isAuthenticated;
+export const selectAuthOtpRequired = (state) => state.auth.otpRequired;
+export const selectAuthPasswordRequired = (state) => state.auth.passwordRequired;
+export const selectAuthNeedsPasswordSetup = (state) => state.auth.needsPasswordSetup;
+export const selectAuthToken = (state) => state.auth.token;
+export const selectAuthUser = (state) => state.auth.user;
+export const selectAuthPhone = (state) => state.auth.phone;
+export const selectAuthError = (state) => state.auth.error;
+export const selectAuthUserStatus = (state) => state.auth.userStatus;

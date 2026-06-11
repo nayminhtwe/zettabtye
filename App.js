@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { useAppFonts } from "./hooks/useAppFonts";
 import HomeScreen from "./screens/HomeScreen";
 import MovieDetailScreen from "./screens/MovieDetailScreen";
@@ -27,15 +28,26 @@ import OnboardingScreen from "./screens/OnboardingScreen";
 import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
 import OTPScreen from "./screens/OTPScreen";
 import PasswordScreen from "./screens/PasswordScreen";
+import CreatePasswordScreen from "./screens/CreatePasswordScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import SplashScreen from "./screens/SplashScreen";
-import { isFirstTimeUser } from "./utils/phoneAuth";
+import { authInitiateRequest, authLogoutRequest, bootstrapRequest } from "./store/auth/actions";
+import {
+  selectAuthAuthenticated,
+  selectAuthBootstrapped,
+  selectAuthNeedsPasswordSetup,
+  selectAuthOtpRequired,
+  selectAuthPasswordRequired,
+  selectAuthPhone,
+  selectAuthUser,
+} from "./store/auth/selectors";
 
 const SCREEN = {
   SPLASH: "splash",
   ONBOARDING: "onboarding",
   OTP: "otp",
   PASSWORD: "password",
+  CREATE_PASSWORD: "create_password",
   FORGOT_PASSWORD_PHONE: "forgot_password_phone",
   RESET_PASSWORD: "reset_password",
   HOME: "home",
@@ -59,9 +71,20 @@ const SCREEN = {
 
 export default function App() {
   const { fontsLoaded } = useAppFonts();
+  const dispatch = useDispatch();
+  const bootstrapped = useSelector(selectAuthBootstrapped);
+  const isAuthenticated = useSelector(selectAuthAuthenticated);
+  const otpRequired = useSelector(selectAuthOtpRequired);
+  const passwordRequired = useSelector(selectAuthPasswordRequired);
+  const needsPasswordSetup = useSelector(selectAuthNeedsPasswordSetup);
+  const authUser = useSelector(selectAuthUser);
+  const authPhone = useSelector(selectAuthPhone);
+
   const [currentPage, setCurrentPage] = useState(SCREEN.SPLASH);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [splashFinished, setSplashFinished] = useState(false);
   const [resumeOnboardingAtPhone, setResumeOnboardingAtPhone] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedCountryId, setSelectedCountryId] = useState("MM");
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [selectedSeries, setSelectedSeries] = useState(null);
   const [seriesDetailReturnScreen, setSeriesDetailReturnScreen] = useState(SCREEN.SERIES);
@@ -80,6 +103,54 @@ export default function App() {
   const [accountUsername, setAccountUsername] = useState("");
   const [searchReturnScreen, setSearchReturnScreen] = useState(SCREEN.HOME);
   const [recentSearches, setRecentSearches] = useState(DEFAULT_RECENT_SEARCHES);
+
+  const displayPhone = authUser?.phone ?? authPhone ?? "";
+
+  useEffect(() => {
+    dispatch(bootstrapRequest());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!bootstrapped) return;
+
+    // New user just verified OTP — needs to create a password
+    if (needsPasswordSetup) {
+      setCurrentPage(SCREEN.CREATE_PASSWORD);
+      return;
+    }
+
+    // Fully authenticated and no pending setup
+    if (isAuthenticated) {
+      if (splashFinished || currentPage !== SCREEN.SPLASH) {
+        setCurrentPage(SCREEN.HOME);
+      }
+      return;
+    }
+
+    // Route to appropriate auth screen after splash
+    if (splashFinished || currentPage !== SCREEN.SPLASH) {
+      if (otpRequired) {
+        setCurrentPage(SCREEN.OTP);
+        return;
+      }
+      if (passwordRequired) {
+        setCurrentPage(SCREEN.PASSWORD);
+        return;
+      }
+    }
+
+    if (splashFinished && currentPage === SCREEN.SPLASH) {
+      setCurrentPage(SCREEN.ONBOARDING);
+    }
+  }, [
+    bootstrapped,
+    splashFinished,
+    isAuthenticated,
+    otpRequired,
+    passwordRequired,
+    needsPasswordSetup,
+    currentPage,
+  ]);
 
   const openSearch = (returnScreen) => {
     setSearchReturnScreen(returnScreen);
@@ -155,7 +226,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    dispatch(authLogoutRequest());
     setPhoneNumber("");
+    setSelectedCountryId("MM");
     setResumeOnboardingAtPhone(false);
     setSelectedMovie(null);
     setSelectedSeries(null);
@@ -175,7 +248,8 @@ export default function App() {
     setFootballReturnScreen(SCREEN.HOME);
     setFootballDetailReturnScreen(SCREEN.HOME);
     setSearchReturnScreen(SCREEN.HOME);
-    setCurrentPage(SCREEN.SPLASH);
+    setSplashFinished(true);
+    setCurrentPage(SCREEN.ONBOARDING);
   };
 
   const screenComponent = useMemo(() => {
@@ -289,15 +363,15 @@ export default function App() {
       ),
       [SCREEN.GET_HELP]: (
         <GetHelpScreen
-          phoneNumber={phoneNumber}
+          phoneNumber={displayPhone}
           onBack={() => setCurrentPage(SCREEN.HOME)}
           onSearchPress={() => openSearch(SCREEN.GET_HELP)}
         />
       ),
       [SCREEN.PROFILE]: (
         <ProfileScreen
-          phoneNumber={phoneNumber}
-          username={accountUsername}
+          phoneNumber={displayPhone}
+          username={authUser?.name ?? accountUsername}
           accountPassword={accountPassword}
           passwordUpdateSuccess={passwordUpdateSuccess}
           phoneUpdateSuccess={phoneUpdateSuccess}
@@ -321,7 +395,7 @@ export default function App() {
       ),
       [SCREEN.EDIT_PHONE_NUMBER]: (
         <EditPhoneNumberScreen
-          phoneNumber={phoneNumber}
+          phoneNumber={displayPhone}
           onBack={() => setCurrentPage(SCREEN.PROFILE)}
           onSearchPress={() => openSearch(SCREEN.EDIT_PHONE_NUMBER)}
           onSendOtp={(newPhone) => {
@@ -336,7 +410,6 @@ export default function App() {
           onBack={() => setCurrentPage(SCREEN.EDIT_PHONE_NUMBER)}
           onSearchPress={() => openSearch(SCREEN.EDIT_PHONE_OTP)}
           onVerified={() => {
-            setPhoneNumber(pendingPhoneNumber);
             setPhoneUpdateSuccess(true);
             setPendingPhoneNumber("");
             setCurrentPage(SCREEN.PROFILE);
@@ -395,32 +468,25 @@ export default function App() {
         />
       ),
       [SCREEN.OTP]: (
-        <OTPScreen
-          phoneNumber={phoneNumber}
-          onBack={goToOnboardingPhoneStep}
-          onContinue={() => setCurrentPage(SCREEN.HOME)}
-        />
+        <OTPScreen onBack={goToOnboardingPhoneStep} />
       ),
       [SCREEN.PASSWORD]: (
         <PasswordScreen
           phoneNumber={phoneNumber}
+          countryId={selectedCountryId}
           onBack={goToOnboardingPhoneStep}
-          onContinue={() => setCurrentPage(SCREEN.HOME)}
           onForgotPassword={() => setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE)}
         />
       ),
       [SCREEN.FORGOT_PASSWORD_PHONE]: (
         <ForgotPasswordPhoneScreen
           onBack={() => setCurrentPage(SCREEN.PASSWORD)}
-          onContinue={(value) => {
-            setPhoneNumber(value);
-            setCurrentPage(SCREEN.RESET_PASSWORD);
-          }}
+          onContinue={() => setCurrentPage(SCREEN.RESET_PASSWORD)}
         />
       ),
       [SCREEN.RESET_PASSWORD]: (
         <ResetPasswordScreen
-          phoneNumber={phoneNumber}
+          phoneNumber={displayPhone}
           onBack={() => setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE)}
           onContinue={() => setCurrentPage(SCREEN.HOME)}
         />
@@ -430,25 +496,27 @@ export default function App() {
           key={resumeOnboardingAtPhone ? `phone-${phoneNumber}` : "start"}
           initialSlideIndex={resumeOnboardingAtPhone ? 2 : 0}
           initialPhoneNumber={resumeOnboardingAtPhone ? phoneNumber : ""}
-          onContinue={(value) => {
+          onContinue={(phone, countryId) => {
             setResumeOnboardingAtPhone(false);
-            setPhoneNumber(value);
-            setCurrentPage(isFirstTimeUser(value) ? SCREEN.OTP : SCREEN.PASSWORD);
+            setPhoneNumber(phone);
+            setSelectedCountryId(countryId);
+            dispatch(authInitiateRequest({ phone, countryId }));
           }}
         />
       ),
+      [SCREEN.CREATE_PASSWORD]: <CreatePasswordScreen />,
       [SCREEN.SPLASH]: (
         <SplashScreen
           onFinish={() => {
             setResumeOnboardingAtPhone(false);
-            setCurrentPage(SCREEN.ONBOARDING);
+            setSplashFinished(true);
           }}
         />
       ),
     };
 
     return screens[currentPage] ?? screens[SCREEN.SPLASH];
-  }, [currentPage, phoneNumber, resumeOnboardingAtPhone, selectedMovie, selectedSeries, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, seriesDetailReturnScreen, seriesReturnScreen, moviesReturnScreen, moviesInitialCategory, movieDetailReturnScreen, moviePlayReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
+  }, [currentPage, phoneNumber, selectedCountryId, displayPhone, authUser, resumeOnboardingAtPhone, selectedMovie, selectedSeries, selectedFootballMatch, footballReturnScreen, footballDetailReturnScreen, seriesDetailReturnScreen, seriesReturnScreen, moviesReturnScreen, moviesInitialCategory, movieDetailReturnScreen, moviePlayReturnScreen, accountPassword, passwordUpdateSuccess, pendingPhoneNumber, phoneUpdateSuccess, accountUsername, searchReturnScreen, recentSearches]);
 
   if (!fontsLoaded) {
     return (

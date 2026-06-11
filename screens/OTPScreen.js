@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   findNodeHandle,
   Pressable,
   SafeAreaView,
@@ -9,75 +10,62 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
+import {
+  authResendOtpRequest,
+  authVerifyOtpRequest,
+} from "../store/auth/actions";
+import {
+  selectAuthError,
+  selectAuthLoading,
+  selectAuthPhone,
+} from "../store/auth/selectors";
+import { maskPhone } from "../utils/phoneAuth";
 
-function maskPhone(phone) {
-  if (!phone) {
-    return "+95987654321";
-  }
+const OTP_LENGTH = 6;
 
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) {
-    return "+95987654321";
-  }
+export default function OTPScreen({ onBack }) {
+  const dispatch = useDispatch();
+  const authPhone = useSelector(selectAuthPhone);
+  const isLoading = useSelector(selectAuthLoading);
+  const authError = useSelector(selectAuthError);
 
-  if (digits.startsWith("09")) {
-    return `+95${digits.slice(1)}`;
-  }
-
-  if (digits.startsWith("95")) {
-    return `+${digits}`;
-  }
-
-  return `+95${digits}`;
-}
-
-const OTP_LENGTH = 4;
-
-export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
   const [otp, setOtp] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [backFocused, setBackFocused] = useState(false);
   const [otpFocused, setOtpFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
+  const [resendFocused, setResendFocused] = useState(false);
   const [otpError, setOtpError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
   const backRef = useRef(null);
   const otpInputRef = useRef(null);
-  const passwordInputRef = useRef(null);
-  const confirmInputRef = useRef(null);
+  const resendRef = useRef(null);
   const continueButtonRef = useRef(null);
 
-  const normalizedPhone = useMemo(() => maskPhone(phoneNumber), [phoneNumber]);
+  const normalizedPhone = useMemo(() => maskPhone(authPhone), [authPhone]);
 
   const otpDigits = useMemo(() => {
     const chars = otp.split("");
     return Array.from({ length: OTP_LENGTH }, (_, index) => chars[index] ?? "");
   }, [otp]);
 
+  const displayError = otpError || authError;
+
   const handleContinuePress = () => {
-    const isOtpEmpty = otp.trim().length === 0;
-    const isPasswordEmpty = password.trim().length === 0;
-    const isConfirmPasswordEmpty = confirmPassword.trim().length === 0;
-
-    setOtpError(isOtpEmpty ? "Please enter OTP code" : "");
-    setPasswordError(isPasswordEmpty ? "Please enter your password" : "");
-    setConfirmPasswordError(
-      isConfirmPasswordEmpty ? "Please confirm your password" : "",
-    );
-
-    if (isOtpEmpty || isPasswordEmpty || isConfirmPasswordEmpty) {
+    if (!/^\d{6}$/.test(otp.trim())) {
+      setOtpError("Please enter the 6-digit OTP code");
       return;
     }
 
-    onContinue?.();
+    setOtpError("");
+    dispatch(authVerifyOtpRequest(otp.trim()));
+  };
+
+  const handleResendPress = () => {
+    setOtpError("");
+    dispatch(authResendOtpRequest());
   };
 
   return (
@@ -99,11 +87,24 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
 
       <View style={styles.content}>
         <Text style={styles.message}>
-          We sent an OTP code to your new phone number {normalizedPhone}.
+          We sent a 6-digit OTP code to {normalizedPhone || "your phone number"}.
         </Text>
-        <Text style={styles.helpText}>Didn&apos;t receive a code?</Text>
 
-        <View style={styles.otpSection}>
+        <Pressable
+          ref={resendRef}
+          onPress={handleResendPress}
+          disabled={isLoading}
+          onFocus={() => setResendFocused(true)}
+          onBlur={() => setResendFocused(false)}
+          nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
+          nextFocusDown={findNodeHandle(otpInputRef.current) ?? undefined}
+        >
+          <Text style={[styles.helpText, resendFocused ? styles.helpTextFocused : null]}>
+            Didn&apos;t receive a code? Resend
+          </Text>
+        </Pressable>
+
+        <Pressable style={styles.otpSection} onPress={() => otpInputRef.current?.focus()}>
           <View style={styles.otpRow}>
             {otpDigits.map((digit, index) => (
               <View
@@ -112,7 +113,7 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
                   styles.otpBox,
                   otpFocused ? styles.otpBoxActiveRow : null,
                   otpFocused && index === otp.length ? styles.otpBoxFocused : null,
-                  otpError ? styles.otpBoxError : null,
+                  displayError ? styles.otpBoxError : null,
                 ]}
               >
                 <Text style={styles.otpDigit}>{digit}</Text>
@@ -128,112 +129,40 @@ export default function OTPScreen({ phoneNumber, onBack, onContinue }) {
                   setOtpError("");
                 }
               }}
-            keyboardType="number-pad"
-            maxLength={OTP_LENGTH}
-            showSoftInputOnFocus
-            caretHidden
-            nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
-            nextFocusDown={findNodeHandle(passwordInputRef.current) ?? undefined}
-            onFocus={() => setOtpFocused(true)}
-            onBlur={() => setOtpFocused(false)}
-            />
-          </View>
-          {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
-        </View>
-
-        <View style={styles.fieldSection}>
-          <View
-            style={[
-              styles.inputContainer,
-              passwordFocused ? styles.inputContainerFocused : null,
-              passwordError ? styles.inputContainerError : null,
-            ]}
-          >
-            <TextInput
-              ref={passwordInputRef}
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor="#A7A7A7"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={(value) => {
-                setPassword(value);
-                if (passwordError) {
-                  setPasswordError("");
-                }
-              }}
-              nextFocusUp={findNodeHandle(otpInputRef.current) ?? undefined}
-              nextFocusDown={findNodeHandle(confirmInputRef.current) ?? undefined}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-            />
-          <Pressable
-            style={styles.eyeButton}
-            onPress={() => setShowPassword((prev) => !prev)}
-          >
-            <Ionicons
-              name={showPassword ? "eye-off" : "eye"}
-              size={20}
-              color="#D2D2D2"
-            />
-          </Pressable>
-          </View>
-          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-        </View>
-
-        <View style={styles.fieldSection}>
-          <View
-            style={[
-              styles.inputContainer,
-              confirmPasswordFocused ? styles.inputContainerFocused : null,
-              confirmPasswordError ? styles.inputContainerError : null,
-            ]}
-          >
-            <TextInput
-              ref={confirmInputRef}
-              style={styles.input}
-              placeholder="Confirm your password"
-              placeholderTextColor="#A7A7A7"
-              secureTextEntry={!showConfirmPassword}
-              value={confirmPassword}
-              onChangeText={(value) => {
-                setConfirmPassword(value);
-                if (confirmPasswordError) {
-                  setConfirmPasswordError("");
-                }
-              }}
-              nextFocusUp={findNodeHandle(passwordInputRef.current) ?? undefined}
+              keyboardType="number-pad"
+              maxLength={OTP_LENGTH}
+              showSoftInputOnFocus
+              caretHidden
+              editable={!isLoading}
+              nextFocusUp={findNodeHandle(resendRef.current) ?? findNodeHandle(backRef.current) ?? undefined}
               nextFocusDown={findNodeHandle(continueButtonRef.current) ?? undefined}
-              onFocus={() => setConfirmPasswordFocused(true)}
-              onBlur={() => setConfirmPasswordFocused(false)}
+              onFocus={() => setOtpFocused(true)}
+              onBlur={() => setOtpFocused(false)}
             />
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() => setShowConfirmPassword((prev) => !prev)}
-            >
-              <Ionicons
-                name={showConfirmPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#D2D2D2"
-              />
-            </Pressable>
           </View>
-          {confirmPasswordError ? (
-            <Text style={styles.errorText}>{confirmPasswordError}</Text>
-          ) : null}
-        </View>
+          {displayError ? <Text style={styles.errorText}>{displayError}</Text> : null}
+        </Pressable>
 
         <Pressable
           ref={continueButtonRef}
-          style={[styles.continueButton, continueFocused ? styles.continueButtonFocused : null]}
-          nextFocusUp={findNodeHandle(confirmInputRef.current) ?? undefined}
+          style={[
+            styles.continueButton,
+            continueFocused ? styles.continueButtonFocused : null,
+            isLoading ? styles.continueButtonDisabled : null,
+          ]}
+          disabled={isLoading}
+          nextFocusUp={findNodeHandle(otpInputRef.current) ?? undefined}
           onFocus={() => setContinueFocused(true)}
           onBlur={() => setContinueFocused(false)}
           onPress={handleContinuePress}
         >
-          <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
-            Set new Password
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color="#D2D2D2" />
+          ) : (
+            <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
+              Verify and Continue
+            </Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -263,10 +192,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.15,
     textAlign: "center",
-    // fontFamily: "Gill Sans",
   },
   helpText: {
-    marginTop: 4,
+    marginTop: 12,
     color: "#8E8E8E",
     ...gillSans("400"),
     fontSize: 16,
@@ -274,26 +202,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     textAlign: "center",
     textDecorationLine: "underline",
-    textDecorationStyle: "solid",
-    textDecorationOffset: 16,
-    textDecorationThickness: 0,
+  },
+  helpTextFocused: {
+    color: "#FF5C4D",
   },
   otpSection: {
-    marginTop: 52,
-  },
-  fieldSection: {
-    marginTop: 24,
+    marginTop: 40,
   },
   otpRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 24,
+    gap: 10,
     alignSelf: "center",
+    flexWrap: "wrap",
+    maxWidth: 360,
   },
   otpBox: {
-    width: 72,
-    height: 72,
+    width: 48,
+    height: 56,
     backgroundColor: "#1A1A1A",
     borderBottomWidth: 1,
     borderBottomColor: "#4E4E4E",
@@ -324,12 +251,13 @@ const styles = StyleSheet.create({
     color: "#E71809",
     fontSize: 14,
     lineHeight: 20,
+    textAlign: "center",
     ...gillSans("400"),
   },
   otpDigit: {
     color: "#D2D2D2",
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 24,
     ...gillSans("600"),
     textAlign: "center",
   },
@@ -338,52 +266,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: 72,
+    height: 56,
     opacity: 0,
     color: "transparent",
   },
-  inputContainer: {
-    minHeight: 64,
-    paddingTop: 4,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#4A4A4A",
-    backgroundColor: "#1A1A1A",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-  },
-  inputContainerFocused: {
-    backgroundColor: "#FF3B301A",
-    borderBottomWidth: 3,
-    borderBottomColor: "#FF5C4D",
-  },
-  inputContainerError: {
-    borderBottomWidth: 3,
-    borderBottomColor: "#E71809",
-    backgroundColor: "rgba(231, 24, 9, 0.15)",
-  },
-  input: {
-    flex: 1,
-    paddingTop: 4,
-    paddingRight: 8,
-    paddingBottom: 4,
-    paddingLeft: 8,
-    color: "#D2D2D2",
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0,
-    ...gillSans("400"),
-    backgroundColor: "transparent",
-  },
-  eyeButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   continueButton: {
-    marginTop: 24,
+    marginTop: 32,
     height: 48,
     borderRadius: 8,
     borderWidth: 1,
@@ -392,15 +280,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  continueButtonDisabled: {
+    opacity: 0.7,
+  },
   continueButtonFocused: {
     borderWidth: 3,
     borderColor: "#FF5C4D",
     backgroundColor: "#FFFFFF",
-    shadowColor: "#FF5C4D",
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
   },
   continueText: {
     color: "#D2D2D2",

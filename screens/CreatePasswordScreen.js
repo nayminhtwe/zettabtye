@@ -14,41 +14,51 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
-import { authContinueRequest } from "../store/auth/actions";
+import { authSetPasswordRequest } from "../store/auth/actions";
 import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 
-export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgotPassword }) {
+export default function CreatePasswordScreen() {
   const dispatch = useDispatch();
   const isLoading = useSelector(selectAuthLoading);
   const authError = useSelector(selectAuthError);
 
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [backFocused, setBackFocused] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [forgotPasswordFocused, setForgotPasswordFocused] = useState(false);
+  const [confirmFocused, setConfirmFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
 
-  const backRef = useRef(null);
   const passwordInputRef = useRef(null);
-  const forgotPasswordRef = useRef(null);
+  const confirmInputRef = useRef(null);
   const continueRef = useRef(null);
+  const dummyBackRef = useRef(null);
+
+  const handleContinue = () => {
+    if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+    setPasswordError("");
+    dispatch(authSetPasswordRequest(password));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.statusBarSpacer} />
 
       <ScreenHeader
-        title="Login"
-        backRef={backRef}
-        onBack={onBack}
-        isBackFocused={backFocused}
-        backFocusProps={{
-          onFocus: () => setBackFocused(true),
-          onBlur: () => setBackFocused(false),
-          nextFocusDown: findNodeHandle(passwordInputRef.current) ?? undefined,
-        }}
+        title="Create Password"
+        backRef={dummyBackRef}
+        onBack={null}
+        isBackFocused={false}
+        backFocusProps={{}}
       />
 
       <ScrollView
@@ -56,61 +66,67 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Enter Your Password</Text>
+        <Text style={styles.subtitle}>
+          Create a password for your account so you can log in next time.
+        </Text>
 
-        <View style={styles.passwordSection}>
+        <View style={styles.fieldSection}>
           <View style={[styles.inputContainer, passwordFocused ? styles.inputFocused : null]}>
             <TextInput
               ref={passwordInputRef}
               style={styles.input}
-              placeholder="Enter your password"
+              placeholder="Create password"
               placeholderTextColor="#A7A7A7"
               secureTextEntry={!showPassword}
               showSoftInputOnFocus
               value={password}
               editable={!isLoading}
-              onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(""); }}
-              nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
-              nextFocusDown={findNodeHandle(forgotPasswordRef.current) ?? undefined}
+              onChangeText={(v) => {
+                setPassword(v);
+                if (passwordError) setPasswordError("");
+              }}
+              nextFocusDown={findNodeHandle(confirmInputRef.current) ?? undefined}
               onFocus={() => setPasswordFocused(true)}
               onBlur={() => setPasswordFocused(false)}
             />
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() => setShowPassword((prev) => !prev)}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#D2D2D2"
-              />
+            <Pressable style={styles.eyeButton} onPress={() => setShowPassword((p) => !p)}>
+              <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#D2D2D2" />
             </Pressable>
           </View>
-          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-          <Pressable
-            ref={forgotPasswordRef}
-            style={[
-              styles.forgotPasswordButton,
-              forgotPasswordFocused ? styles.forgotPasswordButtonFocused : null,
-            ]}
-            onPress={onForgotPassword}
-            nextFocusUp={findNodeHandle(passwordInputRef.current) ?? undefined}
-            nextFocusDown={findNodeHandle(continueRef.current) ?? undefined}
-            onFocus={() => setForgotPasswordFocused(true)}
-            onBlur={() => setForgotPasswordFocused(false)}
-          >
-            <Text
-              style={[
-                styles.forgotPasswordText,
-                forgotPasswordFocused ? styles.forgotPasswordTextFocused : null,
-              ]}
-            >
-              Forgot Password?
-            </Text>
-          </Pressable>
-        </View>
 
-        {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+          <View
+            style={[
+              styles.inputContainer,
+              styles.inputMarginTop,
+              confirmFocused ? styles.inputFocused : null,
+            ]}
+          >
+            <TextInput
+              ref={confirmInputRef}
+              style={styles.input}
+              placeholder="Confirm password"
+              placeholderTextColor="#A7A7A7"
+              secureTextEntry={!showConfirm}
+              showSoftInputOnFocus
+              value={confirmPassword}
+              editable={!isLoading}
+              onChangeText={(v) => {
+                setConfirmPassword(v);
+                if (passwordError) setPasswordError("");
+              }}
+              nextFocusUp={findNodeHandle(passwordInputRef.current) ?? undefined}
+              nextFocusDown={findNodeHandle(continueRef.current) ?? undefined}
+              onFocus={() => setConfirmFocused(true)}
+              onBlur={() => setConfirmFocused(false)}
+            />
+            <Pressable style={styles.eyeButton} onPress={() => setShowConfirm((p) => !p)}>
+              <Ionicons name={showConfirm ? "eye-off" : "eye"} size={20} color="#D2D2D2" />
+            </Pressable>
+          </View>
+
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+        </View>
 
         <Pressable
           ref={continueRef}
@@ -120,23 +136,18 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
             isLoading ? styles.continueButtonDisabled : null,
           ]}
           disabled={isLoading}
-          nextFocusUp={findNodeHandle(forgotPasswordRef.current) ?? undefined}
+          nextFocusUp={findNodeHandle(confirmInputRef.current) ?? undefined}
           onFocus={() => setContinueFocused(true)}
           onBlur={() => setContinueFocused(false)}
-          onPress={() => {
-            const err = password.trim().length < 8
-              ? "Password must be at least 8 characters"
-              : "";
-            setPasswordError(err);
-            if (err) return;
-            dispatch(authContinueRequest({ phone: phoneNumber, password, countryId }));
-          }}
+          onPress={handleContinue}
         >
           {isLoading ? (
             <ActivityIndicator color={continueFocused ? "#C80D00" : "#D2D2D2"} />
           ) : (
-            <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
-              Continue
+            <Text
+              style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}
+            >
+              Set Password
             </Text>
           )}
         </Pressable>
@@ -162,15 +173,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
   },
-  title: {
-    color: "#FFFFFF",
-    fontSize: 32,
-    lineHeight: 54,
-    ...gillSans("600"),
+  subtitle: {
+    color: "#A7A7A7",
+    fontSize: 16,
+    lineHeight: 24,
+    ...gillSans("400"),
     textAlign: "center",
+    marginBottom: 32,
   },
-  passwordSection: {
-    marginTop: 24,
+  fieldSection: {
+    marginBottom: 8,
   },
   inputContainer: {
     minHeight: 64,
@@ -183,16 +195,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
   },
+  inputMarginTop: {
+    marginTop: 12,
+  },
   inputFocused: {
     borderBottomColor: "#E71809",
     backgroundColor: "#FF3B301A",
   },
   input: {
     flex: 1,
-    paddingTop: 4,
-    paddingRight: 8,
-    paddingBottom: 4,
-    paddingLeft: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     color: "#D2D2D2",
     fontSize: 20,
     lineHeight: 24,
@@ -205,29 +218,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  forgotPasswordButton: {
-    alignSelf: "flex-start",
-    marginTop: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  forgotPasswordButtonFocused: {
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  forgotPasswordText: {
-    color: "#FF3B30",
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.15,
+  errorText: {
+    marginTop: 8,
+    color: "#E71809",
+    fontSize: 14,
+    lineHeight: 20,
     ...gillSans("400"),
-    textAlign: "left",
-    textDecorationLine: "underline",
-  },
-  forgotPasswordTextFocused: {
-    color: "#FFFFFF",
   },
   continueButton: {
     marginTop: 24,
@@ -249,6 +245,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 12,
   },
+  continueButtonDisabled: {
+    opacity: 0.7,
+  },
   continueText: {
     color: "#D2D2D2",
     fontSize: 20,
@@ -257,15 +256,5 @@ const styles = StyleSheet.create({
   },
   continueTextFocused: {
     color: "#C80D00",
-  },
-  continueButtonDisabled: {
-    opacity: 0.7,
-  },
-  errorText: {
-    marginTop: 8,
-    color: "#E71809",
-    fontSize: 14,
-    lineHeight: 20,
-    ...gillSans("400"),
   },
 });
