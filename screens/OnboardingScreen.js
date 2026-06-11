@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   findNodeHandle,
   FlatList,
@@ -17,6 +18,8 @@ import FloatingPhoneInput from "../components/FloatingPhoneInput";
 import OnboardingHeroImage from "../components/OnboardingHeroImage";
 import StepProgressBar from "../components/StepProgressBar";
 import { gillSans } from "../constants/fonts";
+import { useSelector } from "react-redux";
+import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 import { getPhoneValidationError } from "../utils/phoneAuth";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -63,6 +66,9 @@ export default function OnboardingScreen({
   initialSlideIndex = 0,
   initialPhoneNumber = "",
 }) {
+  const isLoading = useSelector(selectAuthLoading);
+  const authError = useSelector(selectAuthError);
+
   const listRef = useRef(null);
   const skipRef = useRef(null);
   const nextRef = useRef(null);
@@ -139,6 +145,10 @@ export default function OnboardingScreen({
   };
 
   const handleContinue = () => {
+    if (isLoading) {
+      return;
+    }
+
     const error = getPhoneValidationError(phoneNumber, selectedCountryId);
     setPhoneError(error);
 
@@ -194,6 +204,7 @@ export default function OnboardingScreen({
     : findNodeHandle(countrySelectorRef.current) ?? undefined;
 
   const compactLastSlide = keyboardVisible && isLastSlide;
+  const displayError = phoneError || authError;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -269,6 +280,7 @@ export default function OnboardingScreen({
                 ref={countrySelectorRef}
                 style={styles.countrySelector}
                 onPress={toggleCountryDropdown}
+                disabled={isLoading}
                 nextFocusDown={
                   isCountryDropdownOpen
                     ? findNodeHandle(countryOptionRefs.current[COUNTRIES[0].id]) ?? undefined
@@ -324,23 +336,40 @@ export default function OnboardingScreen({
                     setPhoneError("");
                   }
                 }}
+                editable={!isLoading}
                 focusableProps={{
                   nextFocusUp: phoneFieldUpTarget,
                   nextFocusDown: findNodeHandle(continueRef.current) ?? undefined,
                 }}
               />
-              {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+              {displayError ? <Text style={styles.errorText}>{displayError}</Text> : null}
             </View>
 
             <Pressable
               ref={continueRef}
-              style={[styles.continueButton, continueFocused ? styles.continueButtonFocused : null]}
+              style={[
+                styles.continueButton,
+                continueFocused ? styles.continueButtonFocused : null,
+                isLoading ? styles.continueButtonDisabled : null,
+              ]}
+              disabled={isLoading}
               nextFocusUp={phoneFieldUpTarget}
               onFocus={() => setContinueFocused(true)}
               onBlur={() => setContinueFocused(false)}
               onPress={handleContinue}
             >
-              <Text style={styles.continueText}>Continue</Text>
+              {isLoading ? (
+                <ActivityIndicator color="#D2D2D2" />
+              ) : (
+                <Text
+                  style={[
+                    styles.continueText,
+                    continueFocused ? styles.continueTextFocused : null,
+                  ]}
+                >
+                  Continue
+                </Text>
+              )}
             </Pressable>
           </>
         ) : (
@@ -590,10 +619,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 4,
   },
+  continueButtonDisabled: {
+    opacity: 0.7,
+  },
   continueText: {
     color: "#D2D2D2",
     fontSize: 20,
     lineHeight: 24,
     ...gillSans("600"),
+  },
+  continueTextFocused: {
+    color: "#FFFFFF",
   },
 });

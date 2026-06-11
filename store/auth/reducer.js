@@ -140,15 +140,26 @@ export default function authReducer(state = initialAuthState, action) {
     case AUTH_TYPES.AUTH_LOGOUT_SUCCESS:
       return { ...initialAuthState, bootstrapped: true };
 
-    case REHYDRATE:
-      if (!action.payload?.auth) return state;
+    case REHYDRATE: {
+      if (!action.payload?.auth) {
+        return state;
+      }
+
+      const persisted = action.payload.auth;
+
       return {
         ...initialAuthState,
-        token: action.payload.auth.token ?? null,
-        user: action.payload.auth.user ?? null,
-        phone: action.payload.auth.phone ?? null,
-        transactionId: action.payload.auth.transactionId ?? null,
+        token: persisted.token ?? null,
+        user: persisted.user ?? null,
+        phone: persisted.phone ?? null,
+        transactionId: persisted.transactionId ?? null,
+        userStatus: persisted.userStatus ?? null,
+        needsPasswordSetup: Boolean(persisted.needsPasswordSetup),
+        otpRequired: Boolean(persisted.otpRequired),
+        passwordRequired: Boolean(persisted.passwordRequired),
+        isAuthenticated: Boolean(persisted.isAuthenticated),
       };
+    }
 
     default:
       return state;

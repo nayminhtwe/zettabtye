@@ -131,6 +131,14 @@ export function mapAdvertisement(ad, index = 0) {
   };
 }
 
+function resolveRemoteImage(url) {
+  if (url && typeof url === "string") {
+    return { uri: url };
+  }
+
+  return null;
+}
+
 export function mapMatchToFixture(match, index = 0) {
   const date = match.match_date ? new Date(match.match_date) : new Date();
   const month = date.toLocaleString("en-US", { month: "short" }).toUpperCase();
@@ -148,14 +156,14 @@ export function mapMatchToFixture(match, index = 0) {
     matchDate: match.match_date ?? null,
     date: `${day} ${month}`,
     time: `${String(hour12).padStart(2, "0")}:${minutes} ${ampm}`,
-    league: match.league_name ?? `League ${match.league_id ?? ""}`.trim(),
+    league: match.league_name ?? "—",
     leagueId: match.league_id ? String(match.league_id) : "all",
-    home: match.home_team_name ?? `Team ${match.home_team_id}`,
-    away: match.away_team_name ?? `Team ${match.away_team_id}`,
-    homeLogo: null,
-    awayLogo: null,
-    homeBadgeColor: index % 2 === 0 ? "#C8102E" : "#00529F",
-    awayBadgeColor: index % 2 === 0 ? "#DA291C" : "#E30613",
+    home: match.home_team_name ?? "—",
+    away: match.away_team_name ?? "—",
+    homeLogo: resolveRemoteImage(match.home_team_logo),
+    awayLogo: resolveRemoteImage(match.away_team_logo),
+    homeBadgeColor: null,
+    awayBadgeColor: null,
     isLive: false,
     duration: match.duration ?? "—",
     previewImage: getPosterSource(match.preview_image, index),

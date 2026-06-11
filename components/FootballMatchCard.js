@@ -9,7 +9,7 @@ function TeamLogo({ logo, name, badgeColor }) {
 
   return (
     <View style={[styles.teamLogoFallback, badgeColor ? { backgroundColor: badgeColor } : null]}>
-      <Text style={styles.teamLogoFallbackText}>{name.slice(0, 3).toUpperCase()}</Text>
+      <Text style={styles.teamLogoFallbackText}>{(name || "—").slice(0, 3).toUpperCase()}</Text>
     </View>
   );
 }

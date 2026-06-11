@@ -23,6 +23,7 @@ export default function FloatingPhoneInput({
   onBlur,
   focusableProps = {},
   autoFocus = false,
+  editable = true,
 }) {
   const [focused, setFocused] = useState(false);
   const floatAnim = useRef(new Animated.Value(value.length > 0 ? 1 : 0)).current;
@@ -122,6 +123,7 @@ export default function FloatingPhoneInput({
           keyboardType="phone-pad"
           showSoftInputOnFocus={true}
           autoFocus={autoFocus}
+          editable={editable}
           placeholder=""
           selectionColor="#E71809"
           onFocus={handleFocus}

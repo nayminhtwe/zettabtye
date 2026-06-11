@@ -170,7 +170,9 @@ function* authVerifyOtpSaga(action) {
     const response = yield call(verifyOtp, { phone, transactionId, otpCode });
     const session = parseAuthSession(response);
 
-    if (userStatus === "new") {
+    // OTP is only shown for phones from initiate (new/unverified). Both get a random
+    // temp password on the backend and must set a real password after verification.
+    if (userStatus !== "verified") {
       setAuthToken(session.token);
       yield put({
         type: AUTH_TYPES.AUTH_NEEDS_PASSWORD_SETUP,

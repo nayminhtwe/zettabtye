@@ -380,6 +380,9 @@ export default function HomeScreen({
       if (section.id === "series" && homeSeries.length > 0) {
         return { ...section, items: homeSeries };
       }
+      if (section.id === "continue" && footballFixtures.length > 0) {
+        return { ...section, items: footballFixtures };
+      }
       return section;
     });
 

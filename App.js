@@ -160,10 +160,22 @@ export default function App() {
     }
 
     if (!previous) {
+      if (snapshot.needsPasswordSetup) {
+        setCurrentPage(SCREEN.CREATE_PASSWORD);
+      } else if (snapshot.passwordRequired) {
+        setCurrentPage(SCREEN.PASSWORD);
+      } else if (snapshot.otpRequired) {
+        setCurrentPage(SCREEN.OTP);
+      } else if (snapshot.isAuthenticated && splashFinished) {
+        setCurrentPage(SCREEN.HOME);
+      }
       return;
     }
 
-    if (snapshot.needsPasswordSetup && !previous.needsPasswordSetup) {
+    if (
+      snapshot.needsPasswordSetup &&
+      (!previous.needsPasswordSetup || previous.isAuthenticated !== snapshot.isAuthenticated)
+    ) {
       setCurrentPage(SCREEN.CREATE_PASSWORD);
       return;
     }
@@ -174,7 +186,11 @@ export default function App() {
     }
 
     if (snapshot.isAuthenticated && !previous.isAuthenticated) {
-      setCurrentPage((page) => (AUTH_FLOW_SCREENS.has(page) ? SCREEN.HOME : page));
+      if (snapshot.needsPasswordSetup) {
+        setCurrentPage(SCREEN.CREATE_PASSWORD);
+      } else {
+        setCurrentPage((page) => (AUTH_FLOW_SCREENS.has(page) ? SCREEN.HOME : page));
+      }
       return;
     }
 
@@ -185,6 +201,7 @@ export default function App() {
 
     if (snapshot.passwordRequired && !previous.passwordRequired) {
       setCurrentPage(SCREEN.PASSWORD);
+      return;
     }
   }, [
     bootstrapped,
@@ -194,6 +211,25 @@ export default function App() {
     passwordRequired,
     needsPasswordSetup,
   ]);
+
+  // Keep password setup ahead of Home when OTP verification completes.
+  useEffect(() => {
+    if (!needsPasswordSetup) {
+      return;
+    }
+
+    setCurrentPage((page) => {
+      if (page === SCREEN.CREATE_PASSWORD) {
+        return page;
+      }
+
+      if (AUTH_FLOW_SCREENS.has(page)) {
+        return SCREEN.CREATE_PASSWORD;
+      }
+
+      return page;
+    });
+  }, [needsPasswordSetup]);
 
   const openSearch = (returnScreen) => {
     setSearchReturnScreen(returnScreen);
