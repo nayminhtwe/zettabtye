@@ -19,6 +19,7 @@ import { gillSans } from "../constants/fonts";
 import { fetchMatchDetailRequest } from "../store/catalog/actions";
 import { selectMatchDetail, selectMatchDetailLoading } from "../store/catalog/selectors";
 import { getServerStatusMessage, mapMatchLinksToServers } from "../utils/football";
+import { SUBSCRIPTION_WATCH_LABEL } from "../utils/playback";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
@@ -42,13 +43,23 @@ function getLeagueAbbreviation(leagueName) {
     .toUpperCase();
 }
 
-export default function FootballDetailScreen({ match, onBack, onMatchPress, onSeeAllFootball, onSearchPress }) {
+export default function FootballDetailScreen({
+  match,
+  onBack,
+  onMatchPress,
+  onSeeAllFootball,
+  onSearchPress,
+  onPlayMatch,
+  onPlaybackBlocked,
+}) {
   const dispatch = useDispatch();
   const matchId = match?.id ?? match?.apiId;
   const matchDetail = useSelector((state) => selectMatchDetail(state, matchId));
   const detailLoading = useSelector((state) => selectMatchDetailLoading(state, matchId));
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [watchFocused, setWatchFocused] = useState(false);
+  const [heroFocused, setHeroFocused] = useState(false);
   const [selectedServerId, setSelectedServerId] = useState(null);
   const [serverTabFocused, setServerTabFocused] = useState(null);
 
@@ -65,18 +76,60 @@ export default function FootballDetailScreen({ match, onBack, onMatchPress, onSe
     return mapMatchLinksToServers(links);
   }, [matchDetail, match]);
 
+  // A server is playable only when it actually has a stream URL attached.
+  const playableServers = useMemo(
+    () => servers.filter((server) => Boolean(server.url)),
+    [servers],
+  );
+
   useEffect(() => {
     if (!servers.length) {
       setSelectedServerId(null);
       return;
     }
 
-    if (!selectedServerId || !servers.some((server) => server.id === selectedServerId)) {
-      setSelectedServerId(servers[0].id);
+    const stillValid = servers.some((server) => server.id === selectedServerId);
+    if (!selectedServerId || !stillValid) {
+      // Prefer a playable server when picking the default.
+      const fallback = playableServers[0] ?? servers[0];
+      setSelectedServerId(fallback.id);
     }
-  }, [servers, selectedServerId]);
+  }, [servers, playableServers, selectedServerId]);
 
   const selectedServer = servers.find((server) => server.id === selectedServerId) ?? null;
+  const canWatch = playableServers.length > 0;
+  const subscriptionBlocked =
+    !detailLoading && servers.length > 0 && playableServers.length === 0;
+  const watchLabel = canWatch
+    ? "Watch now"
+    : subscriptionBlocked
+      ? SUBSCRIPTION_WATCH_LABEL
+      : "No stream available yet";
+  const playServer =
+    selectedServer && selectedServer.url ? selectedServer : playableServers[0] ?? null;
+
+  const handlePlay = () => {
+    if (!playServer || !playServer.url) {
+      if (subscriptionBlocked) {
+        onPlaybackBlocked?.();
+        return;
+      }
+
+      console.warn("[Player] football watch blocked — no playable server", {
+        matchId,
+        selectedServerId,
+        playableCount: playableServers.length,
+      });
+      return;
+    }
+    console.log("[Player] football server selected", {
+      matchId,
+      serverId: playServer.id,
+      serverLabel: playServer.label,
+      streamUrl: playServer.url,
+    });
+    onPlayMatch?.(displayMatch, playServer);
+  };
 
   if (!match) {
     return null;
@@ -113,18 +166,29 @@ export default function FootballDetailScreen({ match, onBack, onMatchPress, onSe
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.heroWrapper}>
+        <Pressable
+          style={[styles.heroWrapper, heroFocused ? styles.heroWrapperFocused : null]}
+          disabled={!canWatch && !subscriptionBlocked}
+          onPress={handlePlay}
+          onFocus={() => setHeroFocused(true)}
+          onBlur={() => setHeroFocused(false)}
+        >
           {displayMatch.previewImage ? (
             <Image source={displayMatch.previewImage} resizeMode="cover" style={styles.heroImage} />
           ) : (
             <View style={[styles.heroImage, styles.heroPlaceholder]} />
           )}
           <View style={styles.playButtonOverlay} pointerEvents="none">
-            <View style={styles.playButton}>
-              <Ionicons name="play" size={28} color="#1D1B20" style={styles.playIcon} />
+            <View style={[styles.playButton, !canWatch ? styles.playButtonDisabled : null]}>
+              <Ionicons
+                name={canWatch ? "play" : "lock-closed"}
+                size={26}
+                color="#1D1B20"
+                style={canWatch ? styles.playIcon : null}
+              />
             </View>
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.matchTitleRow}>
           <View style={styles.vsIconWrap}>
@@ -161,9 +225,11 @@ export default function FootballDetailScreen({ match, onBack, onMatchPress, onSe
 
         {servers.length > 0 ? (
           <>
+            <Text style={styles.serverSectionTitle}>Choose a server</Text>
             <View style={styles.serverTabs}>
               {servers.map((server) => {
                 const isSelected = server.id === selectedServerId;
+                const isPlayable = Boolean(server.url);
 
                 return (
                   <Pressable
@@ -173,29 +239,58 @@ export default function FootballDetailScreen({ match, onBack, onMatchPress, onSe
                     onFocus={() => setServerTabFocused(server.id)}
                     onBlur={() => setServerTabFocused(null)}
                   >
-                    <Text
-                      style={[
-                        styles.serverTabText,
-                        isSelected ? styles.serverTabTextActive : null,
-                        serverTabFocused === server.id ? styles.serverTabTextFocused : null,
-                      ]}
-                    >
-                      {server.label}
-                    </Text>
+                    <View style={styles.serverTabLabelRow}>
+                      {!isPlayable ? (
+                        <Ionicons name="lock-closed" size={12} color="#79747E" />
+                      ) : null}
+                      <Text
+                        style={[
+                          styles.serverTabText,
+                          isSelected ? styles.serverTabTextActive : null,
+                          serverTabFocused === server.id ? styles.serverTabTextFocused : null,
+                          !isPlayable ? styles.serverTabTextDisabled : null,
+                        ]}
+                      >
+                        {server.label}
+                      </Text>
+                    </View>
                     {isSelected ? <View style={styles.serverTabUnderline} /> : null}
                   </Pressable>
                 );
               })}
             </View>
 
+            <Pressable
+              style={[
+                styles.watchButton,
+                !canWatch ? styles.watchButtonDisabled : null,
+                watchFocused ? styles.watchButtonFocused : null,
+              ]}
+              disabled={!canWatch && !subscriptionBlocked}
+              onPress={handlePlay}
+              onFocus={() => setWatchFocused(true)}
+              onBlur={() => setWatchFocused(false)}
+            >
+              <Ionicons
+                name={canWatch ? "play" : "lock-closed"}
+                size={20}
+                color={canWatch ? "#FFFFFF" : "#79747E"}
+              />
+              <Text style={[styles.watchButtonText, !canWatch ? styles.watchButtonTextDisabled : null]}>
+                {watchLabel}
+              </Text>
+            </Pressable>
+
             {selectedServer ? (
               <Text
                 style={[
                   styles.serverStatusText,
-                  selectedServer.status === "error" ? styles.serverStatusTextError : null,
+                  !selectedServer.url ? styles.serverStatusTextError : null,
                 ]}
               >
-                {getServerStatusMessage(selectedServer.status)}
+                {selectedServer.url
+                  ? getServerStatusMessage(selectedServer.status)
+                  : "This server has no stream link yet. Pick another server."}
               </Text>
             ) : null}
           </>
@@ -279,6 +374,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     alignSelf: "center",
+  },
+  heroWrapperFocused: {
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  playButtonDisabled: {
+    backgroundColor: "rgba(255,255,255,0.5)",
   },
   heroImage: {
     width: "100%",
@@ -378,8 +480,15 @@ const styles = StyleSheet.create({
   loadingIndicator: {
     marginTop: 20,
   },
+  serverSectionTitle: {
+    marginTop: 22,
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 22,
+    ...gillSans("600"),
+  },
   serverTabs: {
-    marginTop: 20,
+    marginTop: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
@@ -388,6 +497,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingBottom: 8,
+  },
+  serverTabLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   serverTabText: {
     color: "#79747E",
@@ -401,6 +515,35 @@ const styles = StyleSheet.create({
   },
   serverTabTextFocused: {
     color: "#FFFFFF",
+  },
+  serverTabTextDisabled: {
+    color: "#5A5A5A",
+  },
+  watchButton: {
+    marginTop: 18,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: "#E71809",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  watchButtonDisabled: {
+    backgroundColor: "#2A2A2A",
+  },
+  watchButtonFocused: {
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  watchButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 22,
+    ...gillSans("600"),
+  },
+  watchButtonTextDisabled: {
+    color: "#79747E",
   },
   serverTabUnderline: {
     marginTop: 6,

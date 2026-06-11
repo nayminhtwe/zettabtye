@@ -1,3 +1,8 @@
+import { getErrorMessage } from "../api/client";
+import { extractItemData, mapMovieDetail } from "../api/mappers";
+import { fetchMovieById } from "../api/contentService";
+import { noStreamBlock, parsePlaybackBlock, subscriptionRequiredBlock } from "./playback";
+
 export function buildMovieDetail(item = {}) {
   const movieTitle = item.title || item.label || "";
   const imdbRating =
@@ -16,4 +21,53 @@ export function buildMovieDetail(item = {}) {
     movieUrl: item.movieUrl ?? null,
     type: item.type ?? "movie",
   };
+}
+
+/**
+ * Movies list endpoints never include movie_url — only GET /movies/{id} does
+ * (auth + active subscription). Fetch detail when the play item has no URL yet.
+ */
+export async function resolveMoviePlayItem(item = {}, cachedDetail = null) {
+  const fromItem = buildMovieDetail(cachedDetail ?? item);
+  if (fromItem.movieUrl) {
+    return { playItem: fromItem, blocked: null };
+  }
+
+  const movieId = fromItem.id ?? item?.id;
+  if (!movieId) {
+    return {
+      playItem: fromItem,
+      blocked: noStreamBlock("This movie cannot be played right now."),
+    };
+  }
+
+  try {
+    const response = await fetchMovieById(movieId);
+    const detailed = buildMovieDetail(mapMovieDetail(extractItemData(response)));
+    console.log("[Player] resolved movie playback URL", {
+      id: detailed.id,
+      title: detailed.title,
+      movieUrl: detailed.movieUrl,
+    });
+
+    if (detailed.movieUrl) {
+      return { playItem: detailed, blocked: null };
+    }
+
+    return {
+      playItem: detailed,
+      blocked: subscriptionRequiredBlock(),
+    };
+  } catch (error) {
+    console.warn("[Player] GET /movies/{id} failed", {
+      id: movieId,
+      status: error?.response?.status ?? null,
+      message: getErrorMessage(error),
+    });
+
+    return {
+      playItem: fromItem,
+      blocked: parsePlaybackBlock(error) ?? subscriptionRequiredBlock(),
+    };
+  }
 }

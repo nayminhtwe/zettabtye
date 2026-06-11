@@ -23,6 +23,7 @@ import {
   selectFavoriteId,
   selectIsFavorited,
 } from "../store/favorites/selectors";
+import { SUBSCRIPTION_WATCH_LABEL, seriesHasPlayableEpisode } from "../utils/playback";
 import { buildSeriesDetail } from "../utils/seriesDetail";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -106,6 +107,10 @@ export default function SeriesDetailScreen({
     dispatch(addFavoriteRequest({ favoritableType: "series", favoritableId: seriesId }));
   };
 
+  const showSubscriptionGate =
+    Boolean(fetchedSeries) && !seriesHasPlayableEpisode(displaySeries);
+  const watchLabel = showSubscriptionGate ? SUBSCRIPTION_WATCH_LABEL : "Watch now";
+
   if (!series) {
     return null;
   }
@@ -157,8 +162,19 @@ export default function SeriesDetailScreen({
             onFocus={() => setHeroPlayFocused(true)}
             onBlur={() => setHeroPlayFocused(false)}
           >
-            <View style={[styles.playButton, heroPlayFocused ? styles.playButtonFocused : null]}>
-              <Ionicons name="play" size={28} color="#1D1B20" style={styles.playIcon} />
+            <View
+              style={[
+                styles.playButton,
+                heroPlayFocused ? styles.playButtonFocused : null,
+                showSubscriptionGate ? styles.playButtonLocked : null,
+              ]}
+            >
+              <Ionicons
+                name={showSubscriptionGate ? "lock-closed" : "play"}
+                size={28}
+                color="#1D1B20"
+                style={showSubscriptionGate ? null : styles.playIcon}
+              />
             </View>
           </Pressable>
         </View>
@@ -184,12 +200,18 @@ export default function SeriesDetailScreen({
 
         <View style={styles.actionRow}>
           <Pressable
-            style={[styles.watchNowButton, watchFocused ? styles.watchNowButtonFocused : null]}
+            style={[
+              styles.watchNowButton,
+              showSubscriptionGate ? styles.watchNowButtonLocked : null,
+              watchFocused ? styles.watchNowButtonFocused : null,
+            ]}
             onPress={() => onPlay?.(displaySeries)}
             onFocus={() => setWatchFocused(true)}
             onBlur={() => setWatchFocused(false)}
           >
-            <Text style={styles.watchNowText}>Watch now</Text>
+            <Text style={[styles.watchNowText, showSubscriptionGate ? styles.watchNowTextLocked : null]}>
+              {watchLabel}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -347,6 +369,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#E71809",
   },
+  playButtonLocked: {
+    backgroundColor: "#D0D0D0",
+  },
   playIcon: {
     marginLeft: 4,
   },
@@ -400,11 +425,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#FFFFFF",
   },
+  watchNowButtonLocked: {
+    backgroundColor: "#4A454E",
+  },
   watchNowText: {
     color: "#FFFFFF",
     fontSize: 16,
     lineHeight: 24,
     ...gillSans("600"),
+  },
+  watchNowTextLocked: {
+    color: "#D2D2D2",
+    fontSize: 14,
   },
   saveLaterButton: {
     flex: 1,

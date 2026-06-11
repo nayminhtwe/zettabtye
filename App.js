@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { useAppFonts } from "./hooks/useAppFonts";
@@ -20,9 +20,16 @@ import MoviesScreen from "./screens/MoviesScreen";
 import CategoriesScreen from "./screens/CategoriesScreen";
 import HistoryScreen from "./screens/HistoryScreen";
 import NotificationsScreen from "./screens/NotificationsScreen";
-import { buildMovieDetail } from "./utils/movieDetail";
+import { buildMovieDetail, resolveMoviePlayItem } from "./utils/movieDetail";
+import { resolveMatchPlay } from "./utils/matchPlay";
+import {
+  noStreamBlock,
+  showPlaybackBlockedAlert,
+  subscriptionRequiredBlock,
+} from "./utils/playback";
+import { store } from "./store";
 import { buildFootballDetail } from "./utils/football";
-import { buildSeriesDetail, buildSeriesPlayItem } from "./utils/seriesDetail";
+import { buildSeriesDetail, resolveSeriesPlayItem } from "./utils/seriesDetail";
 import { selectMatches } from "./store/catalog/selectors";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ForgotPasswordPhoneScreen from "./screens/ForgotPasswordPhoneScreen";
@@ -111,6 +118,7 @@ export default function App() {
   const [pendingPhoneNumber, setPendingPhoneNumber] = useState("");
   const [phoneUpdateSuccess, setPhoneUpdateSuccess] = useState(false);
   const [accountUsername, setAccountUsername] = useState("");
+  const [playResolving, setPlayResolving] = useState(false);
   const [searchReturnScreen, setSearchReturnScreen] = useState(SCREEN.HOME);
   const [recentSearches, setRecentSearches] = useState([]);
   const catalogMatches = useSelector(selectMatches);
@@ -209,11 +217,35 @@ export default function App() {
     setCurrentPage(SCREEN.SERIES_DETAIL);
   };
 
-  const openPlayFromSeries = (item, returnScreen) => {
-    const series = buildSeriesDetail(item);
-    setSelectedMovie(buildSeriesPlayItem(series));
-    setMoviePlayReturnScreen(returnScreen);
-    setCurrentPage(SCREEN.MOVIE_PLAY);
+  const handlePlaybackBlocked = useCallback((blocked) => {
+    showPlaybackBlockedAlert(blocked, {
+      onViewProfile: () => setCurrentPage(SCREEN.PROFILE),
+    });
+  }, []);
+
+  const openPlayFromSeries = async (item, returnScreen) => {
+    const seriesId = item?.id != null ? String(item.id) : null;
+    const cachedDetail = seriesId ? store.getState().catalog.seriesDetails[seriesId] : null;
+
+    setPlayResolving(true);
+    try {
+      const { playItem, blocked } = await resolveSeriesPlayItem(item, cachedDetail);
+      if (blocked || !playItem.movieUrl) {
+        handlePlaybackBlocked(blocked ?? subscriptionRequiredBlock());
+        return;
+      }
+
+      console.log("[Player] open series", {
+        id: playItem.id,
+        title: playItem.title,
+        movieUrl: playItem.movieUrl,
+      });
+      setSelectedMovie(playItem);
+      setMoviePlayReturnScreen(returnScreen);
+      setCurrentPage(SCREEN.MOVIE_PLAY);
+    } finally {
+      setPlayResolving(false);
+    }
   };
 
   const openMovieDetail = (item, returnScreen = SCREEN.HOME) => {
@@ -222,10 +254,72 @@ export default function App() {
     setCurrentPage(SCREEN.MOVIE_DETAIL);
   };
 
-  const openPlayFromMovie = (item, returnScreen) => {
-    setSelectedMovie(buildMovieDetail(item));
-    setMoviePlayReturnScreen(returnScreen);
-    setCurrentPage(SCREEN.MOVIE_PLAY);
+  const openPlayFromMovie = async (item, returnScreen) => {
+    const movieId = item?.id != null ? String(item.id) : null;
+    const cachedDetail = movieId ? store.getState().catalog.movieDetails[movieId] : null;
+
+    setPlayResolving(true);
+    try {
+      const { playItem, blocked } = await resolveMoviePlayItem(item, cachedDetail);
+      if (blocked || !playItem.movieUrl) {
+        handlePlaybackBlocked(blocked ?? subscriptionRequiredBlock());
+        return;
+      }
+
+      console.log("[Player] open movie", {
+        id: playItem.id,
+        title: playItem.title,
+        movieUrl: playItem.movieUrl,
+      });
+      setSelectedMovie(playItem);
+      setMoviePlayReturnScreen(returnScreen);
+      setCurrentPage(SCREEN.MOVIE_PLAY);
+    } finally {
+      setPlayResolving(false);
+    }
+  };
+
+  const openPlayFromMatch = async (match, server, returnScreen) => {
+    const matchId = match?.id ?? match?.apiId;
+    const cachedDetail = matchId != null ? store.getState().catalog.matchDetails[String(matchId)] : null;
+
+    setPlayResolving(true);
+    try {
+      const { match: resolvedMatch, server: playServer, blocked } = await resolveMatchPlay(
+        match,
+        server,
+        cachedDetail,
+      );
+
+      if (blocked || !playServer?.url) {
+        handlePlaybackBlocked(blocked ?? noStreamBlock());
+        return;
+      }
+
+      console.log("[Player] open match", {
+        matchId: resolvedMatch?.id ?? matchId,
+        serverId: playServer.id,
+        serverLabel: playServer.label,
+        streamUrl: playServer.url,
+      });
+
+      setSelectedMovie({
+        id: `match-${resolvedMatch?.id ?? matchId ?? "live"}`,
+        title:
+          resolvedMatch?.home && resolvedMatch?.away
+            ? `${resolvedMatch.home} vs ${resolvedMatch.away}`
+            : resolvedMatch?.title ?? match?.title ?? "Live match",
+        image: resolvedMatch?.previewImage ?? match?.previewImage ?? null,
+        categories: resolvedMatch?.league ?? match?.league ?? "",
+        streamUrl: playServer.url,
+        isLive: true,
+        type: "match",
+      });
+      setMoviePlayReturnScreen(returnScreen);
+      setCurrentPage(SCREEN.MOVIE_PLAY);
+    } finally {
+      setPlayResolving(false);
+    }
   };
 
   const openMovies = (returnScreen = SCREEN.HOME, initialCategory = "All") => {
@@ -498,6 +592,8 @@ export default function App() {
           onMatchPress={(fixture) => openFootballDetail(fixture, footballDetailReturnScreen)}
           onSeeAllFootball={() => openFootballList(SCREEN.FOOTBALL_DETAIL)}
           onSearchPress={() => openSearch(SCREEN.FOOTBALL_DETAIL)}
+          onPlayMatch={(match, server) => openPlayFromMatch(match, server, SCREEN.FOOTBALL_DETAIL)}
+          onPlaybackBlocked={() => handlePlaybackBlocked(subscriptionRequiredBlock())}
         />
         );
       case SCREEN.MOVIE_DETAIL:
@@ -584,5 +680,23 @@ export default function App() {
     );
   }
 
-  return <SafeAreaProvider>{renderScreen()}</SafeAreaProvider>;
+  return (
+    <SafeAreaProvider>
+      {renderScreen()}
+      {playResolving ? (
+        <View style={styles.playResolvingOverlay} pointerEvents="auto">
+          <ActivityIndicator color="#E71809" size="large" />
+        </View>
+      ) : null}
+    </SafeAreaProvider>
+  );
 }
+
+const styles = StyleSheet.create({
+  playResolvingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(20, 18, 24, 0.72)",
+  },
+});

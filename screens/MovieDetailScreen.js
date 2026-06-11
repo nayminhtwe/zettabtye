@@ -24,6 +24,7 @@ import {
   selectIsFavorited,
 } from "../store/favorites/selectors";
 import { buildMovieDetail } from "../utils/movieDetail";
+import { SUBSCRIPTION_WATCH_LABEL } from "../utils/playback";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
@@ -59,6 +60,17 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
     }
   }, [dispatch, movieId]);
 
+  useEffect(() => {
+    if (!fetchedMovie) {
+      return;
+    }
+    console.log("[Player] movie detail API", {
+      id: movieId,
+      title: fetchedMovie.title,
+      movieUrl: fetchedMovie.movieUrl ?? fetchedMovie.movie_url ?? null,
+    });
+  }, [fetchedMovie, movieId]);
+
   const handleToggleFavorite = () => {
     if (!movieId) {
       return;
@@ -71,6 +83,9 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
 
     dispatch(addFavoriteRequest({ favoritableType: "movie", favoritableId: movieId }));
   };
+
+  const showSubscriptionGate = Boolean(fetchedMovie) && !displayMovie.movieUrl;
+  const watchLabel = showSubscriptionGate ? SUBSCRIPTION_WATCH_LABEL : "Watch now";
 
   if (!movie) {
     return null;
@@ -119,8 +134,13 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
             <View style={[styles.heroImage, styles.heroPlaceholder]} />
           )}
           <Pressable style={styles.playButtonOverlay} onPress={() => onPlay?.(displayMovie)}>
-            <View style={styles.playButton}>
-              <Ionicons name="play" size={28} color="#1D1B20" style={styles.playIcon} />
+            <View style={[styles.playButton, showSubscriptionGate ? styles.playButtonLocked : null]}>
+              <Ionicons
+                name={showSubscriptionGate ? "lock-closed" : "play"}
+                size={28}
+                color="#1D1B20"
+                style={showSubscriptionGate ? null : styles.playIcon}
+              />
             </View>
           </Pressable>
         </View>
@@ -148,13 +168,16 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
           <Pressable
             style={({ pressed }) => [
               styles.watchNowButton,
+              showSubscriptionGate ? styles.watchNowButtonLocked : null,
               (pressed || watchFocused) ? styles.watchNowButtonFocused : null,
             ]}
             onPress={() => onPlay?.(displayMovie)}
             onFocus={() => setWatchFocused(true)}
             onBlur={() => setWatchFocused(false)}
           >
-            <Text style={styles.watchNowText}>Watch now</Text>
+            <Text style={[styles.watchNowText, showSubscriptionGate ? styles.watchNowTextLocked : null]}>
+              {watchLabel}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -266,6 +289,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  playButtonLocked: {
+    backgroundColor: "#D0D0D0",
+  },
   playIcon: {
     marginLeft: 4,
   },
@@ -327,11 +353,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#FFFFFF",
   },
+  watchNowButtonLocked: {
+    backgroundColor: "#4A454E",
+  },
   watchNowText: {
     color: "#FFFFFF",
     fontSize: 16,
     lineHeight: 24,
     ...gillSans("600"),
+  },
+  watchNowTextLocked: {
+    color: "#D2D2D2",
+    fontSize: 14,
   },
   saveLaterButton: {
     flex: 1,

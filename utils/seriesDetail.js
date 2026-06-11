@@ -1,3 +1,8 @@
+import { getErrorMessage } from "../api/client";
+import { extractItemData, mapSeriesDetail } from "../api/mappers";
+import { fetchSeriesById } from "../api/contentService";
+import { parsePlaybackBlock, subscriptionRequiredBlock } from "./playback";
+
 export function buildSeriesDetail(item = {}) {
   return {
     id: item.id ?? null,
@@ -15,11 +20,20 @@ export function buildSeriesDetail(item = {}) {
   };
 }
 
+function findFirstPlayableEpisode(series) {
+  for (const season of series?.seasonsList ?? []) {
+    for (const episode of season.episodes ?? []) {
+      if (episode.episodeUrl) {
+        return episode;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function buildSeriesPlayItem(series, episode) {
-  const firstEpisode =
-    episode ??
-    series?.seasonsList?.[0]?.episodes?.[0] ??
-    null;
+  const firstEpisode = episode ?? findFirstPlayableEpisode(series);
 
   return {
     id: firstEpisode?.id ?? series?.id ?? null,
@@ -32,4 +46,54 @@ export function buildSeriesPlayItem(series, episode) {
     movieUrl: firstEpisode?.episodeUrl ?? null,
     type: "series",
   };
+}
+
+/**
+ * Series list endpoints never include episode_url — fetch detail and pick the
+ * first episode that has a stream URL (only returned for active subscribers).
+ */
+export async function resolveSeriesPlayItem(item = {}, cachedDetail = null) {
+  let series = buildSeriesDetail(cachedDetail ?? item);
+  let playItem = buildSeriesPlayItem(series);
+
+  if (playItem.movieUrl) {
+    return { playItem, series, blocked: null };
+  }
+
+  const seriesId = series.id ?? item?.id;
+  if (!seriesId) {
+    return { playItem, series, blocked: subscriptionRequiredBlock() };
+  }
+
+  try {
+    const response = await fetchSeriesById(seriesId);
+    series = buildSeriesDetail(mapSeriesDetail(extractItemData(response)));
+    playItem = buildSeriesPlayItem(series);
+
+    if (playItem.movieUrl) {
+      console.log("[Player] resolved series playback URL", {
+        id: playItem.id,
+        title: playItem.title,
+        movieUrl: playItem.movieUrl,
+      });
+      return { playItem, series, blocked: null };
+    }
+
+    console.warn("[Player] GET /series/{id}/detail returned no episode_url", {
+      id: seriesId,
+    });
+    return { playItem, series, blocked: subscriptionRequiredBlock() };
+  } catch (error) {
+    console.warn("[Player] GET /series/{id}/detail failed", {
+      id: seriesId,
+      status: error?.response?.status ?? null,
+      message: getErrorMessage(error),
+    });
+
+    return {
+      playItem: buildSeriesPlayItem(series),
+      series,
+      blocked: parsePlaybackBlock(error) ?? subscriptionRequiredBlock(),
+    };
+  }
 }

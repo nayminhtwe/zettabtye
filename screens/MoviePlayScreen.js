@@ -1,18 +1,35 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useEvent } from "expo";
 import { LinearGradient } from "expo-linear-gradient";
-import { StatusBar } from "expo-status-bar";
 import * as ScreenOrientation from "expo-screen-orientation";
-import React, { useCallback, useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from "react-native";
+import { useTVEventHandler as rnUseTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const PROGRESS = 0.38;
+// react-native-tvos exposes useTVEventHandler; on phones it is a harmless no-op hook.
+// Resolve once at module load so the hook order stays stable across renders.
+const useRemoteControl =
+  typeof rnUseTVEventHandler === "function" ? rnUseTVEventHandler : () => {};
+
+const SEEK_STEP_SECONDS = 10;
+const CONTROLS_HIDE_MS = 4000;
+// Resume playback this long after the last scrub press (works even if key-up is missed).
+const SCRUB_RESUME_MS = 700;
+// Consecutive presses within this window accelerate the seek step.
+const SCRUB_ACCEL_WINDOW_MS = 320;
+// Cap acceleration at 6x (i.e. up to 60s per press when held).
+const SCRUB_MAX_MULTIPLIER = 6;
 
 function isLandscapeOrientation(orientation) {
   return (
@@ -22,70 +39,142 @@ function isLandscapeOrientation(orientation) {
 }
 
 async function lockPortrait() {
-  await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+  try {
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+  } catch (_error) {
+    // ignore orientation lock errors (e.g. TV devices)
+  }
 }
 
 async function lockLandscape() {
-  await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+  try {
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+  } catch (_error) {
+    // ignore orientation lock errors (e.g. TV devices)
+  }
 }
 
-function PlayerControls({ progress, isLandscape, onToggleExpand, transportFocused, setTransportFocused }) {
-  return (
-    <View style={styles.controlsRoot}>
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-      </View>
+function resolveStreamUri(movie) {
+  if (!movie) {
+    return null;
+  }
 
-      <View style={styles.controlsRow}>
-        <View style={styles.transportRow}>
-          <Pressable
-            style={[styles.controlButton, transportFocused === "back" ? styles.controlButtonFocused : null]}
-            onFocus={() => setTransportFocused("back")}
-            onBlur={() => setTransportFocused(null)}
-          >
-            <Ionicons name="play-skip-back" size={22} color="#FFFFFF" />
-          </Pressable>
-          <Pressable
-            style={[styles.controlButton, transportFocused === "pause" ? styles.controlButtonFocused : null]}
-            onFocus={() => setTransportFocused("pause")}
-            onBlur={() => setTransportFocused(null)}
-          >
-            <Ionicons name="pause" size={22} color="#FFFFFF" />
-          </Pressable>
-          <Pressable
-            style={[styles.controlButton, transportFocused === "forward" ? styles.controlButtonFocused : null]}
-            onFocus={() => setTransportFocused("forward")}
-            onBlur={() => setTransportFocused(null)}
-          >
-            <Ionicons name="play-skip-forward" size={22} color="#FFFFFF" />
-          </Pressable>
-        </View>
+  const candidate = movie.streamUrl ?? movie.movieUrl ?? movie.url ?? null;
+  if (typeof candidate === "string" && candidate.trim().length > 0) {
+    return candidate.trim();
+  }
 
-        <Pressable
-          style={[styles.controlButton, transportFocused === "expand" ? styles.controlButtonFocused : null]}
-          onPress={onToggleExpand}
-          onFocus={() => setTransportFocused("expand")}
-          onBlur={() => setTransportFocused(null)}
-        >
-          <Ionicons name={isLandscape ? "contract" : "expand"} size={22} color="#FFFFFF" />
-        </Pressable>
-      </View>
-    </View>
-  );
+  return null;
+}
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return "0:00";
+  }
+
+  const total = Math.floor(seconds);
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+
+  return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
 export default function MoviePlayScreen({ movie, onBack }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+
+  const streamUri = resolveStreamUri(movie);
+  const isLive = Boolean(movie?.isLive);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [deviceOrientation, setDeviceOrientation] = useState(ScreenOrientation.Orientation.PORTRAIT_UP);
-  const [backFocused, setBackFocused] = useState(false);
-  const [centerPlayFocused, setCenterPlayFocused] = useState(false);
-  const [transportFocused, setTransportFocused] = useState(null);
+  const [deviceOrientation, setDeviceOrientation] = useState(
+    ScreenOrientation.Orientation.PORTRAIT_UP,
+  );
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [focusZone, setFocusZone] = useState("surface");
+  const [focusedControl, setFocusedControl] = useState("play");
+  const [progress, setProgress] = useState({ position: 0, duration: 0 });
+  const [scrub, setScrub] = useState({ active: false, preview: 0 });
+
+  const hideTimerRef = useRef(null);
+  const resumeTimerRef = useRef(null);
+  const playPauseRef = useRef(null);
+  const scrubRef = useRef({
+    active: false,
+    target: 0,
+    wasPlaying: false,
+    lastPressTs: 0,
+    multiplier: 1,
+  });
 
   const dimensionsAreLandscape = width > height;
   const orientationIsLandscape = isLandscapeOrientation(deviceOrientation);
   const showLandscapeLayout = isFullscreen && dimensionsAreLandscape && orientationIsLandscape;
+
+  const player = useVideoPlayer(streamUri, (instance) => {
+    if (!instance) {
+      return;
+    }
+    instance.loop = false;
+    instance.timeUpdateEventInterval = 1;
+    if (streamUri) {
+      instance.play();
+    }
+  });
+
+  const { isPlaying } = useEvent(player, "playingChange", {
+    isPlaying: player?.playing ?? false,
+  });
+  const { status, error } = useEvent(player, "statusChange", {
+    status: player?.status ?? "idle",
+    error: null,
+  });
+
+  const isBuffering = status === "loading" || status === "idle";
+  const hasError = status === "error" || (!streamUri && !!movie);
+
+  useEffect(() => {
+    console.log("[Player] streaming link", {
+      title: movie?.title ?? null,
+      type: movie?.type ?? "movie",
+      isLive,
+      streamUri,
+      movieUrl: movie?.movieUrl ?? null,
+      streamUrl: movie?.streamUrl ?? null,
+      url: movie?.url ?? null,
+    });
+  }, [movie, streamUri, isLive]);
+
+  useEffect(() => {
+    if (status === "error") {
+      console.warn("[Player] playback error", { status, error, streamUri });
+      return;
+    }
+    if (status === "readyToPlay") {
+      console.log("[Player] ready", { streamUri, duration: player?.duration });
+    }
+  }, [status, error, streamUri, player]);
+
+  // Keep a lightweight progress poll so the scrubber stays in sync without native controls.
+  useEffect(() => {
+    if (!player || isLive) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      setProgress({
+        position: player.currentTime ?? 0,
+        duration: player.duration ?? 0,
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [player, isLive]);
 
   useEffect(() => {
     let mounted = true;
@@ -111,13 +200,146 @@ export default function MoviePlayScreen({ movie, onBack }) {
     };
   }, []);
 
-  const handleBack = useCallback(async () => {
-    setIsFullscreen(false);
-    await lockPortrait();
-    onBack();
-  }, [onBack]);
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHide = useCallback(() => {
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, CONTROLS_HIDE_MS);
+  }, [clearHideTimer]);
+
+  const revealControls = useCallback(() => {
+    setControlsVisible(true);
+    scheduleHide();
+  }, [scheduleHide]);
+
+  useEffect(() => {
+    scheduleHide();
+    return clearHideTimer;
+  }, [scheduleHide, clearHideTimer]);
+
+  const togglePlay = useCallback(() => {
+    if (!player) {
+      return;
+    }
+
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+    revealControls();
+  }, [player, revealControls]);
+
+  const seekBy = useCallback(
+    (delta) => {
+      if (!player || isLive) {
+        return;
+      }
+      player.seekBy(delta);
+      revealControls();
+    },
+    [player, isLive, revealControls],
+  );
+
+  const clearResumeTimer = useCallback(() => {
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
+  }, []);
+
+  // Commit the pending scrub target and resume playback if it was playing.
+  const endScrub = useCallback(() => {
+    const state = scrubRef.current;
+    clearResumeTimer();
+    if (!state.active) {
+      return;
+    }
+
+    if (player) {
+      try {
+        player.currentTime = state.target;
+        if (state.wasPlaying) {
+          player.play();
+        }
+      } catch (_error) {
+        // ignore seek errors
+      }
+    }
+
+    state.active = false;
+    state.multiplier = 1;
+    setScrub({ active: false, preview: 0 });
+  }, [player, clearResumeTimer]);
+
+  const scheduleResume = useCallback(() => {
+    clearResumeTimer();
+    resumeTimerRef.current = setTimeout(endScrub, SCRUB_RESUME_MS);
+  }, [clearResumeTimer, endScrub]);
+
+  // Pause-while-scrubbing with hold-to-accelerate steps; resumes on release or idle.
+  const scrubStep = useCallback(
+    (direction) => {
+      if (!player || isLive) {
+        return;
+      }
+
+      const duration = player.duration ?? 0;
+      if (duration <= 0) {
+        // Duration not known yet — fall back to a simple relative seek.
+        player.seekBy(direction * SEEK_STEP_SECONDS);
+        revealControls();
+        return;
+      }
+
+      const state = scrubRef.current;
+      const now = Date.now();
+
+      if (!state.active) {
+        state.active = true;
+        state.wasPlaying = player.playing;
+        state.target = player.currentTime ?? 0;
+        state.multiplier = 1;
+        try {
+          player.pause();
+        } catch (_error) {
+          // ignore
+        }
+      } else {
+        state.multiplier =
+          now - state.lastPressTs <= SCRUB_ACCEL_WINDOW_MS
+            ? Math.min(state.multiplier + 1, SCRUB_MAX_MULTIPLIER)
+            : 1;
+      }
+
+      state.lastPressTs = now;
+      const step = SEEK_STEP_SECONDS * state.multiplier;
+      state.target = Math.max(0, Math.min(duration, state.target + direction * step));
+
+      try {
+        player.currentTime = state.target;
+      } catch (_error) {
+        // ignore
+      }
+
+      setScrub({ active: true, preview: state.target });
+      revealControls();
+      scheduleResume();
+    },
+    [player, isLive, revealControls, scheduleResume],
+  );
+
+  useEffect(() => clearResumeTimer, [clearResumeTimer]);
 
   const toggleExpand = useCallback(async () => {
+    revealControls();
     if (isFullscreen) {
       setIsFullscreen(false);
       await lockPortrait();
@@ -126,64 +348,296 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
     setIsFullscreen(true);
     await lockLandscape();
-  }, [isFullscreen]);
+  }, [isFullscreen, revealControls]);
+
+  const handleBack = useCallback(async () => {
+    clearHideTimer();
+    setIsFullscreen(false);
+    if (player) {
+      try {
+        player.pause();
+      } catch (_error) {
+        // ignore
+      }
+    }
+    await lockPortrait();
+    onBack?.();
+  }, [clearHideTimer, onBack, player]);
+
+  // Robust D-pad handling. The video surface acts as a scrub zone (left/right seek),
+  // while the bottom transport bar uses native focus movement + onPress.
+  // Key-down drives scrubbing (with acceleration); key-up resumes playback.
+  const handleTVEvent = useCallback(
+    (event) => {
+      if (!event) {
+        return;
+      }
+
+      const type = event.eventType;
+      const isKeyUp = event.eventKeyAction === 1;
+
+      // Media transport keys always work regardless of focus position (on press only).
+      if (!isKeyUp) {
+        if (type === "playPause" || type === "play" || type === "pause") {
+          togglePlay();
+          return;
+        }
+        if (type === "fastForward") {
+          seekBy(SEEK_STEP_SECONDS);
+          return;
+        }
+        if (type === "rewind") {
+          seekBy(-SEEK_STEP_SECONDS);
+          return;
+        }
+      }
+      if (type === "menu") {
+        return; // let system back handle it
+      }
+
+      const isDirectional =
+        type === "left" || type === "right" || type === "up" || type === "down";
+      const isSelect = type === "select";
+
+      if (!isDirectional && !isSelect) {
+        return;
+      }
+
+      // On release of a left/right hold over the surface, commit the seek and resume.
+      if (isKeyUp) {
+        if ((type === "left" || type === "right") && focusZone === "surface") {
+          endScrub();
+        }
+        return;
+      }
+
+      // First wake the UI if hidden; the same press should not also seek/move.
+      if (!controlsVisible) {
+        revealControls();
+        return;
+      }
+
+      revealControls();
+
+      // When the scrub surface is focused, left/right scrub instead of moving focus.
+      if (focusZone === "surface") {
+        if (type === "left") {
+          scrubStep(-1);
+        } else if (type === "right") {
+          scrubStep(1);
+        }
+      }
+    },
+    [controlsVisible, focusZone, revealControls, seekBy, togglePlay, scrubStep, endScrub],
+  );
+
+  // Robust remote handling on tvOS/Android TV; no-op on phones.
+  useRemoteControl(handleTVEvent);
 
   if (!movie) {
     return null;
   }
 
   const portraitVideoHeight = Math.round(Math.min(width, height) * (9 / 16));
+  const displayPosition = scrub.active ? scrub.preview : progress.position;
+  const canSeek = !isLive && progress.duration > 0;
+  const progressRatio = canSeek
+    ? Math.max(0, Math.min(1, displayPosition / progress.duration))
+    : isLive
+      ? 1
+      : 0;
+
+  // Show the poster while there is nothing meaningful on screen yet.
+  const showPoster =
+    !!movie.image &&
+    !hasError &&
+    (isBuffering || (!isPlaying && (progress.position ?? 0) < 0.5));
+
+  const renderVideoSurface = () => (
+    <>
+      {streamUri ? (
+        <VideoView
+          player={player}
+          style={StyleSheet.absoluteFill}
+          contentFit="contain"
+          nativeControls={false}
+          allowsFullscreen={false}
+          allowsPictureInPicture={false}
+        />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, styles.videoPlaceholder]} />
+      )}
+
+      {showPoster ? (
+        <Image source={movie.image} resizeMode="contain" style={StyleSheet.absoluteFill} />
+      ) : null}
+    </>
+  );
+
+  const renderCenterPlay = () => {
+    if (isBuffering && !hasError) {
+      return (
+        <View style={styles.centerStatusWrap} pointerEvents="none">
+          <ActivityIndicator size="large" color="#FFFFFF" />
+        </View>
+      );
+    }
+
+    if (hasError) {
+      return (
+        <View style={styles.centerStatusWrap}>
+          <Ionicons name="alert-circle-outline" size={40} color="#FF6B6B" />
+          <Text style={styles.errorText}>
+            {streamUri
+              ? "This stream is unavailable right now."
+              : "This video isn't available to play yet."}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <Pressable
+        ref={playPauseRef}
+        style={[styles.centerPlayButton, focusedControl === "play" ? styles.centerPlayButtonFocused : null]}
+        hasTVPreferredFocus
+        onFocus={() => {
+          setFocusZone("surface");
+          setFocusedControl("play");
+          revealControls();
+        }}
+        onPress={togglePlay}
+      >
+        <Ionicons
+          name={isPlaying ? "pause" : "play"}
+          size={36}
+          color="#FFFFFF"
+          style={isPlaying ? null : styles.centerPlayIcon}
+        />
+      </Pressable>
+    );
+  };
+
+  const renderControlsBar = () => (
+    <View style={styles.controlsRoot}>
+      <View style={styles.timelineRow}>
+        <Text style={[styles.timeText, scrub.active ? styles.timeTextScrubbing : null]}>
+          {isLive ? "LIVE" : formatTime(displayPosition)}
+        </Text>
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${progressRatio * 100}%` },
+              isLive ? styles.progressFillLive : null,
+            ]}
+          />
+        </View>
+        <Text style={styles.timeText}>{isLive ? "" : formatTime(progress.duration)}</Text>
+      </View>
+
+      <View style={styles.controlsRow}>
+        <View style={styles.transportRow}>
+          {!isLive ? (
+            <Pressable
+              style={[styles.controlButton, focusedControl === "rewind" ? styles.controlButtonFocused : null]}
+              onFocus={() => {
+                setFocusZone("controls");
+                setFocusedControl("rewind");
+                revealControls();
+              }}
+              onPress={() => seekBy(-SEEK_STEP_SECONDS)}
+            >
+              <Ionicons name="play-back" size={22} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            style={[styles.controlButton, focusedControl === "toggle" ? styles.controlButtonFocused : null]}
+            onFocus={() => {
+              setFocusZone("controls");
+              setFocusedControl("toggle");
+              revealControls();
+            }}
+            onPress={togglePlay}
+          >
+            <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#FFFFFF" />
+          </Pressable>
+
+          {!isLive ? (
+            <Pressable
+              style={[styles.controlButton, focusedControl === "forward" ? styles.controlButtonFocused : null]}
+              onFocus={() => {
+                setFocusZone("controls");
+                setFocusedControl("forward");
+                revealControls();
+              }}
+              onPress={() => seekBy(SEEK_STEP_SECONDS)}
+            >
+              <Ionicons name="play-forward" size={22} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
+        </View>
+
+        <Pressable
+          style={[styles.controlButton, focusedControl === "expand" ? styles.controlButtonFocused : null]}
+          onFocus={() => {
+            setFocusZone("controls");
+            setFocusedControl("expand");
+            revealControls();
+          }}
+          onPress={toggleExpand}
+        >
+          <Ionicons name={showLandscapeLayout ? "contract" : "expand"} size={22} color="#FFFFFF" />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const renderBackButton = (style) => (
+    <Pressable
+      style={[style, focusedControl === "back" ? styles.backButtonFocused : null]}
+      onFocus={() => {
+        setFocusZone("controls");
+        setFocusedControl("back");
+        revealControls();
+      }}
+      onPress={handleBack}
+    >
+      <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+    </Pressable>
+  );
 
   if (showLandscapeLayout) {
     return (
       <View style={[styles.root, { width, height }]}>
         <StatusBar hidden />
+        {renderVideoSurface()}
 
-        {movie.image ? (
-          <Image source={movie.image} resizeMode="cover" style={StyleSheet.absoluteFill} />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.videoPlaceholder]} />
-        )}
-
-        <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.85)"]}
-          style={styles.landscapeGradient}
-          pointerEvents="none"
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onFocus={() => setFocusZone("surface")}
+          onPress={() => (controlsVisible ? togglePlay() : revealControls())}
         />
 
-        <View style={[styles.landscapeOverlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-          <Pressable
-            style={[
-              styles.backButton,
-              backFocused ? styles.backButtonFocused : null,
-            ]}
-            onPress={handleBack}
-            onFocus={() => setBackFocused(true)}
-            onBlur={() => setBackFocused(false)}
-          >
-            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-          </Pressable>
-
-          <View style={styles.centerPlayWrap} pointerEvents="box-none">
-            <Pressable
-              style={[styles.centerPlayButton, centerPlayFocused ? styles.centerPlayButtonFocused : null]}
-              onFocus={() => setCenterPlayFocused(true)}
-              onBlur={() => setCenterPlayFocused(false)}
-            >
-              <Ionicons name="play" size={36} color="#FFFFFF" style={styles.centerPlayIcon} />
-            </Pressable>
-          </View>
-
-          <View style={[styles.landscapeControlsWrap, { paddingHorizontal: Math.max(insets.left, 16) }]}>
-            <PlayerControls
-              progress={PROGRESS}
-              isLandscape
-              onToggleExpand={toggleExpand}
-              transportFocused={transportFocused}
-              setTransportFocused={setTransportFocused}
+        {controlsVisible ? (
+          <>
+            <LinearGradient
+              colors={["rgba(0,0,0,0.55)", "transparent", "rgba(0,0,0,0.85)"]}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
             />
-          </View>
-        </View>
+            <View style={[styles.landscapeOverlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+              {renderBackButton(styles.backButton)}
+              <View style={styles.centerPlayWrap} pointerEvents="box-none">
+                {renderCenterPlay()}
+              </View>
+              <View style={[styles.landscapeControlsWrap, { paddingHorizontal: Math.max(insets.left, 16) }]}>
+                {renderControlsBar()}
+              </View>
+            </View>
+          </>
+        ) : null}
       </View>
     );
   }
@@ -193,52 +647,32 @@ export default function MoviePlayScreen({ movie, onBack }) {
       <StatusBar style="light" />
 
       <View style={styles.portraitBody}>
-        <Pressable
-          style={[
-            styles.portraitBackButton,
-            { top: insets.top },
-            backFocused ? styles.backButtonFocused : null,
-          ]}
-          onPress={handleBack}
-          onFocus={() => setBackFocused(true)}
-          onBlur={() => setBackFocused(false)}
-        >
-          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-        </Pressable>
-
         <View style={styles.portraitVideoCenter}>
           <View style={[styles.portraitVideoShell, { height: portraitVideoHeight }]}>
-            {movie.image ? (
-              <Image source={movie.image} resizeMode="cover" style={StyleSheet.absoluteFill} />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, styles.videoPlaceholder]} />
-            )}
+            {renderVideoSurface()}
 
-            <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.9)"]}
-              style={styles.videoGradient}
-              pointerEvents="none"
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onFocus={() => setFocusZone("surface")}
+              onPress={() => (controlsVisible ? togglePlay() : revealControls())}
             />
 
-            <View style={styles.portraitVideoOverlay}>
-              <View style={styles.centerPlayWrap}>
-                <Pressable
-                  style={[styles.centerPlayButton, centerPlayFocused ? styles.centerPlayButtonFocused : null]}
-                  onFocus={() => setCenterPlayFocused(true)}
-                  onBlur={() => setCenterPlayFocused(false)}
-                >
-                  <Ionicons name="play" size={36} color="#FFFFFF" style={styles.centerPlayIcon} />
-                </Pressable>
-              </View>
-
-              <PlayerControls
-                progress={PROGRESS}
-                isLandscape={false}
-                onToggleExpand={toggleExpand}
-                transportFocused={transportFocused}
-                setTransportFocused={setTransportFocused}
-              />
-            </View>
+            {controlsVisible ? (
+              <>
+                <LinearGradient
+                  colors={["rgba(0,0,0,0.45)", "transparent", "rgba(0,0,0,0.9)"]}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+                <View style={styles.portraitVideoOverlay}>
+                  {renderBackButton([styles.portraitBackButton, { top: insets.top }])}
+                  <View style={styles.centerPlayWrap}>{renderCenterPlay()}</View>
+                  {renderControlsBar()}
+                </View>
+              </>
+            ) : (
+              renderBackButton([styles.portraitBackButton, { top: insets.top }])
+            )}
           </View>
         </View>
       </View>
@@ -260,7 +694,7 @@ const styles = StyleSheet.create({
     left: 8,
     width: 44,
     height: 44,
-    zIndex: 2,
+    zIndex: 3,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -268,33 +702,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 0,
   },
   portraitVideoShell: {
     width: "100%",
-    backgroundColor: "#0A0A0A",
+    backgroundColor: "#000000",
     overflow: "hidden",
   },
   portraitVideoOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "space-between",
   },
-  videoGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 140,
-  },
   videoPlaceholder: {
-    backgroundColor: "#1A1A1A",
-  },
-  landscapeGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 160,
+    backgroundColor: "#0A0A0A",
   },
   landscapeOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -303,6 +722,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  centerStatusWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  errorText: {
+    marginTop: 12,
+    color: "#FFFFFF",
+    fontSize: 15,
+    textAlign: "center",
   },
   landscapeControlsWrap: {
     position: "absolute",
@@ -318,33 +748,51 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
+    zIndex: 3,
   },
   backButtonFocused: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#FFFFFF",
     borderRadius: 22,
   },
   centerPlayButton: {
-    width: 64,
-    height: 64,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
   centerPlayButtonFocused: {
     borderWidth: 2,
     borderColor: "#FFFFFF",
-    borderRadius: 32,
+    backgroundColor: "rgba(231, 24, 9, 0.4)",
   },
   centerPlayIcon: {
     marginLeft: 4,
   },
   controlsRoot: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
     paddingBottom: 8,
   },
+  timelineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  timeText: {
+    minWidth: 44,
+    color: "#FFFFFF",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  timeTextScrubbing: {
+    color: "#E71809",
+    fontWeight: "700",
+  },
   progressTrack: {
-    height: 3,
+    flex: 1,
+    height: 4,
     borderRadius: 2,
     backgroundColor: "rgba(255, 255, 255, 0.35)",
     overflow: "hidden",
@@ -352,6 +800,9 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 2,
+    backgroundColor: "#E71809",
+  },
+  progressFillLive: {
     backgroundColor: "#E71809",
   },
   controlsRow: {
@@ -366,14 +817,15 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   controlButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
   controlButtonFocused: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#FFFFFF",
-    borderRadius: 20,
+    backgroundColor: "rgba(231, 24, 9, 0.3)",
   },
 });
