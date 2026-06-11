@@ -42,6 +42,7 @@ import { authInitiateRequest, authLogoutRequest, bootstrapRequest } from "./stor
 import {
   selectAuthAuthenticated,
   selectAuthBootstrapped,
+  selectAuthForgotPasswordPhone,
   selectAuthNeedsPasswordSetup,
   selectAuthOtpRequired,
   selectAuthPasswordRequired,
@@ -96,6 +97,7 @@ export default function App() {
   const needsPasswordSetup = useSelector(selectAuthNeedsPasswordSetup);
   const authUser = useSelector(selectAuthUser);
   const authPhone = useSelector(selectAuthPhone);
+  const forgotPasswordPhone = useSelector(selectAuthForgotPasswordPhone);
 
   const [currentPage, setCurrentPage] = useState(SCREEN.SPLASH);
   const [splashFinished, setSplashFinished] = useState(false);
@@ -113,7 +115,6 @@ export default function App() {
   const [selectedFootballMatch, setSelectedFootballMatch] = useState(null);
   const [footballReturnScreen, setFootballReturnScreen] = useState(SCREEN.HOME);
   const [footballDetailReturnScreen, setFootballDetailReturnScreen] = useState(SCREEN.HOME);
-  const [accountPassword, setAccountPassword] = useState("");
   const [passwordUpdateSuccess, setPasswordUpdateSuccess] = useState(false);
   const [pendingPhoneNumber, setPendingPhoneNumber] = useState("");
   const [phoneUpdateSuccess, setPhoneUpdateSuccess] = useState(false);
@@ -398,7 +399,6 @@ export default function App() {
     setSelectedMovie(null);
     setSelectedSeries(null);
     setSelectedFootballMatch(null);
-    setAccountPassword("");
     setPasswordUpdateSuccess(false);
     setPendingPhoneNumber("");
     setPhoneUpdateSuccess(false);
@@ -549,7 +549,7 @@ export default function App() {
         <ProfileScreen
           phoneNumber={displayPhone}
           username={authUser?.name ?? accountUsername}
-          accountPassword={accountPassword}
+          hasAccountPassword={isAuthenticated}
           passwordUpdateSuccess={passwordUpdateSuccess}
           phoneUpdateSuccess={phoneUpdateSuccess}
           onUsernameChange={setAccountUsername}
@@ -600,8 +600,7 @@ export default function App() {
         <SetProfilePasswordScreen
           onBack={() => setCurrentPage(SCREEN.PROFILE)}
           onSearchPress={() => openSearch(SCREEN.SET_PROFILE_PASSWORD)}
-          onComplete={(password) => {
-            setAccountPassword(password);
+          onComplete={() => {
             setPasswordUpdateSuccess(true);
             setCurrentPage(SCREEN.PROFILE);
           }}
@@ -667,16 +666,17 @@ export default function App() {
       case SCREEN.FORGOT_PASSWORD_PHONE:
         return (
         <ForgotPasswordPhoneScreen
+          initialCountryId={selectedCountryId}
           onBack={() => setCurrentPage(SCREEN.PASSWORD)}
-          onContinue={() => setCurrentPage(SCREEN.RESET_PASSWORD)}
+          onOtpSent={() => setCurrentPage(SCREEN.RESET_PASSWORD)}
         />
         );
       case SCREEN.RESET_PASSWORD:
         return (
         <ResetPasswordScreen
-          phoneNumber={displayPhone}
+          phoneNumber={forgotPasswordPhone ?? phoneNumber}
           onBack={() => setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE)}
-          onContinue={() => setCurrentPage(SCREEN.HOME)}
+          onSuccess={() => setCurrentPage(SCREEN.PASSWORD)}
         />
         );
       case SCREEN.ONBOARDING:

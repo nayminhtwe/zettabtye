@@ -39,6 +39,22 @@ export async function setPassword({ password }) {
   return response.data;
 }
 
+export async function forgotPassword({ phone }) {
+  const response = await apiClient.post("/auth/forgot-password", { phone });
+  return response.data;
+}
+
+export async function resetPassword({ phone, transactionId, otpCode, password }) {
+  const response = await apiClient.post("/auth/reset-password", {
+    phone,
+    transaction_id: transactionId,
+    otp_code: otpCode,
+    password,
+    password_confirmation: password,
+  });
+  return response.data;
+}
+
 export async function fetchCurrentUser() {
   const response = await apiClient.get("/user");
   return response.data;

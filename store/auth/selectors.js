@@ -9,4 +9,7 @@ export const selectAuthToken = (state) => state.auth.token;
 export const selectAuthUser = (state) => state.auth.user;
 export const selectAuthPhone = (state) => state.auth.phone;
 export const selectAuthError = (state) => state.auth.error;
+export const selectAuthForgotPasswordPhone = (state) => state.auth.forgotPasswordPhone;
+export const selectAuthForgotPasswordTransactionId = (state) =>
+  state.auth.forgotPasswordTransactionId;
 export const selectAuthUserStatus = (state) => state.auth.userStatus;

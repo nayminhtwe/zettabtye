@@ -1,6 +1,7 @@
 import { call, put, select, takeLatest } from "redux-saga/effects";
 import {
   fetchCurrentUser,
+  forgotPassword,
   initiateAuth,
   login,
   logout,
@@ -8,6 +9,7 @@ import {
   parseInitiateResponse,
   parseOtpSession,
   resendOtp,
+  resetPassword,
   setPassword,
   verifyOtp,
 } from "../../api/authService";
@@ -220,7 +222,7 @@ function* authResendOtpSaga() {
 }
 
 function* authSetPasswordSaga(action) {
-  const { password } = action.payload;
+  const { password, source = "signup" } = action.payload;
 
   if (!password || password.length < 8) {
     yield put({
@@ -232,11 +234,92 @@ function* authSetPasswordSaga(action) {
 
   try {
     yield call(setPassword, { password });
-    yield put({ type: AUTH_TYPES.AUTH_SET_PASSWORD_SUCCESS });
+    yield put({
+      type:
+        source === "profile"
+          ? AUTH_TYPES.AUTH_PROFILE_PASSWORD_SUCCESS
+          : AUTH_TYPES.AUTH_SET_PASSWORD_SUCCESS,
+    });
   } catch (error) {
     yield put({
       type: AUTH_TYPES.AUTH_FAILURE,
       payload: getErrorMessage(error, "Failed to set password. Please try again."),
+    });
+  }
+}
+
+function* authForgotPasswordSaga(action) {
+  const { phone, countryId } = action.payload;
+  const formattedPhone = formatPhoneForApi(phone, countryId);
+
+  if (!formattedPhone) {
+    yield put({
+      type: AUTH_TYPES.AUTH_FAILURE,
+      payload: "Phone number does not match the selected country",
+    });
+    return;
+  }
+
+  try {
+    const response = yield call(forgotPassword, { phone: formattedPhone });
+    const otpSession = parseOtpSession(response);
+
+    yield put({
+      type: AUTH_TYPES.AUTH_FORGOT_PASSWORD_SUCCESS,
+      payload: {
+        phone: formattedPhone,
+        transactionId: otpSession.transactionId,
+      },
+    });
+  } catch (error) {
+    yield put({
+      type: AUTH_TYPES.AUTH_FAILURE,
+      payload: getErrorMessage(error, "Failed to send reset code. Please try again."),
+    });
+  }
+}
+
+function* authResetPasswordSaga(action) {
+  const { otpCode, password } = action.payload;
+  const phone = yield select((state) => state.auth.forgotPasswordPhone);
+  const transactionId = yield select((state) => state.auth.forgotPasswordTransactionId);
+
+  if (!/^\d{6}$/.test(otpCode || "")) {
+    yield put({
+      type: AUTH_TYPES.AUTH_FAILURE,
+      payload: "Please enter the 6-digit OTP code",
+    });
+    return;
+  }
+
+  if (!password || password.length < 8) {
+    yield put({
+      type: AUTH_TYPES.AUTH_FAILURE,
+      payload: "Password must be at least 8 characters",
+    });
+    return;
+  }
+
+  if (!phone || !transactionId) {
+    yield put({
+      type: AUTH_TYPES.AUTH_FAILURE,
+      payload: "Reset session expired. Please request a new code.",
+    });
+    return;
+  }
+
+  try {
+    yield call(resetPassword, {
+      phone,
+      transactionId,
+      otpCode,
+      password,
+    });
+    yield put({ type: AUTH_TYPES.AUTH_RESET_PASSWORD_SUCCESS });
+  } catch (error) {
+    yield put({
+      type: AUTH_TYPES.AUTH_FAILURE,
+      payload: getErrorMessage(error, "Password reset failed. Please try again."),
     });
   }
 }
@@ -259,5 +342,7 @@ export default function* authSaga() {
   yield takeLatest(AUTH_TYPES.AUTH_VERIFY_OTP_REQUEST, authVerifyOtpSaga);
   yield takeLatest(AUTH_TYPES.AUTH_RESEND_OTP_REQUEST, authResendOtpSaga);
   yield takeLatest(AUTH_TYPES.AUTH_SET_PASSWORD_REQUEST, authSetPasswordSaga);
+  yield takeLatest(AUTH_TYPES.AUTH_FORGOT_PASSWORD_REQUEST, authForgotPasswordSaga);
+  yield takeLatest(AUTH_TYPES.AUTH_RESET_PASSWORD_REQUEST, authResetPasswordSaga);
   yield takeLatest(AUTH_TYPES.AUTH_LOGOUT_REQUEST, authLogoutSaga);
 }

@@ -13,6 +13,8 @@ export const initialAuthState = {
   user: null,
   phone: null,
   transactionId: null,
+  forgotPasswordPhone: null,
+  forgotPasswordTransactionId: null,
   error: null,
 };
 
@@ -55,6 +57,8 @@ export default function authReducer(state = initialAuthState, action) {
     case AUTH_TYPES.AUTH_VERIFY_OTP_REQUEST:
     case AUTH_TYPES.AUTH_RESEND_OTP_REQUEST:
     case AUTH_TYPES.AUTH_SET_PASSWORD_REQUEST:
+    case AUTH_TYPES.AUTH_FORGOT_PASSWORD_REQUEST:
+    case AUTH_TYPES.AUTH_RESET_PASSWORD_REQUEST:
       return { ...state, isLoading: true, error: null };
 
     case AUTH_TYPES.AUTH_OTP_REQUIRED:
@@ -116,6 +120,31 @@ export default function authReducer(state = initialAuthState, action) {
         isLoading: false,
         needsPasswordSetup: false,
         userStatus: null,
+        error: null,
+      };
+
+    case AUTH_TYPES.AUTH_PROFILE_PASSWORD_SUCCESS:
+      return {
+        ...state,
+        isLoading: false,
+        error: null,
+      };
+
+    case AUTH_TYPES.AUTH_FORGOT_PASSWORD_SUCCESS:
+      return {
+        ...state,
+        isLoading: false,
+        forgotPasswordPhone: action.payload.phone,
+        forgotPasswordTransactionId: action.payload.transactionId,
+        error: null,
+      };
+
+    case AUTH_TYPES.AUTH_RESET_PASSWORD_SUCCESS:
+      return {
+        ...state,
+        isLoading: false,
+        forgotPasswordPhone: null,
+        forgotPasswordTransactionId: null,
         error: null,
       };
 

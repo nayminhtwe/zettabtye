@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   findNodeHandle,
   Pressable,
   StyleSheet,
@@ -9,7 +10,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { authClearError, authSetPasswordRequest } from "../store/auth/actions";
+import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 
 function PasswordField({
   label,
@@ -64,6 +68,11 @@ function PasswordField({
 }
 
 export default function SetProfilePasswordScreen({ onBack, onComplete, onSearchPress }) {
+  const dispatch = useDispatch();
+  const isLoading = useSelector(selectAuthLoading);
+  const authError = useSelector(selectAuthError);
+  const submittedRef = useRef(false);
+
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [password, setPassword] = useState("");
@@ -79,6 +88,20 @@ export default function SetProfilePasswordScreen({ onBack, onComplete, onSearchP
   const passwordInputRef = useRef(null);
   const confirmInputRef = useRef(null);
   const submitButtonRef = useRef(null);
+
+  useEffect(() => {
+    dispatch(authClearError());
+    return () => {
+      dispatch(authClearError());
+    };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (submittedRef.current && !isLoading && !authError) {
+      submittedRef.current = false;
+      onComplete?.();
+    }
+  }, [isLoading, authError, onComplete]);
 
   const handleSubmit = () => {
     const trimmedPassword = password.trim();
@@ -100,7 +123,13 @@ export default function SetProfilePasswordScreen({ onBack, onComplete, onSearchP
       return;
     }
 
-    onComplete?.(trimmedPassword);
+    if (trimmedPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return;
+    }
+
+    submittedRef.current = true;
+    dispatch(authSetPasswordRequest(trimmedPassword, "profile"));
   };
 
   return (
@@ -171,18 +200,29 @@ export default function SetProfilePasswordScreen({ onBack, onComplete, onSearchP
         />
       </View>
 
+      {authError ? <Text style={styles.apiErrorText}>{authError}</Text> : null}
+
       <View style={styles.footer}>
         <Pressable
           ref={submitButtonRef}
-          style={[styles.submitButton, submitFocused ? styles.submitButtonFocused : null]}
+          style={[
+            styles.submitButton,
+            submitFocused ? styles.submitButtonFocused : null,
+            isLoading ? styles.submitButtonDisabled : null,
+          ]}
+          disabled={isLoading}
           onPress={handleSubmit}
           onFocus={() => setSubmitFocused(true)}
           onBlur={() => setSubmitFocused(false)}
           nextFocusUp={findNodeHandle(confirmInputRef.current) ?? undefined}
         >
-          <Text style={[styles.submitButtonText, submitFocused ? styles.submitButtonTextFocused : null]}>
-            Create a new password
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={[styles.submitButtonText, submitFocused ? styles.submitButtonTextFocused : null]}>
+              Create a new password
+            </Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -316,6 +356,17 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: "center",
     ...gillSans("600"),
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  apiErrorText: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    color: "#FF988F",
+    fontSize: 14,
+    lineHeight: 20,
+    ...gillSans("400"),
   },
   submitButtonTextFocused: {
     color: "#C80D00",

@@ -81,7 +81,7 @@ function SettingRow({ icon, label, onEditPress }) {
 export default function ProfileScreen({
   phoneNumber,
   username: usernameProp,
-  accountPassword,
+  hasAccountPassword = true,
   passwordUpdateSuccess,
   phoneUpdateSuccess,
   onBack,
@@ -96,8 +96,6 @@ export default function ProfileScreen({
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [passwordLinkFocused, setPasswordLinkFocused] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [passwordToggleFocused, setPasswordToggleFocused] = useState(false);
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
@@ -137,11 +135,12 @@ export default function ProfileScreen({
   const defaultUsername = buildUsername(phoneNumber);
   const username = usernameProp || defaultUsername;
   const displayPhone = formatProfilePhone(phoneNumber);
-  const hasPassword = Boolean(accountPassword);
-  const maskedPassword = "•".repeat(Math.max(accountPassword?.length ?? 0, 7));
-  const visiblePassword = accountPassword ?? "";
-  const subscriptionEndDate = authUser?.subscription_end_date ?? null;
-  const subscriptionStartDate = authUser?.subscription_start_date ?? null;
+  const hasPassword = hasAccountPassword;
+  const maskedPassword = "•••••••";
+  const subscriptionEndDate =
+    authUser?.subscription_end_date ?? subscriptionStatus?.subscription_end_date ?? null;
+  const subscriptionStartDate =
+    authUser?.subscription_start_date ?? subscriptionStatus?.subscription_start_date ?? null;
   const isSubscriptionActive = subscriptionStatus?.success === true;
   const subscriptionPlanLabel = isSubscriptionActive ? "Active subscription" : "No active subscription";
   const subscriptionMessage = subscriptionStatus?.message ?? "—";
@@ -206,19 +205,17 @@ export default function ProfileScreen({
         {hasPassword ? (
           <View style={styles.passwordDisplaySection}>
             <View style={styles.passwordDisplayRow}>
-              <Text style={styles.passwordDisplayText}>
-                {showPassword ? visiblePassword : maskedPassword}
-              </Text>
+              <Text style={styles.passwordDisplayText}>{maskedPassword}</Text>
               <Pressable
-                onPress={() => setShowPassword((prev) => !prev)}
-                onFocus={() => setPasswordToggleFocused(true)}
-                onBlur={() => setPasswordToggleFocused(false)}
+                onPress={onCreatePasswordPress}
+                onFocus={() => setPasswordLinkFocused(true)}
+                onBlur={() => setPasswordLinkFocused(false)}
                 style={[
                   styles.passwordToggleButton,
-                  passwordToggleFocused ? styles.passwordToggleButtonFocused : null,
+                  passwordLinkFocused ? styles.passwordToggleButtonFocused : null,
                 ]}
               >
-                <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#D2D2D2" />
+                <Ionicons name="pencil" size={16} color="#D2D2D2" />
               </Pressable>
             </View>
             <View style={styles.passwordUnderline} />

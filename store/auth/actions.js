@@ -21,9 +21,19 @@ export const authResendOtpRequest = () => ({
   type: AUTH_TYPES.AUTH_RESEND_OTP_REQUEST,
 });
 
-export const authSetPasswordRequest = (password) => ({
+export const authSetPasswordRequest = (password, source = "signup") => ({
   type: AUTH_TYPES.AUTH_SET_PASSWORD_REQUEST,
-  payload: { password },
+  payload: { password, source },
+});
+
+export const authForgotPasswordRequest = ({ phone, countryId }) => ({
+  type: AUTH_TYPES.AUTH_FORGOT_PASSWORD_REQUEST,
+  payload: { phone, countryId },
+});
+
+export const authResetPasswordRequest = ({ otpCode, password }) => ({
+  type: AUTH_TYPES.AUTH_RESET_PASSWORD_REQUEST,
+  payload: { otpCode, password },
 });
 
 export const authLogoutRequest = () => ({

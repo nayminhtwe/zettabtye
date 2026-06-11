@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   findNodeHandle,
   Pressable,
   SafeAreaView,
@@ -9,13 +10,23 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
+import { authClearError, authResetPasswordRequest } from "../store/auth/actions";
+import {
+  selectAuthError,
+  selectAuthLoading,
+} from "../store/auth/selectors";
 import { maskPhone } from "../utils/phoneAuth";
 
-const OTP_LENGTH = 4;
+const OTP_LENGTH = 6;
 
-export default function ResetPasswordScreen({ phoneNumber, onBack, onContinue }) {
+export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) {
+  const dispatch = useDispatch();
+  const isLoading = useSelector(selectAuthLoading);
+  const authError = useSelector(selectAuthError);
+
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,6 +40,8 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onContinue })
   const [otpError, setOtpError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
+  const submittedRef = useRef(false);
+
   const backRef = useRef(null);
   const otpInputRef = useRef(null);
   const passwordInputRef = useRef(null);
@@ -42,22 +55,55 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onContinue })
     return Array.from({ length: OTP_LENGTH }, (_, index) => chars[index] ?? "");
   }, [otp]);
 
-  const handleContinuePress = () => {
-    const isOtpEmpty = otp.trim().length === 0;
-    const isPasswordEmpty = password.trim().length === 0;
-    const isConfirmPasswordEmpty = confirmPassword.trim().length === 0;
+  useEffect(() => {
+    dispatch(authClearError());
+    return () => {
+      dispatch(authClearError());
+    };
+  }, [dispatch]);
 
-    setOtpError(isOtpEmpty ? "Please enter OTP code" : "");
+  useEffect(() => {
+    if (submittedRef.current && !isLoading && !authError) {
+      submittedRef.current = false;
+      onSuccess?.();
+    }
+  }, [isLoading, authError, onSuccess]);
+
+  const handleContinuePress = () => {
+    const trimmedOtp = otp.trim();
+    const trimmedPassword = password.trim();
+    const trimmedConfirm = confirmPassword.trim();
+    const isOtpInvalid = !/^\d{6}$/.test(trimmedOtp);
+    const isPasswordEmpty = trimmedPassword.length === 0;
+    const isConfirmPasswordEmpty = trimmedConfirm.length === 0;
+    const passwordsMismatch = trimmedPassword !== trimmedConfirm;
+
+    setOtpError(isOtpInvalid ? "Please enter the 6-digit OTP code" : "");
     setPasswordError(isPasswordEmpty ? "Please enter your new password" : "");
     setConfirmPasswordError(
-      isConfirmPasswordEmpty ? "Please confirm your new password" : "",
+      isConfirmPasswordEmpty
+        ? "Please confirm your new password"
+        : passwordsMismatch
+          ? "Passwords do not match"
+          : "",
     );
 
-    if (isOtpEmpty || isPasswordEmpty || isConfirmPasswordEmpty) {
+    if (
+      isOtpInvalid ||
+      isPasswordEmpty ||
+      isConfirmPasswordEmpty ||
+      passwordsMismatch ||
+      trimmedPassword.length < 8 ||
+      isLoading
+    ) {
+      if (trimmedPassword.length > 0 && trimmedPassword.length < 8) {
+        setPasswordError("Password must be at least 8 characters");
+      }
       return;
     }
 
-    onContinue?.();
+    submittedRef.current = true;
+    dispatch(authResetPasswordRequest({ otpCode: trimmedOtp, password: trimmedPassword }));
   };
 
   return (
@@ -118,6 +164,7 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onContinue })
             />
           </View>
           {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
         </View>
 
         <View style={styles.fieldSection}>
@@ -206,15 +253,24 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onContinue })
 
         <Pressable
           ref={continueButtonRef}
-          style={[styles.continueButton, continueFocused ? styles.continueButtonFocused : null]}
+          style={[
+            styles.continueButton,
+            continueFocused ? styles.continueButtonFocused : null,
+            isLoading ? styles.continueButtonDisabled : null,
+          ]}
+          disabled={isLoading}
           nextFocusUp={findNodeHandle(confirmInputRef.current) ?? undefined}
           onFocus={() => setContinueFocused(true)}
           onBlur={() => setContinueFocused(false)}
           onPress={handleContinuePress}
         >
-          <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
-            Set new Password
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
+              Set new Password
+            </Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -255,11 +311,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 24,
+    gap: 12,
     alignSelf: "center",
+    flexWrap: "wrap",
   },
   otpBox: {
-    width: 72,
+    width: 48,
     height: 72,
     backgroundColor: "#1A1A1A",
     borderBottomWidth: 1,
@@ -358,6 +415,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#C80D00",
     alignItems: "center",
     justifyContent: "center",
+  },
+  continueButtonDisabled: {
+    opacity: 0.7,
   },
   continueButtonFocused: {
     borderWidth: 3,
