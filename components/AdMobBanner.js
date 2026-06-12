@@ -1,11 +1,24 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { BannerAd, BannerAdSize } from "react-native-google-mobile-ads";
 import { useSelector } from "react-redux";
-import { selectBannerAdForPlacement } from "../store/ads/selectors";
+import {
+  selectBannerUnitIdForPlacement,
+  selectShouldShowAdsForPlacement,
+} from "../store/ads/selectors";
 
 export default function AdMobBanner({ placement, style }) {
-  const { visible, unitId } = useSelector(selectBannerAdForPlacement(placement));
+  const selectVisible = useMemo(
+    () => selectShouldShowAdsForPlacement(placement),
+    [placement],
+  );
+  const selectUnitId = useMemo(
+    () => selectBannerUnitIdForPlacement(placement),
+    [placement],
+  );
+
+  const visible = useSelector(selectVisible);
+  const unitId = useSelector(selectUnitId);
 
   if (!visible || !unitId || Platform.isTV) {
     return null;

@@ -67,7 +67,8 @@
           "skAdNetworkItems": []
         }
       ],
-      "./plugins/withAdMobPlayServicesFix.js"
+      "./plugins/withAdMobPlayServicesFix.js",
+      "./plugins/withRemoteKeyEvents.js"
     ],
     "extra": {
       "eas": {

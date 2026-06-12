@@ -423,8 +423,17 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
       // On release of a left/right hold over the surface, commit the seek and resume.
       if (isKeyUp) {
+        if (type === "select" && focusZone === "surface") {
+          togglePlay();
+          return;
+        }
         if ((type === "left" || type === "right") && focusZone === "surface") {
-          endScrub();
+          if (scrubRef.current.active) {
+            endScrub();
+          } else {
+            // Phone emulator often only dispatches key-up; tap arrow once to seek.
+            seekBy(type === "left" ? -SEEK_STEP_SECONDS : SEEK_STEP_SECONDS);
+          }
         }
         return;
       }

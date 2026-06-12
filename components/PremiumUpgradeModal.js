@@ -9,8 +9,14 @@ import {
 import Illustration from "../assets/images/football/Illustration.svg";
 import { gillSans } from "../constants/fonts";
 
-export default function PremiumUpgradeModal({ visible, onClose, onContactFacebook }) {
+export default function PremiumUpgradeModal({
+  visible,
+  onClose,
+  onContactFacebook,
+  isSubscriptionActive = false,
+}) {
   const [contactFocused, setContactFocused] = useState(false);
+  const hasFacebookAction = typeof onContactFacebook === "function";
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -23,22 +29,33 @@ export default function PremiumUpgradeModal({ visible, onClose, onContactFaceboo
           </View>
 
           <Text style={styles.title}>
-            Upgrade to <Text style={styles.titleAccent}>Premium</Text>
+            {isSubscriptionActive ? (
+              <>
+                Extend your <Text style={styles.titleAccent}>Premium</Text>
+              </>
+            ) : (
+              <>
+                Upgrade to <Text style={styles.titleAccent}>Premium</Text>
+              </>
+            )}
           </Text>
 
           <Text style={styles.body}>
-            Unlock full movies, live football matches, and ad-free streaming with Premium Membership.
-            Upgrade is quick & easy — just reach out to us on Facebook.
+            {isSubscriptionActive
+              ? "Keep full movies, live football matches, and ad-free streaming with Premium. Extension is quick & easy — just reach out to us on Facebook."
+              : "Unlock full movies, live football matches, and ad-free streaming with Premium Membership. Upgrade is quick & easy — just reach out to us on Facebook."}
           </Text>
 
-          <Pressable
-            style={[styles.contactButton, contactFocused ? styles.contactButtonFocused : null]}
-            onPress={onContactFacebook ?? onClose}
-            onFocus={() => setContactFocused(true)}
-            onBlur={() => setContactFocused(false)}
-          >
-            <Text style={styles.contactButtonText}>Contact Us on Facebook</Text>
-          </Pressable>
+          {hasFacebookAction ? (
+            <Pressable
+              style={[styles.contactButton, contactFocused ? styles.contactButtonFocused : null]}
+              onPress={onContactFacebook}
+              onFocus={() => setContactFocused(true)}
+              onBlur={() => setContactFocused(false)}
+            >
+              <Text style={styles.contactButtonText}>Contact Us on Facebook</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </Modal>

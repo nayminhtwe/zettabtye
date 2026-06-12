@@ -111,7 +111,15 @@ function FaqItem({ item, expanded, onToggle }) {
   );
 }
 
-function HelpContactRow({ icon, iconElement, iconBackgroundColor, label, actionIcon, onActionPress }) {
+function HelpContactRow({
+  icon,
+  iconElement,
+  iconBackgroundColor,
+  label,
+  actionIcon,
+  showAction = true,
+  onActionPress,
+}) {
   const [actionFocused, setActionFocused] = useState(false);
 
   return (
@@ -122,14 +130,16 @@ function HelpContactRow({ icon, iconElement, iconBackgroundColor, label, actionI
       <Text style={styles.contactLabel} numberOfLines={1}>
         {label}
       </Text>
-      <Pressable
-        onPress={onActionPress}
-        onFocus={() => setActionFocused(true)}
-        onBlur={() => setActionFocused(false)}
-        style={[styles.contactActionButton, actionFocused ? styles.contactActionButtonFocused : null]}
-      >
-        <Ionicons name={actionIcon} size={18} color="#FFFFFF" />
-      </Pressable>
+      {showAction ? (
+        <Pressable
+          onPress={onActionPress}
+          onFocus={() => setActionFocused(true)}
+          onBlur={() => setActionFocused(false)}
+          style={[styles.contactActionButton, actionFocused ? styles.contactActionButtonFocused : null]}
+        >
+          <Ionicons name={actionIcon} size={18} color="#FFFFFF" />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -204,6 +214,7 @@ export default function GetHelpScreen({ onBack, onSearchPress }) {
                   iconBackgroundColor={ui.iconBackgroundColor}
                   label={contact.label}
                   actionIcon={ui.actionIcon}
+                  showAction={Boolean(contact.action)}
                   onActionPress={() => openContactAction(contact.action)}
                 />
               </React.Fragment>

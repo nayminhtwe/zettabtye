@@ -4,8 +4,12 @@ import React, { useMemo, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
-import { selectSubscriptionPricing, selectSupportContacts } from "../store/ads/selectors";
-import { formatUpgradeButtonText } from "../utils/appSettings";
+import {
+  selectIsSubscriptionActive,
+  selectSubscriptionPricing,
+  selectSupportContacts,
+} from "../store/ads/selectors";
+import { formatMembershipButtonText } from "../utils/appSettings";
 import PremiumUpgradeModal from "./PremiumUpgradeModal";
 
 const FEATURES = [
@@ -31,11 +35,12 @@ export default function PremiumMembershipCard({ onUpgrade, variant = "full", sty
   const [upgradeFocused, setUpgradeFocused] = useState(false);
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const subscriptionPricing = useSelector(selectSubscriptionPricing);
+  const isSubscriptionActive = useSelector(selectIsSubscriptionActive);
   const supportContacts = useSelector(selectSupportContacts);
   const isCompact = variant === "compact";
   const upgradeButtonText = useMemo(
-    () => formatUpgradeButtonText(subscriptionPricing),
-    [subscriptionPricing],
+    () => formatMembershipButtonText(subscriptionPricing, isSubscriptionActive),
+    [subscriptionPricing, isSubscriptionActive],
   );
   const facebookAction = useMemo(
     () => supportContacts.find((contact) => contact.id === "facebook")?.action ?? null,
@@ -117,6 +122,7 @@ export default function PremiumMembershipCard({ onUpgrade, variant = "full", sty
 
     <PremiumUpgradeModal
       visible={upgradeModalVisible}
+      isSubscriptionActive={isSubscriptionActive}
       onClose={() => setUpgradeModalVisible(false)}
       onContactFacebook={
         facebookAction
