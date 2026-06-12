@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from "react-redux";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchHomeRequest } from "../store/catalog/actions";
 import {
   selectAdvertisements,
@@ -81,6 +82,7 @@ export default function NotificationsScreen({
   onStartWatching,
 }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const notificationSections = useSelector(selectNotificationSections);
   const advertisements = useSelector(selectAdvertisements);
   const homeLoading = useSelector(selectHomeLoading);
@@ -127,7 +129,7 @@ export default function NotificationsScreen({
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -152,7 +154,7 @@ export default function NotificationsScreen({
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
@@ -222,7 +224,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   saleBanner: {
     marginBottom: 20,

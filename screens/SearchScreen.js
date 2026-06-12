@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchGenresRequest, fetchHomeRequest, searchRequest } from "../store/catalog/actions";
 import {
   selectCategoryCards,
@@ -169,6 +170,7 @@ export default function SearchScreen({
   initialQuery = "",
 }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const searchResults = useSelector(selectSearchResults);
   const searchLoading = useSelector(selectSearchLoading);
   const topCategories = useSelector(selectCategoryCards);
@@ -307,7 +309,7 @@ export default function SearchScreen({
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -351,7 +353,7 @@ export default function SearchScreen({
           data={listItems}
           keyExtractor={(item) => item.key}
           style={styles.suggestionsList}
-          contentContainerStyle={styles.suggestionsContent}
+          contentContainerStyle={[styles.suggestionsContent, { paddingBottom: contentBottomPadding }]}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             searchLoading ? <ActivityIndicator color="#FFFFFF" style={styles.searchLoading} /> : null
@@ -373,7 +375,7 @@ export default function SearchScreen({
       ) : (
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -477,7 +479,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   sectionTitle: {
     color: "#FFFFFF",
@@ -488,7 +489,6 @@ const styles = StyleSheet.create({
   },
   categoriesContent: {
     gap: 10,
-    paddingBottom: 24,
   },
   categoryCard: {
     width: CATEGORY_CARD_WIDTH,
@@ -565,7 +565,6 @@ const styles = StyleSheet.create({
   suggestionsContent: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 12,
-    paddingBottom: 32,
   },
   searchLoading: {
     marginBottom: 12,

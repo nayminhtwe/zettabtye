@@ -14,6 +14,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
+import { authInputBase, authInputFocused, authPrimaryButtonFocused } from "../constants/focusStyles";
 import { authSetPasswordRequest } from "../store/auth/actions";
 import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 
@@ -188,20 +189,17 @@ const styles = StyleSheet.create({
     minHeight: 64,
     paddingTop: 4,
     paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#4A4A4A",
     backgroundColor: "#1A1A1A",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
+    borderBottomColor: "#4A4A4A",
+    ...authInputBase,
   },
   inputMarginTop: {
     marginTop: 12,
   },
-  inputFocused: {
-    borderBottomColor: "#E71809",
-    backgroundColor: "#FF3B301A",
-  },
+  inputFocused: authInputFocused,
   input: {
     flex: 1,
     paddingVertical: 4,
@@ -235,16 +233,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  continueButtonFocused: {
-    borderWidth: 3,
-    borderColor: "#FF5C4D",
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#FF5C4D",
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-  },
+  continueButtonFocused: authPrimaryButtonFocused,
   continueButtonDisabled: {
     opacity: 0.7,
   },

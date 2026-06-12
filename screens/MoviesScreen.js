@@ -21,6 +21,7 @@ import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchGenresRequest, fetchMoviesRequest } from "../store/catalog/actions";
 import {
   selectAdvertisements,
@@ -102,6 +103,7 @@ export default function MoviesScreen({
   initialCategory = "All",
 }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(28);
   const listRef = useRef(null);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -160,7 +162,7 @@ export default function MoviesScreen({
   }, [heroSlides.length]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -183,7 +185,11 @@ export default function MoviesScreen({
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         {heroSlides.length > 0 ? (
           <>
             <FlatList
@@ -324,7 +330,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 12,
-    paddingBottom: 28,
   },
   heroCard: {
     width: HERO_WIDTH,

@@ -14,10 +14,18 @@ import {
   Text,
   View,
 } from "react-native";
+import FocusablePressable from "../components/FocusablePressable";
 import FloatingPhoneInput from "../components/FloatingPhoneInput";
 import OnboardingHeroImage from "../components/OnboardingHeroImage";
 import StepProgressBar from "../components/StepProgressBar";
 import { gillSans } from "../constants/fonts";
+import {
+  authCountryOptionFocused,
+  authCountrySelectorBase,
+  authCountrySelectorFocused,
+  authPrimaryButtonFocused,
+  authSecondaryButtonFocused,
+} from "../constants/focusStyles";
 import { useSelector } from "react-redux";
 import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 import { getPhoneValidationError } from "../utils/phoneAuth";
@@ -84,6 +92,8 @@ export default function OnboardingScreen({
   const [skipFocused, setSkipFocused] = useState(false);
   const [nextFocused, setNextFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
+  const [countrySelectorFocused, setCountrySelectorFocused] = useState(false);
+  const [focusedCountryOptionId, setFocusedCountryOptionId] = useState(null);
   const [phoneError, setPhoneError] = useState("");
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
@@ -276,11 +286,17 @@ export default function OnboardingScreen({
         {isLastSlide ? (
           <>
             <View style={styles.countrySection}>
-              <Pressable
+              <FocusablePressable
                 ref={countrySelectorRef}
-                style={styles.countrySelector}
+                style={[
+                  styles.countrySelector,
+                  authCountrySelectorBase,
+                  countrySelectorFocused ? authCountrySelectorFocused : null,
+                ]}
                 onPress={toggleCountryDropdown}
                 disabled={isLoading}
+                onFocus={() => setCountrySelectorFocused(true)}
+                onBlur={() => setCountrySelectorFocused(false)}
                 nextFocusDown={
                   isCountryDropdownOpen
                     ? findNodeHandle(countryOptionRefs.current[COUNTRIES[0].id]) ?? undefined
@@ -295,30 +311,34 @@ export default function OnboardingScreen({
                   size={20}
                   color="#D2D2D2"
                 />
-              </Pressable>
+              </FocusablePressable>
 
               {isCountryDropdownOpen ? (
                 <View style={styles.countryDropdown}>
                   {COUNTRIES.map((country) => {
                     const isSelected = country.id === selectedCountryId;
                     return (
-                      <Pressable
+                      <FocusablePressable
                         key={country.id}
                         ref={(node) => {
                           countryOptionRefs.current[country.id] = node;
                         }}
                         style={[
                           styles.countryOption,
+                          authCountrySelectorBase,
                           isSelected ? styles.countryOptionSelected : null,
+                          focusedCountryOptionId === country.id ? authCountryOptionFocused : null,
                         ]}
                         onPress={() => selectCountry(country.id)}
+                        onFocus={() => setFocusedCountryOptionId(country.id)}
+                        onBlur={() => setFocusedCountryOptionId(null)}
                         nextFocusUp={getCountryOptionUpTarget(country.id)}
                         nextFocusDown={getCountryOptionDownTarget(country.id)}
                       >
                         <Text style={styles.countryFlag}>{country.flag}</Text>
                         <Text style={styles.countryName}>{country.name}</Text>
                         <Text style={styles.countryDialCode}>{country.dialCode}</Text>
-                      </Pressable>
+                      </FocusablePressable>
                     );
                   })}
                 </View>
@@ -506,11 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
-  skipButtonFocused: {
-    borderWidth: 1,
-    borderColor: "#FFFFFF",
-    borderRadius: 8,
-  },
+  skipButtonFocused: authSecondaryButtonFocused,
   skipText: {
     color: "#8E8E8E",
     fontSize: 16,
@@ -530,10 +546,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     overflow: "hidden",
   },
-  nextButtonFocused: {
-    borderColor: "#FF5C4D",
-    backgroundColor: "rgba(231, 24, 9, 0.1)",
-  },
+  nextButtonFocused: authSecondaryButtonFocused,
   nextText: {
     color: "#C80D00",
     fontSize: 16,
@@ -550,8 +563,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
     paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#4A4A4A",
     backgroundColor: "#1A1A1A",
     flexDirection: "row",
     alignItems: "center",
@@ -611,14 +622,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  continueButtonFocused: {
-    borderColor: "#FF5C4D",
-    shadowColor: "#E71809",
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 4,
-  },
+  continueButtonFocused: authPrimaryButtonFocused,
   continueButtonDisabled: {
     opacity: 0.7,
   },
@@ -629,6 +633,6 @@ const styles = StyleSheet.create({
     ...gillSans("600"),
   },
   continueTextFocused: {
-    color: "#FFFFFF",
+    color: "#C80D00",
   },
 });

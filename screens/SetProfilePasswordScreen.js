@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { authClearError, authSetPasswordRequest } from "../store/auth/actions";
 import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 
@@ -69,6 +70,7 @@ function PasswordField({
 
 export default function SetProfilePasswordScreen({ onBack, onComplete, onSearchPress }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(24);
   const isLoading = useSelector(selectAuthLoading);
   const authError = useSelector(selectAuthError);
   const submittedRef = useRef(false);
@@ -133,7 +135,7 @@ export default function SetProfilePasswordScreen({ onBack, onComplete, onSearchP
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -202,7 +204,7 @@ export default function SetProfilePasswordScreen({ onBack, onComplete, onSearchP
 
       {authError ? <Text style={styles.apiErrorText}>{authError}</Text> : null}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: contentBottomPadding }]}>
         <Pressable
           ref={submitButtonRef}
           style={[
@@ -332,7 +334,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
   },
   submitButton: {
     minHeight: 48,

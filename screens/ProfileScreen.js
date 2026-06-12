@@ -15,6 +15,7 @@ import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import EditUsernameModal from "../components/EditUsernameModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { selectAuthUser } from "../store/auth/selectors";
 import { fetchHomeRequest } from "../store/catalog/actions";
 import { selectAdvertisements } from "../store/catalog/selectors";
@@ -91,6 +92,7 @@ export default function ProfileScreen({
   onSearchPress,
 }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const authUser = useSelector(selectAuthUser);
   const advertisements = useSelector(selectAdvertisements);
   const [backFocused, setBackFocused] = useState(false);
@@ -147,7 +149,7 @@ export default function ProfileScreen({
   const subscriptionExpiryLabel = isSubscriptionActive ? "Expires on" : "Status";
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -174,7 +176,7 @@ export default function ProfileScreen({
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
@@ -327,7 +329,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   saleBanner: {
     marginTop: 0,

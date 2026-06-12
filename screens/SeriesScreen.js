@@ -19,6 +19,7 @@ import AdMobBanner from "../components/AdMobBanner";
 import PosterGrid, { getPosterCardWidth } from "../components/PosterGrid";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchGenresRequest, fetchSeriesRequest } from "../store/catalog/actions";
 import {
   selectCategoryFilterChips,
@@ -95,6 +96,7 @@ export default function SeriesScreen({
   onWatchNow,
 }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(28);
   const listRef = useRef(null);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -145,7 +147,7 @@ export default function SeriesScreen({
   }, [heroSlides.length]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -168,7 +170,11 @@ export default function SeriesScreen({
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         {heroSlides.length > 0 ? (
           <>
             <FlatList
@@ -300,7 +306,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 12,
-    paddingBottom: 28,
   },
   heroCard: {
     width: HERO_WIDTH,

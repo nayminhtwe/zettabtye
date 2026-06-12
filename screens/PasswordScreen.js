@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,12 +7,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
+import AuthPasswordInput from "../components/AuthPasswordInput";
+import FocusablePressable from "../components/FocusablePressable";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
+import { authLinkFocused, authPrimaryButtonFocused } from "../constants/focusStyles";
 import { authContinueRequest } from "../store/auth/actions";
 import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 
@@ -26,12 +27,11 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
   const [passwordError, setPasswordError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [backFocused, setBackFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
   const [forgotPasswordFocused, setForgotPasswordFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
 
   const backRef = useRef(null);
-  const passwordInputRef = useRef(null);
+  const passwordFieldRef = useRef(null);
   const forgotPasswordRef = useRef(null);
   const continueRef = useRef(null);
 
@@ -47,7 +47,7 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
-          nextFocusDown: findNodeHandle(passwordInputRef.current) ?? undefined,
+          nextFocusDown: findNodeHandle(passwordFieldRef.current) ?? undefined,
         }}
       />
 
@@ -59,42 +59,31 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
         <Text style={styles.title}>Enter Your Password</Text>
 
         <View style={styles.passwordSection}>
-          <View style={[styles.inputContainer, passwordFocused ? styles.inputFocused : null]}>
-            <TextInput
-              ref={passwordInputRef}
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor="#A7A7A7"
-              secureTextEntry={!showPassword}
-              showSoftInputOnFocus
-              value={password}
-              editable={!isLoading}
-              onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(""); }}
-              nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
-              nextFocusDown={findNodeHandle(forgotPasswordRef.current) ?? undefined}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-            />
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() => setShowPassword((prev) => !prev)}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#D2D2D2"
-              />
-            </Pressable>
-          </View>
+          <AuthPasswordInput
+            ref={passwordFieldRef}
+            placeholder="Enter your password"
+            value={password}
+            editable={!isLoading}
+            showPassword={showPassword}
+            onToggleVisibility={() => setShowPassword((prev) => !prev)}
+            onChangeText={(v) => {
+              setPassword(v);
+              if (passwordError) {
+                setPasswordError("");
+              }
+            }}
+            nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
+            nextFocusDown={findNodeHandle(forgotPasswordRef.current) ?? undefined}
+          />
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-          <Pressable
+          <FocusablePressable
             ref={forgotPasswordRef}
             style={[
               styles.forgotPasswordButton,
               forgotPasswordFocused ? styles.forgotPasswordButtonFocused : null,
             ]}
             onPress={onForgotPassword}
-            nextFocusUp={findNodeHandle(passwordInputRef.current) ?? undefined}
+            nextFocusUp={findNodeHandle(passwordFieldRef.current) ?? undefined}
             nextFocusDown={findNodeHandle(continueRef.current) ?? undefined}
             onFocus={() => setForgotPasswordFocused(true)}
             onBlur={() => setForgotPasswordFocused(false)}
@@ -107,12 +96,12 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
             >
               Forgot Password?
             </Text>
-          </Pressable>
+          </FocusablePressable>
         </View>
 
         {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
 
-        <Pressable
+        <FocusablePressable
           ref={continueRef}
           style={[
             styles.continueButton,
@@ -139,7 +128,7 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
               Continue
             </Text>
           )}
-        </Pressable>
+        </FocusablePressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -172,39 +161,6 @@ const styles = StyleSheet.create({
   passwordSection: {
     marginTop: 24,
   },
-  inputContainer: {
-    minHeight: 64,
-    paddingTop: 4,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#4A4A4A",
-    backgroundColor: "#1A1A1A",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-  },
-  inputFocused: {
-    borderBottomColor: "#E71809",
-    backgroundColor: "#FF3B301A",
-  },
-  input: {
-    flex: 1,
-    paddingTop: 4,
-    paddingRight: 8,
-    paddingBottom: 4,
-    paddingLeft: 8,
-    color: "#D2D2D2",
-    fontSize: 20,
-    lineHeight: 24,
-    ...gillSans("400"),
-    backgroundColor: "transparent",
-  },
-  eyeButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   forgotPasswordButton: {
     alignSelf: "flex-start",
     marginTop: 12,
@@ -212,11 +168,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 6,
   },
-  forgotPasswordButtonFocused: {
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
+  forgotPasswordButtonFocused: authLinkFocused,
   forgotPasswordText: {
     color: "#FF3B30",
     fontSize: 16,
@@ -239,16 +191,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  continueButtonFocused: {
-    borderWidth: 3,
-    borderColor: "#FF5C4D",
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#FF5C4D",
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-  },
+  continueButtonFocused: authPrimaryButtonFocused,
   continueText: {
     color: "#D2D2D2",
     fontSize: 20,

@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from "react-redux";
 import FootballMatchCard from "../components/FootballMatchCard";
 import AdMobBanner from "../components/AdMobBanner";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchMatchesRequest } from "../store/catalog/actions";
 import { selectMatches, selectMatchesLoading } from "../store/catalog/selectors";
 import {
@@ -61,6 +62,7 @@ function DateTab({ tab, isSelected, onPress, focused, onFocus, onBlur }) {
 
 export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const apiMatches = useSelector(selectMatches);
   const matchesLoading = useSelector(selectMatchesLoading);
   const [backFocused, setBackFocused] = useState(false);
@@ -99,7 +101,7 @@ export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) 
   }, [apiMatches, selectedDateId, selectedLeagueId]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -126,7 +128,7 @@ export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) 
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {dateTabs.length > 0 ? (
@@ -244,9 +246,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  content: {
-    paddingBottom: 32,
-  },
+  content: {},
   dateBar: {
     paddingTop: 12,
     paddingBottom: 8,

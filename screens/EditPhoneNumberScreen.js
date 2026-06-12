@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { getPhoneValidationError, normalizePhone } from "../utils/phoneAuth";
 
 function formatCurrentPhoneDisplay(phone) {
@@ -57,6 +58,7 @@ function PhoneField({ label, value, onChangeText, placeholder, editable = true, 
 }
 
 export default function EditPhoneNumberScreen({ phoneNumber, onBack, onSendOtp, onSearchPress }) {
+  const { contentBottomPadding } = useScreenInsets(24);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [newPhone, setNewPhone] = useState("");
@@ -88,7 +90,7 @@ export default function EditPhoneNumberScreen({ phoneNumber, onBack, onSendOtp, 
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -140,7 +142,7 @@ export default function EditPhoneNumberScreen({ phoneNumber, onBack, onSendOtp, 
         />
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: contentBottomPadding }]}>
         <Pressable
           ref={submitButtonRef}
           style={[styles.submitButton, submitFocused ? styles.submitButtonFocused : null]}
@@ -254,7 +256,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
   },
   submitButton: {
     minHeight: 48,

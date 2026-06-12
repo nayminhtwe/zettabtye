@@ -23,6 +23,7 @@ import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import AdMobBanner from "../components/AdMobBanner";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchHomeRequest } from "../store/catalog/actions";
 import {
   selectAdvertisements,
@@ -374,6 +375,7 @@ export default function HomeScreen({
 }) {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { contentBottomPadding, bottom: bottomInset } = useScreenInsets(32);
   const isAuthenticated = useSelector(selectAuthAuthenticated);
   const featuredMovies = useSelector(selectFeaturedMovies);
   const trendingMovies = useSelector(selectTrendingMovies);
@@ -701,11 +703,15 @@ export default function HomeScreen({
   });
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
+      >
         <View style={styles.topBar}>
           <FocusablePressable
             ref={menuButtonRef}
+            suppressTVSelect
             style={({ pressed }) => [
               styles.topBarIconButton,
               (pressed || menuFocused) ? styles.topBarIconButtonFocused : null,
@@ -872,7 +878,7 @@ export default function HomeScreen({
       </ScrollView>
       {drawerOpen ? (
         <View style={styles.drawerOverlay} pointerEvents="box-none">
-          <View style={styles.drawerPanel}>
+          <View style={[styles.drawerPanel, { paddingBottom: 24 + bottomInset }]}>
             <DrawerCurvedHeader topInset={insets.top} width={DRAWER_PANEL_WIDTH} />
             <ScrollView
               ref={drawerScrollRef}
@@ -895,6 +901,7 @@ export default function HomeScreen({
                       return (
                         <FocusablePressable
                           key={item.label}
+                          suppressTVSelect
                           ref={(node) => {
                             drawerItemRefs.current[index] = node;
                           }}
@@ -940,6 +947,7 @@ export default function HomeScreen({
             <View style={[styles.drawerFooter, styles.drawerBodyInset]}>
               <FocusablePressable
                 ref={logoutButtonRef}
+                suppressTVSelect
                 onPress={openLogoutConfirm}
                 onFocus={() => {
                   cancelDrawerBlurClose();
@@ -955,6 +963,7 @@ export default function HomeScreen({
               </FocusablePressable>
               <FocusablePressable
                 ref={deleteAccountButtonRef}
+                suppressTVSelect
                 onPress={openDeleteConfirm}
                 onFocus={() => {
                   cancelDrawerBlurClose();
@@ -1009,7 +1018,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: CONTENT_HORIZONTAL_PADDING,
-    paddingBottom: 32,
   },
   topBar: {
     flexDirection: "row",
@@ -1320,7 +1328,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#121212",
     borderTopRightRadius: 16,
     borderBottomRightRadius: 16,
-    paddingBottom: 24,
     overflow: "hidden",
     flexDirection: "column",
     maxHeight: "100%",

@@ -13,6 +13,14 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
+import {
+  authInputBase,
+  authInputFocused,
+  authOtpBoxActiveRow,
+  authOtpBoxBase,
+  authOtpBoxFocused,
+  authPrimaryButtonFocused,
+} from "../constants/focusStyles";
 import { authClearError, authResetPasswordRequest } from "../store/auth/actions";
 import {
   selectAuthError,
@@ -115,7 +123,6 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) 
         backRef={backRef}
         onBack={onBack}
         isBackFocused={backFocused}
-        backFocusedStyle={styles.backButtonFocused}
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
@@ -319,25 +326,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 72,
     backgroundColor: "#1A1A1A",
-    borderBottomWidth: 1,
-    borderBottomColor: "#4E4E4E",
     alignItems: "center",
     justifyContent: "center",
+    ...authOtpBoxBase,
   },
-  backButtonFocused: {
-    borderWidth: 2,
-    borderColor: "#FF5C4D",
-    backgroundColor: "rgba(255, 92, 77, 0.35)",
-  },
-  otpBoxActiveRow: {
-    backgroundColor: "rgba(255, 59, 48, 0.12)",
-    borderBottomColor: "#FF5C4D",
-  },
-  otpBoxFocused: {
-    backgroundColor: "#FF3B301A",
-    borderBottomWidth: 3,
-    borderBottomColor: "#FF5C4D",
-  },
+  otpBoxActiveRow: authOtpBoxActiveRow,
+  otpBoxFocused: authOtpBoxFocused,
   otpBoxError: {
     borderBottomWidth: 3,
     borderBottomColor: "#E71809",
@@ -370,18 +364,14 @@ const styles = StyleSheet.create({
     minHeight: 64,
     paddingTop: 4,
     paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#4A4A4A",
     backgroundColor: "#1A1A1A",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
+    borderBottomColor: "#4A4A4A",
+    ...authInputBase,
   },
-  inputContainerFocused: {
-    backgroundColor: "#FF3B301A",
-    borderBottomWidth: 3,
-    borderBottomColor: "#FF5C4D",
-  },
+  inputContainerFocused: authInputFocused,
   inputContainerError: {
     borderBottomWidth: 3,
     borderBottomColor: "#E71809",
@@ -419,16 +409,7 @@ const styles = StyleSheet.create({
   continueButtonDisabled: {
     opacity: 0.7,
   },
-  continueButtonFocused: {
-    borderWidth: 3,
-    borderColor: "#FF5C4D",
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#FF5C4D",
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-  },
+  continueButtonFocused: authPrimaryButtonFocused,
   continueText: {
     color: "#D2D2D2",
     fontSize: 20,

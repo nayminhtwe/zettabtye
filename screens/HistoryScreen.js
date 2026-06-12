@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchHomeRequest } from "../store/catalog/actions";
 import { selectAuthAuthenticated } from "../store/auth/selectors";
 import { fetchFavoritesRequest } from "../store/favorites/actions";
@@ -109,6 +110,7 @@ export default function HistoryScreen({
   onItemPress,
 }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const isAuthenticated = useSelector(selectAuthAuthenticated);
   const historySections = useSelector(selectFavoriteHistorySections);
   const favoriteItems = useSelector(selectFavoriteMediaItems);
@@ -128,7 +130,7 @@ export default function HistoryScreen({
   }, [dispatch, isAuthenticated]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -153,7 +155,7 @@ export default function HistoryScreen({
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {favoritesLoading && favoriteItems.length === 0 ? (
@@ -227,7 +229,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   loadingIndicator: {
     marginVertical: 24,

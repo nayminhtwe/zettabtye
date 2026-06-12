@@ -14,6 +14,13 @@ import { useDispatch, useSelector } from "react-redux";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
 import {
+  authOtpBoxActiveRow,
+  authOtpBoxBase,
+  authOtpBoxFocused,
+  authLinkFocused,
+  authPrimaryButtonFocused,
+} from "../constants/focusStyles";
+import {
   authResendOtpRequest,
   authVerifyOtpRequest,
 } from "../store/auth/actions";
@@ -77,7 +84,6 @@ export default function OTPScreen({ onBack }) {
         backRef={backRef}
         onBack={onBack}
         isBackFocused={backFocused}
-        backFocusedStyle={styles.backButtonFocused}
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
@@ -92,6 +98,7 @@ export default function OTPScreen({ onBack }) {
 
         <Pressable
           ref={resendRef}
+          style={[styles.helpLink, resendFocused ? styles.helpLinkFocused : null]}
           onPress={handleResendPress}
           disabled={isLoading}
           onFocus={() => setResendFocused(true)}
@@ -193,8 +200,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     textAlign: "center",
   },
-  helpText: {
+  helpLink: {
     marginTop: 12,
+    alignSelf: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  helpLinkFocused: authLinkFocused,
+  helpText: {
     color: "#8E8E8E",
     ...gillSans("400"),
     fontSize: 16,
@@ -204,7 +218,7 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   helpTextFocused: {
-    color: "#FF5C4D",
+    color: "#FFFFFF",
   },
   otpSection: {
     marginTop: 40,
@@ -222,25 +236,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 56,
     backgroundColor: "#1A1A1A",
-    borderBottomWidth: 1,
-    borderBottomColor: "#4E4E4E",
     alignItems: "center",
     justifyContent: "center",
+    ...authOtpBoxBase,
   },
-  backButtonFocused: {
-    borderWidth: 2,
-    borderColor: "#FF5C4D",
-    backgroundColor: "rgba(255, 92, 77, 0.35)",
-  },
-  otpBoxActiveRow: {
-    backgroundColor: "rgba(255, 59, 48, 0.12)",
-    borderBottomColor: "#FF5C4D",
-  },
-  otpBoxFocused: {
-    backgroundColor: "#FF3B301A",
-    borderBottomWidth: 3,
-    borderBottomColor: "#FF5C4D",
-  },
+  otpBoxActiveRow: authOtpBoxActiveRow,
+  otpBoxFocused: authOtpBoxFocused,
   otpBoxError: {
     borderBottomWidth: 3,
     borderBottomColor: "#E71809",
@@ -283,11 +284,7 @@ const styles = StyleSheet.create({
   continueButtonDisabled: {
     opacity: 0.7,
   },
-  continueButtonFocused: {
-    borderWidth: 3,
-    borderColor: "#FF5C4D",
-    backgroundColor: "#FFFFFF",
-  },
+  continueButtonFocused: authPrimaryButtonFocused,
   continueText: {
     color: "#D2D2D2",
     fontSize: 20,

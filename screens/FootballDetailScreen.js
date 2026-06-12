@@ -17,6 +17,7 @@ import FootballMatchCard from "../components/FootballMatchCard";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchMatchDetailRequest } from "../store/catalog/actions";
 import { selectMatchDetail, selectMatchDetailLoading } from "../store/catalog/selectors";
 import {
@@ -58,6 +59,7 @@ export default function FootballDetailScreen({
   onPlaybackBlocked,
 }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const matchId = match?.id ?? match?.apiId;
   const matchDetail = useSelector((state) => selectMatchDetail(state, matchId));
   const detailLoading = useSelector((state) => selectMatchDetailLoading(state, matchId));
@@ -159,7 +161,7 @@ export default function FootballDetailScreen({
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <Pressable
@@ -378,7 +380,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   heroWrapper: {
     width: HERO_WIDTH,

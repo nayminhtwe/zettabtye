@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { gillSans } from "../constants/fonts";
+import { authBackButtonFocused, focusBorderBase } from "../constants/focusStyles";
 
 export default function ScreenHeader({
   title,
@@ -50,11 +51,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    ...focusBorderBase,
   },
-  backButtonFocused: {
-    borderWidth: 1,
-    borderColor: "#FFFFFF",
-  },
+  backButtonFocused: authBackButtonFocused,
   headerTitle: {
     flex: 1,
     color: "#FFFFFF",

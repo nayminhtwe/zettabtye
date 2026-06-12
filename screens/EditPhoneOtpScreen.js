@@ -10,12 +10,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { isValidOtpCode, maskPhone } from "../utils/phoneAuth";
 
 const OTP_LENGTH = 4;
 const RESEND_SECONDS = 59;
 
 export default function EditPhoneOtpScreen({ phoneNumber, onBack, onVerified, onSearchPress }) {
+  const { contentBottomPadding } = useScreenInsets(24);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [otp, setOtp] = useState("");
@@ -80,7 +82,7 @@ export default function EditPhoneOtpScreen({ phoneNumber, onBack, onVerified, on
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -106,7 +108,7 @@ export default function EditPhoneOtpScreen({ phoneNumber, onBack, onVerified, on
         </Pressable>
       </View>
 
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: contentBottomPadding }]}>
         <Text style={styles.message}>
           We sent an OTP code to your new phone number {normalizedPhone}.
         </Text>

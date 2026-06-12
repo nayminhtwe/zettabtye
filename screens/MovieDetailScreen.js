@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchMovieDetailRequest } from "../store/catalog/actions";
 import {
   selectMovieDetail,
@@ -34,6 +35,7 @@ const HERO_HEIGHT = Math.round(HERO_WIDTH * 0.56);
 
 export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [watchFocused, setWatchFocused] = useState(false);
@@ -83,7 +85,7 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           ref={backRef}
@@ -111,7 +113,7 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {detailLoading && !fetchedMovie ? (
@@ -258,7 +260,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   heroSlot: {
     padding: 4,

@@ -1,8 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef } from "react";
-import { findNodeHandle, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useRef, useState } from "react";
+import { findNodeHandle, StyleSheet, Text, View } from "react-native";
+import FocusablePressable from "./FocusablePressable";
 import { COUNTRIES, getCountryById } from "../constants/countries";
 import { gillSans } from "../constants/fonts";
+import {
+  authCountryOptionFocused,
+  authCountrySelectorBase,
+  authCountrySelectorFocused,
+} from "../constants/focusStyles";
 
 export default function CountrySelector({
   selectedCountryId,
@@ -17,6 +23,8 @@ export default function CountrySelector({
 }) {
   const internalOptionRefs = useRef({});
   const optionsRef = optionRefs ?? internalOptionRefs;
+  const [selectorFocused, setSelectorFocused] = useState(false);
+  const [focusedOptionId, setFocusedOptionId] = useState(null);
 
   const selectedCountry = getCountryById(selectedCountryId);
 
@@ -49,11 +57,17 @@ export default function CountrySelector({
 
   return (
     <View style={styles.countrySection}>
-      <Pressable
+      <FocusablePressable
         ref={selectorRef}
-        style={styles.countrySelector}
+        style={[
+          styles.countrySelector,
+          authCountrySelectorBase,
+          selectorFocused ? authCountrySelectorFocused : null,
+        ]}
         onPress={toggleDropdown}
         disabled={disabled}
+        onFocus={() => setSelectorFocused(true)}
+        onBlur={() => setSelectorFocused(false)}
         nextFocusUp={nextFocusUp}
         nextFocusDown={
           isOpen
@@ -69,27 +83,34 @@ export default function CountrySelector({
           size={20}
           color="#D2D2D2"
         />
-      </Pressable>
+      </FocusablePressable>
 
       {isOpen ? (
         <View style={styles.countryDropdown}>
           {COUNTRIES.map((country) => {
             const isSelected = country.id === selectedCountryId;
             return (
-              <Pressable
+              <FocusablePressable
                 key={country.id}
                 ref={(node) => {
                   optionsRef.current[country.id] = node;
                 }}
-                style={[styles.countryOption, isSelected ? styles.countryOptionSelected : null]}
+                style={[
+                  styles.countryOption,
+                  authCountrySelectorBase,
+                  isSelected ? styles.countryOptionSelected : null,
+                  focusedOptionId === country.id ? authCountryOptionFocused : null,
+                ]}
                 onPress={() => selectCountry(country.id)}
+                onFocus={() => setFocusedOptionId(country.id)}
+                onBlur={() => setFocusedOptionId(null)}
                 nextFocusUp={getOptionUpTarget(country.id)}
                 nextFocusDown={getOptionDownTarget(country.id)}
               >
                 <Text style={styles.countryFlag}>{country.flag}</Text>
                 <Text style={styles.countryName}>{country.name}</Text>
                 <Text style={styles.countryDialCode}>{country.dialCode}</Text>
-              </Pressable>
+              </FocusablePressable>
             );
           })}
         </View>
@@ -115,8 +136,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
     paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#4A4A4A",
     backgroundColor: "#1A1A1A",
     flexDirection: "row",
     alignItems: "center",

@@ -13,6 +13,7 @@ import { useDispatch, useSelector } from "react-redux";
 import ViberIcon from "../assets/images/help/basil_viber-outline.svg";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchGenresRequest } from "../store/catalog/actions";
 import { selectGenres, selectGenresLoading } from "../store/catalog/selectors";
 import { selectSupportContacts } from "../store/ads/selectors";
@@ -146,6 +147,7 @@ function HelpContactRow({
 
 export default function GetHelpScreen({ onBack, onSearchPress }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const genres = useSelector(selectGenres);
   const genresLoading = useSelector(selectGenresLoading);
   const supportContacts = useSelector(selectSupportContacts);
@@ -169,7 +171,7 @@ export default function GetHelpScreen({ onBack, onSearchPress }) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -196,7 +198,7 @@ export default function GetHelpScreen({ onBack, onSearchPress }) {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionTitle}>About Us</Text>
@@ -281,7 +283,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   sectionTitle: {
     color: "#FFFFFF",

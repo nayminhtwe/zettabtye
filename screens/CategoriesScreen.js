@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchGenresRequest } from "../store/catalog/actions";
 import {
   selectCategoryCards,
@@ -50,6 +51,7 @@ function CategoryCard({ item, onPress }) {
 
 export default function CategoriesScreen({ onBack, onSearchPress, onCategoryPress }) {
   const dispatch = useDispatch();
+  const { contentBottomPadding } = useScreenInsets(32);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const categoryItems = useSelector(selectCategoryCards);
@@ -63,7 +65,7 @@ export default function CategoriesScreen({ onBack, onSearchPress, onCategoryPres
   }, [dispatch, genres.length, genresLoading]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Pressable
           style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
@@ -88,7 +90,7 @@ export default function CategoriesScreen({ onBack, onSearchPress, onCategoryPres
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {genresLoading && categoryItems.length === 0 ? (
@@ -146,7 +148,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: CONTENT_PADDING,
     paddingTop: 16,
-    paddingBottom: 32,
   },
   loadingIndicator: {
     marginBottom: 24,

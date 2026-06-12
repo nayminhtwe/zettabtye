@@ -6,6 +6,7 @@ import {
   TextInput,
 } from "react-native";
 import { gillSans } from "../constants/fonts";
+import { authInputBase, authInputFocused } from "../constants/focusStyles";
 
 const LABEL = "Enter your phone number";
 const ANIMATION_MS = 300;
@@ -108,7 +109,7 @@ export default function FloatingPhoneInput({
           {
             top: labelTop,
             fontSize: labelFontSize,
-            color: shouldFloat ? "#E71809" : idleLabelColor,
+            color: shouldFloat ? (focused ? "#FFFFFF" : "#D2D2D2") : idleLabelColor,
           },
         ]}
       >
@@ -140,9 +141,12 @@ const styles = StyleSheet.create({
     minHeight: 64,
     paddingTop: 4,
     paddingBottom: 4,
-    borderBottomWidth: 1,
     justifyContent: "center",
+    backgroundColor: "#1A1A1A",
+    borderBottomColor: "#4A4A4A",
+    ...authInputBase,
   },
+  containerFocused: authInputFocused,
   label: {
     position: "absolute",
     left: 0,

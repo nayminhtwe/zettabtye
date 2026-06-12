@@ -14,6 +14,7 @@ import FloatingPhoneInput from "../components/FloatingPhoneInput";
 import ScreenHeader from "../components/ScreenHeader";
 import { DEFAULT_COUNTRY_ID } from "../constants/countries";
 import { gillSans } from "../constants/fonts";
+import { authPrimaryButtonFocused } from "../constants/focusStyles";
 import { authClearError, authForgotPasswordRequest } from "../store/auth/actions";
 import {
   selectAuthError,
@@ -105,7 +106,6 @@ export default function ForgotPasswordPhoneScreen({
         backRef={backRef}
         onBack={onBack}
         isBackFocused={backFocused}
-        backFocusedStyle={styles.backButtonFocused}
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
@@ -227,11 +227,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     ...gillSans("400"),
   },
-  backButtonFocused: {
-    borderWidth: 2,
-    borderColor: "#FF5C4D",
-    backgroundColor: "rgba(255, 92, 77, 0.35)",
-  },
   continueButton: {
     marginTop: 24,
     height: 48,
@@ -245,16 +240,7 @@ const styles = StyleSheet.create({
   continueButtonDisabled: {
     opacity: 0.7,
   },
-  continueButtonFocused: {
-    borderWidth: 3,
-    borderColor: "#FF5C4D",
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#FF5C4D",
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
-  },
+  continueButtonFocused: authPrimaryButtonFocused,
   continueText: {
     color: "#D2D2D2",
     fontSize: 20,
