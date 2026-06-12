@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import AdMobBanner from "../components/AdMobBanner";
 import { gillSans } from "../constants/fonts";
 import { fetchGenresRequest, fetchSeriesRequest } from "../store/catalog/actions";
 import {
@@ -225,6 +226,8 @@ export default function SeriesScreen({
         {(seriesLoading || genresLoading) && seriesPosters.length === 0 ? (
           <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
         ) : null}
+
+        <AdMobBanner placement="series" />
 
         <View style={styles.posterGrid}>
           {seriesPosters.map((item) => (

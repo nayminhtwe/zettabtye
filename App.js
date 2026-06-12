@@ -39,6 +39,7 @@ import CreatePasswordScreen from "./screens/CreatePasswordScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import SplashScreen from "./screens/SplashScreen";
 import { authInitiateRequest, authLogoutRequest, bootstrapRequest } from "./store/auth/actions";
+import { fetchAppSettingsRequest } from "./store/ads/actions";
 import {
   selectAuthAuthenticated,
   selectAuthBootstrapped,
@@ -130,6 +131,7 @@ export default function App() {
 
   useEffect(() => {
     dispatch(bootstrapRequest());
+    dispatch(fetchAppSettingsRequest());
   }, [dispatch]);
 
   // Only redirect on auth *transitions* — never re-run routing for normal in-app navigation.

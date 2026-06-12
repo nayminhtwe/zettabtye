@@ -19,6 +19,7 @@ import FootballMatchCard from "../components/FootballMatchCard";
 import DeleteAccountConfirmModal from "../components/DeleteAccountConfirmModal";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
+import AdMobBanner from "../components/AdMobBanner";
 import { gillSans } from "../constants/fonts";
 import { fetchHomeRequest } from "../store/catalog/actions";
 import {
@@ -715,13 +716,16 @@ export default function HomeScreen({
               )}
             </View>
             {rowIndex === 0 ? (
-              <SaleBannerCarousel
-                ref={bannerRef}
-                slides={advertisements}
-                style={styles.saleBanner}
-                nextFocusUp={getFeaturedHandle(1)}
-                nextFocusDown={getSectionCardHandle(1, 0)}
-              />
+              <>
+                <SaleBannerCarousel
+                  ref={bannerRef}
+                  slides={advertisements}
+                  style={styles.saleBanner}
+                  nextFocusUp={getFeaturedHandle(1)}
+                  nextFocusDown={getSectionCardHandle(1, 0)}
+                />
+                <AdMobBanner placement="home" />
+              </>
             ) : null}
           </React.Fragment>
         ))}

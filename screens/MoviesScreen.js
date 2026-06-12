@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
+import AdMobBanner from "../components/AdMobBanner";
 import { gillSans } from "../constants/fonts";
 import { fetchGenresRequest, fetchMoviesRequest } from "../store/catalog/actions";
 import {
@@ -259,6 +260,7 @@ export default function MoviesScreen({
         <PosterGrid posters={postersBeforeBanner} onMoviePress={onMoviePress} />
 
         <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
+        <AdMobBanner placement="movies" />
 
         <PosterGrid posters={postersAfterBanner} onMoviePress={onMoviePress} />
 
