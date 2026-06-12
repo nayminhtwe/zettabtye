@@ -1,0 +1,69 @@
+diff --git a/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java b/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java
+index 825a76f..3c3f00d 100644
+--- a/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java
++++ b/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java
+@@ -69,7 +69,9 @@ public class ReactNativeGoogleMobileAdsCommon {
+             reactViewGroup.getContext(), adWidth);
+       }
+       if ("LARGE_ANCHORED_ADAPTIVE_BANNER".equals(preDefinedAdSize)) {
+-        return AdSize.getLargeAnchoredAdaptiveBannerAdSize(reactViewGroup.getContext(), adWidth);
++        // play-services-ads <25 lacks getLargeAnchoredAdaptiveBannerAdSize; anchored fallback is equivalent for our banners
++        return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
++            reactViewGroup.getContext(), adWidth);
+       }
+       return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
+           reactViewGroup.getContext(), adWidth);
+diff --git a/node_modules/react-native-google-mobile-ads/src/specs/modules/NativeAppModule.ts b/node_modules/react-native-google-mobile-ads/src/specs/modules/NativeAppModule.ts
+index f315f05..4e4b30c 100644
+--- a/node_modules/react-native-google-mobile-ads/src/specs/modules/NativeAppModule.ts
++++ b/node_modules/react-native-google-mobile-ads/src/specs/modules/NativeAppModule.ts
+@@ -16,24 +16,23 @@
+ 
+ import type { TurboModule } from 'react-native';
+ import { TurboModuleRegistry } from 'react-native';
+-import type { CodegenTypes } from 'react-native';
+ 
+ export interface Spec extends TurboModule {
+   // App initialization
+   initializeApp(
+-    options: CodegenTypes.UnsafeObject,
+-    appConfig: CodegenTypes.UnsafeObject,
+-  ): Promise<CodegenTypes.UnsafeObject>;
++    options: Object,
++    appConfig: Object,
++  ): Promise<Object>;
+   setAutomaticDataCollectionEnabled(appName: string, enabled: boolean): void;
+   deleteApp(appName: string): Promise<void>;
+ 
+   // Events
+   eventsNotifyReady(ready: boolean): void;
+-  eventsGetListeners(): Promise<CodegenTypes.UnsafeObject>;
++  eventsGetListeners(): Promise<Object>;
+   eventsPing(
+     eventName: string,
+-    eventBody: CodegenTypes.UnsafeObject,
+-  ): Promise<CodegenTypes.UnsafeObject>;
++    eventBody: Object,
++  ): Promise<Object>;
+   eventsAddListener(eventName: string): void;
+   eventsRemoveListener(eventName: string, all: boolean): void;
+ 
+@@ -42,15 +41,15 @@ export interface Spec extends TurboModule {
+   removeListeners(count: number): void;
+ 
+   // Meta
+-  metaGetAll(): Promise<CodegenTypes.UnsafeObject>;
++  metaGetAll(): Promise<Object>;
+ 
+   // JSON
+-  jsonGetAll(): Promise<CodegenTypes.UnsafeObject>;
++  jsonGetAll(): Promise<Object>;
+ 
+   // Preferences
+   preferencesSetBool(key: string, value: boolean): Promise<void>;
+   preferencesSetString(key: string, value: string): Promise<void>;
+-  preferencesGetAll(): Promise<CodegenTypes.UnsafeObject>;
++  preferencesGetAll(): Promise<Object>;
+   preferencesClearAll(): Promise<void>;
+ }
+ 

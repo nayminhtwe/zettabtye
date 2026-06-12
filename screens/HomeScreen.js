@@ -36,6 +36,7 @@ import { buildFootballDetail } from "../utils/football";
 import { buildMovieDetail } from "../utils/movieDetail";
 import { buildSeriesDetail } from "../utils/seriesDetail";
 import { selectFavoriteMediaItems } from "../store/favorites/selectors";
+import { selectCanAccessFootball } from "../store/ads/selectors";
 
 const CONTENT_HORIZONTAL_PADDING = 10;
 
@@ -369,6 +370,23 @@ export default function HomeScreen({
   const advertisements = useSelector(selectAdvertisements);
   const genreRows = useSelector(selectHomeGenreRows);
   const favoriteItems = useSelector(selectFavoriteMediaItems);
+  const canShowFootball = useSelector(selectCanAccessFootball);
+
+  const drawerSections = React.useMemo(() => {
+    if (canShowFootball) {
+      return DRAWER_SECTIONS;
+    }
+
+    return DRAWER_SECTIONS.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => item.navigate !== "football_list"),
+    }));
+  }, [canShowFootball]);
+
+  const drawerItems = React.useMemo(
+    () => drawerSections.flatMap((section) => section.items),
+    [drawerSections],
+  );
 
   const featuredItems = featuredMovies;
   const footballFixtures = homeMatches;
@@ -390,7 +408,7 @@ export default function HomeScreen({
     const sections = [
       ...baseSections.filter((section) => {
         if (section.id === "continue") {
-          return footballFixtures.length > 0;
+          return canShowFootball && footballFixtures.length > 0;
         }
 
         return section.items.length > 0;
@@ -422,12 +440,12 @@ export default function HomeScreen({
 
     return sections.filter((section) => {
       if (section.id === "continue") {
-        return footballFixtures.length > 0;
+        return canShowFootball && footballFixtures.length > 0;
       }
 
       return section.items.length > 0;
     });
-  }, [trendingMovies, homeSeries, genreRows, favoriteItems, footballFixtures.length]);
+  }, [trendingMovies, homeSeries, genreRows, favoriteItems, footballFixtures.length, canShowFootball]);
 
   useEffect(() => {
     dispatch(fetchHomeRequest());
@@ -480,7 +498,7 @@ export default function HomeScreen({
   );
   const menuButtonRef = useRef(null);
   const searchButtonRef = useRef(null);
-  const drawerItemRefs = useRef(DRAWER_ITEMS.map(() => null));
+  const drawerItemRefs = useRef([]);
   const drawerScrollRef = useRef(null);
   const drawerScrollContentRef = useRef(null);
   const logoutButtonRef = useRef(null);
@@ -745,7 +763,7 @@ export default function HomeScreen({
               {(() => {
                 let itemIndex = 0;
 
-                return DRAWER_SECTIONS.map((section) => (
+                return drawerSections.map((section) => (
                   <View key={section.title} style={styles.drawerSection}>
                     <Text style={styles.drawerSectionTitle}>{section.title}</Text>
                     {section.items.map((item) => {
@@ -801,7 +819,7 @@ export default function HomeScreen({
                               : findNodeHandle(menuButtonRef.current) ?? undefined
                           }
                           nextFocusDown={
-                            index < DRAWER_ITEMS.length - 1
+                            index < drawerItems.length - 1
                               ? getDrawerHandle(index + 1)
                               : getLogoutHandle()
                           }
@@ -837,7 +855,7 @@ export default function HomeScreen({
                 }}
                 onBlur={() => setLogoutFocused(false)}
                 style={[styles.logoutButton, logoutFocused ? styles.drawerFooterButtonFocused : null]}
-                nextFocusUp={getDrawerHandle(DRAWER_ITEMS.length - 1)}
+                nextFocusUp={getDrawerHandle(drawerItems.length - 1)}
                 nextFocusDown={getDeleteAccountHandle()}
               >
                 <Text style={styles.logoutButtonText}>Log out</Text>

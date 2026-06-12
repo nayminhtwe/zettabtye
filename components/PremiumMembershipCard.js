@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
+import { selectSubscriptionPricing, selectSupportContacts } from "../store/ads/selectors";
+import { formatUpgradeButtonText } from "../utils/appSettings";
 import PremiumUpgradeModal from "./PremiumUpgradeModal";
 
 const FEATURES = [
@@ -27,7 +30,17 @@ function FeatureValue({ value }) {
 export default function PremiumMembershipCard({ onUpgrade, variant = "full", style }) {
   const [upgradeFocused, setUpgradeFocused] = useState(false);
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const subscriptionPricing = useSelector(selectSubscriptionPricing);
+  const supportContacts = useSelector(selectSupportContacts);
   const isCompact = variant === "compact";
+  const upgradeButtonText = useMemo(
+    () => formatUpgradeButtonText(subscriptionPricing),
+    [subscriptionPricing],
+  );
+  const facebookAction = useMemo(
+    () => supportContacts.find((contact) => contact.id === "facebook")?.action ?? null,
+    [supportContacts],
+  );
 
   const handleUpgradePress = () => {
     setUpgradeModalVisible(true);
@@ -97,7 +110,7 @@ export default function PremiumMembershipCard({ onUpgrade, variant = "full", sty
           end={{ x: 1, y: 0.5 }}
           style={styles.upgradeButton}
         >
-          <Text style={styles.upgradeButtonText}>Upgrade to Pro, only 5,000 mmk Monthly</Text>
+          <Text style={styles.upgradeButtonText}>{upgradeButtonText}</Text>
         </LinearGradient>
       </Pressable>
     </LinearGradient>
@@ -105,6 +118,13 @@ export default function PremiumMembershipCard({ onUpgrade, variant = "full", sty
     <PremiumUpgradeModal
       visible={upgradeModalVisible}
       onClose={() => setUpgradeModalVisible(false)}
+      onContactFacebook={
+        facebookAction
+          ? () => {
+              Linking.openURL(facebookAction).catch(() => {});
+            }
+          : undefined
+      }
     />
     </>
   );

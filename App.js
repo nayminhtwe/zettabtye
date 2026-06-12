@@ -40,6 +40,7 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import SplashScreen from "./screens/SplashScreen";
 import { authInitiateRequest, authLogoutRequest, bootstrapRequest } from "./store/auth/actions";
 import { fetchAppSettingsRequest } from "./store/ads/actions";
+import { selectCanAccessFootball } from "./store/ads/selectors";
 import {
   selectAuthAuthenticated,
   selectAuthBootstrapped,
@@ -124,6 +125,7 @@ export default function App() {
   const [searchReturnScreen, setSearchReturnScreen] = useState(SCREEN.HOME);
   const [recentSearches, setRecentSearches] = useState([]);
   const catalogMatches = useSelector(selectMatches);
+  const canAccessFootball = useSelector(selectCanAccessFootball);
 
   const displayPhone = authUser?.phone ?? authPhone ?? "";
 
@@ -133,6 +135,16 @@ export default function App() {
     dispatch(bootstrapRequest());
     dispatch(fetchAppSettingsRequest());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (
+      !canAccessFootball &&
+      (currentPage === SCREEN.FOOTBALL_LIST || currentPage === SCREEN.FOOTBALL_DETAIL)
+    ) {
+      setCurrentPage(SCREEN.HOME);
+      setSelectedFootballMatch(null);
+    }
+  }, [canAccessFootball, currentPage]);
 
   // Only redirect on auth *transitions* — never re-run routing for normal in-app navigation.
   useEffect(() => {
@@ -240,11 +252,19 @@ export default function App() {
   };
 
   const openFootballList = (returnScreen) => {
+    if (!canAccessFootball) {
+      return;
+    }
+
     setFootballReturnScreen(returnScreen);
     setCurrentPage(SCREEN.FOOTBALL_LIST);
   };
 
   const openFootballDetail = (fixture, returnScreen) => {
+    if (!canAccessFootball) {
+      return;
+    }
+
     setFootballDetailReturnScreen(returnScreen);
     setSelectedFootballMatch(buildFootballDetail(fixture, catalogMatches));
     setCurrentPage(SCREEN.FOOTBALL_DETAIL);
@@ -357,7 +377,9 @@ export default function App() {
 
   const navigateFromCategory = (category, returnScreen) => {
     if (category.destination === "football_list") {
-      openFootballList(returnScreen);
+      if (canAccessFootball) {
+        openFootballList(returnScreen);
+      }
       return;
     }
 
@@ -524,7 +546,6 @@ export default function App() {
       case SCREEN.GET_HELP:
         return (
         <GetHelpScreen
-          phoneNumber={displayPhone}
           onBack={() => setCurrentPage(SCREEN.HOME)}
           onSearchPress={() => openSearch(SCREEN.GET_HELP)}
         />

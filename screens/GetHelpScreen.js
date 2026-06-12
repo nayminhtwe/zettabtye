@@ -15,7 +15,7 @@ import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import { gillSans } from "../constants/fonts";
 import { fetchGenresRequest } from "../store/catalog/actions";
 import { selectGenres, selectGenresLoading } from "../store/catalog/selectors";
-import { maskPhone } from "../utils/phoneAuth";
+import { selectSupportContacts } from "../store/ads/selectors";
 
 const CONTENT_PADDING = 16;
 
@@ -40,16 +40,33 @@ const STATIC_FAQ_ITEMS = [
   },
 ];
 
-function formatHelpPhone(phone) {
-  const masked = maskPhone(phone);
-  if (!masked) {
-    return "—";
-  }
-  if (masked.startsWith("+959")) {
-    return `+95 ${masked.slice(3, 4)} ${masked.slice(4)}`;
-  }
-  return masked;
-}
+const CONTACT_UI = {
+  viber: {
+    renderIcon: () => <ViberIcon width={18} height={18} />,
+    iconBackgroundColor: "#7360F2",
+    actionIcon: "open-outline",
+  },
+  facebook: {
+    icon: "logo-facebook",
+    iconBackgroundColor: "#0084FF",
+    actionIcon: "open-outline",
+  },
+  telegram: {
+    icon: "paper-plane",
+    iconBackgroundColor: "#229ED9",
+    actionIcon: "open-outline",
+  },
+  messenger: {
+    icon: "chatbubble-ellipses",
+    iconBackgroundColor: "#0084FF",
+    actionIcon: "open-outline",
+  },
+  website: {
+    icon: "globe-outline",
+    iconBackgroundColor: "#E71809",
+    actionIcon: "open-outline",
+  },
+};
 
 function buildGenreFaqItem(genres) {
   const genreNames = genres.map((genre) => genre.name).filter(Boolean);
@@ -65,13 +82,12 @@ function buildGenreFaqItem(genres) {
   };
 }
 
-function getViberChatUrl(phone) {
-  const digits = maskPhone(phone).replace(/\D/g, "");
-  return `viber://chat?number=${digits}`;
-}
+function openContactAction(action) {
+  if (!action) {
+    return;
+  }
 
-function openViberChat(phone) {
-  Linking.openURL(getViberChatUrl(phone)).catch(() => {});
+  Linking.openURL(action).catch(() => {});
 }
 
 function FaqItem({ item, expanded, onToggle }) {
@@ -118,10 +134,11 @@ function HelpContactRow({ icon, iconElement, iconBackgroundColor, label, actionI
   );
 }
 
-export default function GetHelpScreen({ phoneNumber, onBack, onSearchPress }) {
+export default function GetHelpScreen({ onBack, onSearchPress }) {
   const dispatch = useDispatch();
   const genres = useSelector(selectGenres);
   const genresLoading = useSelector(selectGenresLoading);
+  const supportContacts = useSelector(selectSupportContacts);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [expandedFaqId, setExpandedFaqId] = useState(STATIC_FAQ_ITEMS[0].id);
@@ -136,8 +153,6 @@ export default function GetHelpScreen({ phoneNumber, onBack, onSearchPress }) {
       dispatch(fetchGenresRequest());
     }
   }, [dispatch, genres.length, genresLoading]);
-
-  const displayPhone = formatHelpPhone(phoneNumber);
 
   const toggleFaq = (faqId) => {
     setExpandedFaqId((current) => (current === faqId ? null : faqId));
@@ -177,29 +192,23 @@ export default function GetHelpScreen({ phoneNumber, onBack, onSearchPress }) {
         <Text style={styles.sectionTitle}>About Us</Text>
 
         <View style={styles.contactList}>
-          <HelpContactRow
-            icon="call"
-            iconBackgroundColor="#E71809"
-            label={displayPhone}
-            actionIcon="copy-outline"
-            onActionPress={() => {}}
-          />
-          <View style={styles.contactDivider} />
-          <HelpContactRow
-            iconElement={<ViberIcon width={18} height={18} />}
-            iconBackgroundColor="#7360F2"
-            label={displayPhone}
-            actionIcon="open-outline"
-            onActionPress={() => openViberChat(phoneNumber)}
-          />
-          <View style={styles.contactDivider} />
-          <HelpContactRow
-            icon="logo-facebook"
-            iconBackgroundColor="#0084FF"
-            label="Zettabyte Movies"
-            actionIcon="open-outline"
-            onActionPress={() => {}}
-          />
+          {supportContacts.map((contact, index) => {
+            const ui = CONTACT_UI[contact.id] ?? CONTACT_UI.website;
+
+            return (
+              <React.Fragment key={contact.id}>
+                {index > 0 ? <View style={styles.contactDivider} /> : null}
+                <HelpContactRow
+                  icon={ui.icon}
+                  iconElement={ui.renderIcon?.()}
+                  iconBackgroundColor={ui.iconBackgroundColor}
+                  label={contact.label}
+                  actionIcon={ui.actionIcon}
+                  onActionPress={() => openContactAction(contact.action)}
+                />
+              </React.Fragment>
+            );
+          })}
         </View>
 
         <PremiumMembershipCard variant="compact" style={styles.proCard} />
