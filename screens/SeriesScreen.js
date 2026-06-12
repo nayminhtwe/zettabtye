@@ -16,6 +16,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import AdMobBanner from "../components/AdMobBanner";
+import PosterGrid, { getPosterCardWidth } from "../components/PosterGrid";
+import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { fetchGenresRequest, fetchSeriesRequest } from "../store/catalog/actions";
 import {
@@ -32,10 +34,18 @@ const HERO_WIDTH = SCREEN_WIDTH - CONTENT_PADDING * 2;
 const HERO_HEIGHT = Math.min(280, Math.round(HERO_WIDTH * 0.62));
 const HERO_INDICATOR_TRACK_WIDTH = 54;
 const HERO_AUTO_SCROLL_MS = 4500;
+const POSTER_CARD_WIDTH = getPosterCardWidth(HERO_WIDTH);
 
 function HeroCard({ item, onSeriesPress, onWatchNow }) {
+  const [focused, setFocused] = useState(false);
+
   return (
-    <Pressable style={styles.heroCard} onPress={() => onSeriesPress?.(item)}>
+    <Pressable
+      style={[styles.heroCard, focused ? styles.heroCardFocused : null]}
+      onPress={() => onSeriesPress?.(item)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
       <Image source={item.image} resizeMode="cover" style={styles.heroImage} />
       <BlurView intensity={17} tint="dark" style={styles.heroBlurUpper} pointerEvents="none" />
       <BlurView intensity={34} tint="dark" style={styles.heroBlurLower} pointerEvents="none" />
@@ -90,6 +100,7 @@ export default function SeriesScreen({
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [focusedCategory, setFocusedCategory] = useState(null);
   const series = useSelector(selectSeries);
   const seriesLoading = useSelector(selectSeriesLoading);
   const genres = useSelector(selectGenres);
@@ -210,13 +221,22 @@ export default function SeriesScreen({
             <Pressable
               key={category}
               onPress={() => setActiveCategory(category)}
+              onFocus={() => setFocusedCategory(category)}
+              onBlur={() => setFocusedCategory(null)}
               style={({ pressed }) => [
                 styles.categoryChip,
                 category === activeCategory ? styles.categoryChipActive : null,
+                focusedCategory === category ? styles.categoryChipFocused : null,
                 pressed ? styles.buttonPressed : null,
               ]}
             >
-              <Text style={[styles.categoryText, category === activeCategory ? styles.categoryTextActive : null]}>
+              <Text
+                style={[
+                  styles.categoryText,
+                  category === activeCategory ? styles.categoryTextActive : null,
+                  focusedCategory === category ? styles.categoryTextFocused : null,
+                ]}
+              >
                 {category}
               </Text>
             </Pressable>
@@ -229,17 +249,11 @@ export default function SeriesScreen({
 
         <AdMobBanner placement="series" />
 
-        <View style={styles.posterGrid}>
-          {seriesPosters.map((item) => (
-            <Pressable
-              key={item.id}
-              style={styles.posterCard}
-              onPress={() => onSeriesPress?.(item)}
-            >
-              <Image source={item.image} resizeMode="cover" style={styles.posterImage} />
-            </Pressable>
-          ))}
-        </View>
+        <PosterGrid
+          posters={seriesPosters}
+          onPosterPress={onSeriesPress}
+          cardWidth={POSTER_CARD_WIDTH}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -294,9 +308,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     backgroundColor: "#111827",
-    borderWidth: 1,
-    borderColor: "#2E364C",
+    ...focusBorderBase,
   },
+  heroCardFocused: focusBorderActive,
   heroImage: {
     ...StyleSheet.absoluteFillObject,
     width: "100%",
@@ -417,6 +431,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: "#E71809",
   },
+  categoryChipFocused: {
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+  },
   categoryText: {
     color: "#8D93A4",
     fontSize: 15,
@@ -427,27 +447,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     ...gillSans("600"),
   },
+  categoryTextFocused: {
+    color: "#FFFFFF",
+  },
   loadingIndicator: {
     marginVertical: 24,
-  },
-  posterGrid: {
-    marginTop: 14,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 12,
-  },
-  posterCard: {
-    width: (HERO_WIDTH - 18) / 4,
-    borderRadius: 4,
-    overflow: "hidden",
-    backgroundColor: "#111827",
-    borderWidth: 1,
-    borderColor: "#293146",
-  },
-  posterImage: {
-    width: "100%",
-    aspectRatio: 0.67,
   },
   buttonPressed: {
     opacity: 0.85,

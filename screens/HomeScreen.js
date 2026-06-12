@@ -15,11 +15,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
-import FootballMatchCard from "../components/FootballMatchCard";
 import DeleteAccountConfirmModal from "../components/DeleteAccountConfirmModal";
+import FocusablePressable from "../components/FocusablePressable";
+import FootballMatchCard from "../components/FootballMatchCard";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import AdMobBanner from "../components/AdMobBanner";
+import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { fetchHomeRequest } from "../store/catalog/actions";
 import {
@@ -288,6 +290,8 @@ const MediaCard = forwardRef(function MediaCard(
     image,
     nextFocusUp,
     nextFocusDown,
+    nextFocusLeft,
+    nextFocusRight,
     variant = "poster",
     progress = 0,
     showLabel = false,
@@ -298,22 +302,22 @@ const MediaCard = forwardRef(function MediaCard(
   const [focused, setFocused] = useState(false);
   const isMatchCard = variant === "match";
   const isContinueCard = variant === "continue";
+  const isFocused = focused;
 
   return (
     <Pressable
       ref={ref}
-      style={({ pressed }) => [
-        styles.card,
-        (pressed || focused) ? styles.cardFocused : null,
-      ]}
+      style={styles.card}
       onPress={onPress}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
+      nextFocusLeft={nextFocusLeft}
+      nextFocusRight={nextFocusRight}
     >
       {isMatchCard ? (
-        <View style={styles.matchCard}>
+        <View style={[styles.matchCard, isFocused ? styles.matchCardFocused : null]}>
           <Text numberOfLines={1} style={styles.matchTeamText}>
             {label}
           </Text>
@@ -322,9 +326,17 @@ const MediaCard = forwardRef(function MediaCard(
       ) : (
         <>
           {image ? (
-            <Image source={image} resizeMode="cover" style={styles.cardPosterImage} />
+            <View style={[styles.cardPosterShell, isFocused ? styles.cardPosterShellFocused : null]}>
+              <Image source={image} resizeMode="cover" style={styles.cardPosterImage} />
+            </View>
           ) : (
-            <View style={[styles.cardPoster, { backgroundColor: getPosterColor(label) }]}>
+            <View
+              style={[
+                styles.cardPoster,
+                { backgroundColor: getPosterColor(label) },
+                isFocused ? styles.cardPosterShellFocused : null,
+              ]}
+            >
               <Text style={styles.cardPosterText}>{label.slice(0, 1)}</Text>
             </View>
           )}
@@ -515,6 +527,78 @@ export default function HomeScreen({
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [deleteAccountConfirmVisible, setDeleteAccountConfirmVisible] = useState(false);
   const [deleteAccountFocused, setDeleteAccountFocused] = useState(false);
+
+  const handleDrawerItemPress = useCallback(
+    (item) => {
+      if (!item) {
+        return;
+      }
+
+      setDrawerOpen(false);
+      if (item.label === "Series") {
+        onSeriesPress?.();
+      }
+      if (item.label === "Movies") {
+        onMoviesPress?.();
+      }
+      if (item.label === "Categories") {
+        onCategoriesPress?.();
+      }
+      if (item.label === "History") {
+        onHistoryPress?.();
+      }
+      if (item.label === "Notifications") {
+        onNotificationsPress?.();
+      }
+      if (item.navigate === "football_list") {
+        onSeeAllFootball?.();
+      }
+      if (item.navigate === "profile") {
+        onProfilePress?.();
+      }
+      if (item.navigate === "get_help") {
+        onGetHelpPress?.();
+      }
+    },
+    [
+      onCategoriesPress,
+      onGetHelpPress,
+      onHistoryPress,
+      onMoviesPress,
+      onNotificationsPress,
+      onProfilePress,
+      onSeeAllFootball,
+      onSeriesPress,
+    ],
+  );
+
+  const openLogoutConfirm = useCallback(() => {
+    setDrawerOpen(false);
+    setLogoutConfirmVisible(true);
+  }, []);
+
+  const openDeleteConfirm = useCallback(() => {
+    setDrawerOpen(false);
+    setDeleteAccountConfirmVisible(true);
+  }, []);
+
+  const openDrawer = useCallback(() => {
+    setDrawerOpen(true);
+  }, []);
+
+  const drawerNavRef = useRef({});
+  drawerNavRef.current = {
+    drawerOpen,
+    menuFocused,
+    activeDrawerItem,
+    logoutFocused,
+    deleteAccountFocused,
+    drawerItems,
+    handleDrawerItemPress,
+    openLogoutConfirm,
+    openDeleteConfirm,
+    openDrawer,
+  };
   const getFeaturedHandle = (index) =>
     featuredCarouselRef.current?.getNodeHandle(index) ?? undefined;
   const getSectionCardHandle = (sectionIndex, itemIndex) =>
@@ -576,21 +660,51 @@ export default function HomeScreen({
   }, []);
 
   useTVEventHandler((event) => {
-    if (!drawerOpen || !event?.eventType) {
+    const type = event?.eventType;
+    if (!type) {
       return;
     }
 
-    if (["left", "leftArrow", "right", "rightArrow"].includes(event.eventType)) {
+    const isKeyUp = event.eventKeyAction === undefined || event.eventKeyAction === 1;
+    const nav = drawerNavRef.current;
+
+    if (!nav.drawerOpen) {
+      if (type === "select" && isKeyUp && nav.menuFocused) {
+        nav.openDrawer();
+      }
+      return;
+    }
+
+    if (["left", "leftArrow", "right", "rightArrow"].includes(type)) {
       cancelDrawerBlurClose();
       setDrawerOpen(false);
+      return;
     }
+
+    if (type !== "select" || !isKeyUp) {
+      return;
+    }
+
+    cancelDrawerBlurClose();
+
+    if (nav.logoutFocused) {
+      nav.openLogoutConfirm();
+      return;
+    }
+
+    if (nav.deleteAccountFocused) {
+      nav.openDeleteConfirm();
+      return;
+    }
+
+    nav.handleDrawerItemPress(nav.drawerItems[nav.activeDrawerItem]);
   });
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
-          <Pressable
+          <FocusablePressable
             ref={menuButtonRef}
             style={({ pressed }) => [
               styles.topBarIconButton,
@@ -605,7 +719,7 @@ export default function HomeScreen({
             }
           >
             <Ionicons name="menu" size={24} color="#FFFFFF" />
-          </Pressable>
+          </FocusablePressable>
           <View style={styles.topBarBrand}>
             <Image
               source={require("../assets/images/logo.png")}
@@ -728,6 +842,14 @@ export default function HomeScreen({
                           ? getSectionCardHandle(rowIndex + 1, Math.min(itemIndex, homeSections[rowIndex + 1].items.length - 1))
                           : undefined
                       }
+                      nextFocusLeft={
+                        itemIndex > 0 ? getSectionCardHandle(rowIndex, itemIndex - 1) : undefined
+                      }
+                      nextFocusRight={
+                        itemIndex < row.items.length - 1
+                          ? getSectionCardHandle(rowIndex, itemIndex + 1)
+                          : undefined
+                      }
                     />
                   ))}
                 </ScrollView>
@@ -771,7 +893,7 @@ export default function HomeScreen({
                       itemIndex += 1;
 
                       return (
-                        <Pressable
+                        <FocusablePressable
                           key={item.label}
                           ref={(node) => {
                             drawerItemRefs.current[index] = node;
@@ -786,33 +908,7 @@ export default function HomeScreen({
                           ]}
                           hasTVPreferredFocus={index === 0}
                           onFocus={() => handleDrawerItemFocus(index)}
-                          onPress={() => {
-                            setDrawerOpen(false);
-                            if (item.label === "Series") {
-                              onSeriesPress?.();
-                            }
-                            if (item.label === "Movies") {
-                              onMoviesPress?.();
-                            }
-                            if (item.label === "Categories") {
-                              onCategoriesPress?.();
-                            }
-                            if (item.label === "History") {
-                              onHistoryPress?.();
-                            }
-                            if (item.label === "Notifications") {
-                              onNotificationsPress?.();
-                            }
-                            if (item.navigate === "football_list") {
-                              onSeeAllFootball?.();
-                            }
-                            if (item.navigate === "profile") {
-                              onProfilePress?.();
-                            }
-                            if (item.navigate === "get_help") {
-                              onGetHelpPress?.();
-                            }
-                          }}
+                          onPress={() => handleDrawerItemPress(item)}
                           nextFocusUp={
                             index > 0
                               ? getDrawerHandle(index - 1)
@@ -833,7 +929,7 @@ export default function HomeScreen({
                               <Ionicons name="open-outline" size={14} color="#D2D2D2" />
                             </View>
                           ) : null}
-                        </Pressable>
+                        </FocusablePressable>
                       );
                     })}
                   </View>
@@ -842,12 +938,9 @@ export default function HomeScreen({
               </View>
             </ScrollView>
             <View style={[styles.drawerFooter, styles.drawerBodyInset]}>
-              <Pressable
+              <FocusablePressable
                 ref={logoutButtonRef}
-                onPress={() => {
-                  setDrawerOpen(false);
-                  setLogoutConfirmVisible(true);
-                }}
+                onPress={openLogoutConfirm}
                 onFocus={() => {
                   cancelDrawerBlurClose();
                   setActiveDrawerItem(-1);
@@ -859,13 +952,10 @@ export default function HomeScreen({
                 nextFocusDown={getDeleteAccountHandle()}
               >
                 <Text style={styles.logoutButtonText}>Log out</Text>
-              </Pressable>
-              <Pressable
+              </FocusablePressable>
+              <FocusablePressable
                 ref={deleteAccountButtonRef}
-                onPress={() => {
-                  setDrawerOpen(false);
-                  setDeleteAccountConfirmVisible(true);
-                }}
+                onPress={openDeleteConfirm}
                 onFocus={() => {
                   cancelDrawerBlurClose();
                   setActiveDrawerItem(-1);
@@ -880,7 +970,7 @@ export default function HomeScreen({
                 nextFocusRight={getContentFocusHandle()}
               >
                 <Text style={styles.deleteAccountButtonText}>Delete my account</Text>
-              </Pressable>
+              </FocusablePressable>
             </View>
           </View>
           <Pressable
@@ -980,8 +1070,7 @@ const styles = StyleSheet.create({
     marginTop: FEATURED_CENTER_TOP,
     borderRadius: 8,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "transparent",
+    ...focusBorderBase,
   },
   featuredCardSide: {
     width: FEATURED_SIDE_WIDTH,
@@ -989,18 +1078,9 @@ const styles = StyleSheet.create({
     marginTop: FEATURED_SIDE_TOP,
     borderRadius: 8,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "transparent",
+    ...focusBorderBase,
   },
-  featuredCardFocused: {
-    borderWidth: 2,
-    borderColor: "#FF5C4D",
-    shadowColor: "#FF5C4D",
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
+  featuredCardFocused: focusBorderActive,
   featuredImage: {
     width: "100%",
     height: "100%",
@@ -1044,26 +1124,28 @@ const styles = StyleSheet.create({
     width: 80,
     opacity: 1,
   },
-  cardFocused: {
-    transform: [{ scale: 1.03 }],
-    opacity: 1,
+  cardPosterShell: {
+    width: 80,
+    height: 120,
+    borderRadius: 4,
+    overflow: "hidden",
+    ...focusBorderBase,
+    backgroundColor: "#1A2741",
   },
+  cardPosterShellFocused: focusBorderActive,
   cardPoster: {
     width: 80,
     height: 120,
     borderRadius: 4,
     opacity: 1,
-    borderWidth: 1,
-    borderColor: "#273146",
+    ...focusBorderBase,
     backgroundColor: "#1A2741",
     alignItems: "center",
     justifyContent: "center",
   },
   cardPosterImage: {
-    width: 80,
-    height: 120,
-    borderRadius: 4,
-    opacity: 1,
+    width: "100%",
+    height: "100%",
     backgroundColor: "#1A2741",
   },
   cardPosterText: {
@@ -1098,12 +1180,12 @@ const styles = StyleSheet.create({
   matchCard: {
     height: 66,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#29364F",
+    ...focusBorderBase,
     backgroundColor: "#161E2E",
     justifyContent: "center",
     paddingHorizontal: 8,
   },
+  matchCardFocused: focusBorderActive,
   matchTeamText: {
     color: "#EFF3FF",
     fontSize: 8,

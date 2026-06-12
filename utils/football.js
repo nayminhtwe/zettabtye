@@ -1,3 +1,18 @@
+export function formatMatchSchedule(match) {
+  if (match?.isLive) {
+    return { isLive: true, label: "Live" };
+  }
+
+  const time = match?.time;
+  const date = match?.date;
+
+  if (time && date) {
+    return { isLive: false, label: `${time} · ${date}` };
+  }
+
+  return { isLive: false, label: time || date || "—" };
+}
+
 export function getServerStatusMessage(status) {
   if (status === "error") {
     return "This server is unavailable. Please try another server.";

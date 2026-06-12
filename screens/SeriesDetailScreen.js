@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { fetchSeriesDetailRequest } from "../store/catalog/actions";
 import {
@@ -53,8 +54,11 @@ export default function SeriesDetailScreen({
   const [searchFocused, setSearchFocused] = useState(false);
   const [watchFocused, setWatchFocused] = useState(false);
   const [saveFocused, setSaveFocused] = useState(false);
-  const [heroPlayFocused, setHeroPlayFocused] = useState(false);
+  const [heroFocused, setHeroFocused] = useState(false);
   const [overviewDetailsExpanded, setOverviewDetailsExpanded] = useState(false);
+  const [overviewToggleFocused, setOverviewToggleFocused] = useState(false);
+  const [focusedSeasonId, setFocusedSeasonId] = useState(null);
+  const [focusedEpisodeId, setFocusedEpisodeId] = useState(null);
   const seriesId = series?.id;
   const fetchedSeries = useSelector((state) => selectSeriesDetail(state, seriesId));
   const detailLoading = useSelector((state) => selectSeriesDetailLoading(state, seriesId));
@@ -150,31 +154,27 @@ export default function SeriesDetailScreen({
           <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
         ) : null}
 
-        <View style={styles.heroWrapper}>
-          {displaySeries.image ? (
-            <Image source={displaySeries.image} resizeMode="cover" style={styles.heroImage} />
-          ) : (
-            <View style={[styles.heroImage, styles.heroPlaceholder]} />
-          )}
+        <View style={styles.heroSlot}>
           <Pressable
-            style={styles.playButtonOverlay}
+            style={[styles.heroWrapper, heroFocused ? styles.heroWrapperFocused : null]}
             onPress={() => onPlay?.(displaySeries)}
-            onFocus={() => setHeroPlayFocused(true)}
-            onBlur={() => setHeroPlayFocused(false)}
+            onFocus={() => setHeroFocused(true)}
+            onBlur={() => setHeroFocused(false)}
           >
-            <View
-              style={[
-                styles.playButton,
-                heroPlayFocused ? styles.playButtonFocused : null,
-                showSubscriptionGate ? styles.playButtonLocked : null,
-              ]}
-            >
-              <Ionicons
-                name={showSubscriptionGate ? "lock-closed" : "play"}
-                size={28}
-                color="#1D1B20"
-                style={showSubscriptionGate ? null : styles.playIcon}
-              />
+            {displaySeries.image ? (
+              <Image source={displaySeries.image} resizeMode="cover" style={styles.heroImage} />
+            ) : (
+              <View style={[styles.heroImage, styles.heroPlaceholder]} />
+            )}
+            <View style={styles.playButtonOverlay} pointerEvents="none">
+              <View style={[styles.playButton, showSubscriptionGate ? styles.playButtonLocked : null]}>
+                <Ionicons
+                  name={showSubscriptionGate ? "lock-closed" : "play"}
+                  size={28}
+                  color="#1D1B20"
+                  style={showSubscriptionGate ? null : styles.playIcon}
+                />
+              </View>
             </View>
           </Pressable>
         </View>
@@ -231,8 +231,13 @@ export default function SeriesDetailScreen({
 
         <View style={styles.overviewDetailsSection}>
           <Pressable
-            style={styles.overviewDetailsToggle}
+            style={[
+              styles.overviewDetailsToggle,
+              overviewToggleFocused ? styles.overviewDetailsToggleFocused : null,
+            ]}
             onPress={() => setOverviewDetailsExpanded((current) => !current)}
+            onFocus={() => setOverviewToggleFocused(true)}
+            onBlur={() => setOverviewToggleFocused(false)}
           >
             <Text style={styles.overviewDetailLabel}>Directed by:</Text>
             <Ionicons
@@ -256,16 +261,28 @@ export default function SeriesDetailScreen({
           style={styles.seasonTabsScroll}
           contentContainerStyle={styles.seasonTabsContent}
         >
-          {series.seasonsList.map((season) => {
+          {(displaySeries.seasonsList ?? []).map((season) => {
             const isSelected = season.id === selectedSeason?.id;
 
             return (
               <Pressable
                 key={season.id}
                 onPress={() => setSelectedSeasonId(season.id)}
-                style={[styles.seasonTab, isSelected ? styles.seasonTabActive : null]}
+                onFocus={() => setFocusedSeasonId(season.id)}
+                onBlur={() => setFocusedSeasonId(null)}
+                style={[
+                  styles.seasonTab,
+                  isSelected ? styles.seasonTabActive : null,
+                  focusedSeasonId === season.id ? styles.seasonTabFocused : null,
+                ]}
               >
-                <Text style={[styles.seasonTabText, isSelected ? styles.seasonTabTextActive : null]}>
+                <Text
+                  style={[
+                    styles.seasonTabText,
+                    isSelected ? styles.seasonTabTextActive : null,
+                    focusedSeasonId === season.id ? styles.seasonTabTextFocused : null,
+                  ]}
+                >
                   {season.label}
                 </Text>
               </Pressable>
@@ -275,11 +292,19 @@ export default function SeriesDetailScreen({
 
         <View style={styles.episodeList}>
           {selectedSeason?.episodes.map((episode) => (
-            <View key={episode.id} style={styles.episodeRow}>
+            <Pressable
+              key={episode.id}
+              style={styles.episodeRow}
+              onFocus={() => setFocusedEpisodeId(episode.id)}
+              onBlur={() => setFocusedEpisodeId(null)}
+            >
               <Image
                 source={episode.thumbnail}
                 resizeMode="cover"
-                style={styles.episodeThumbnail}
+                style={[
+                  styles.episodeThumbnail,
+                  focusedEpisodeId === episode.id ? styles.episodeThumbnailFocused : null,
+                ]}
               />
               <View style={styles.episodeCopy}>
                 <Text style={styles.episodeTitle}>{episode.title}</Text>
@@ -287,7 +312,7 @@ export default function SeriesDetailScreen({
                   {episode.description}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
       </ScrollView>
@@ -338,13 +363,19 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
   },
+  heroSlot: {
+    padding: 4,
+    marginBottom: 8,
+    alignSelf: "center",
+  },
   heroWrapper: {
     width: HERO_WIDTH,
     height: HERO_HEIGHT,
-    borderRadius: 12,
+    borderRadius: 4,
     overflow: "hidden",
-    alignSelf: "center",
+    ...focusBorderBase,
   },
+  heroWrapperFocused: focusBorderActive,
   heroImage: {
     width: "100%",
     height: "100%",
@@ -364,10 +395,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-  },
-  playButtonFocused: {
-    borderWidth: 2,
-    borderColor: "#E71809",
   },
   playButtonLocked: {
     backgroundColor: "#D0D0D0",
@@ -482,7 +509,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    borderRadius: 6,
+    ...focusBorderBase,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
+  overviewDetailsToggleFocused: focusBorderActive,
   overviewDetailsContent: {
     marginTop: 4,
   },
@@ -511,10 +543,17 @@ const styles = StyleSheet.create({
   },
   seasonTab: {
     paddingBottom: 6,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   seasonTabActive: {
     borderBottomWidth: 2,
     borderBottomColor: "#FFFFFF",
+  },
+  seasonTabFocused: {
+    borderColor: "#FFFFFF",
   },
   seasonTabText: {
     color: "#8D93A4",
@@ -526,20 +565,25 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     ...gillSans("600"),
   },
+  seasonTabTextFocused: {
+    color: "#FFFFFF",
+  },
   episodeList: {
     marginTop: 16,
-    gap: 16,
+    gap: 8,
   },
   episodeRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
   },
   episodeThumbnail: {
     width: EPISODE_THUMB_WIDTH,
     height: EPISODE_THUMB_HEIGHT,
     borderRadius: 6,
     backgroundColor: "#1A2741",
+    ...focusBorderBase,
   },
+  episodeThumbnailFocused: focusBorderActive,
   episodeCopy: {
     flex: 1,
   },

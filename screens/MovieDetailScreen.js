@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { fetchMovieDetailRequest } from "../store/catalog/actions";
 import {
@@ -37,6 +38,7 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
   const [searchFocused, setSearchFocused] = useState(false);
   const [watchFocused, setWatchFocused] = useState(false);
   const [saveFocused, setSaveFocused] = useState(false);
+  const [heroFocused, setHeroFocused] = useState(false);
   const backRef = useRef(null);
   const movieId = movie?.id;
   const fetchedMovie = useSelector((state) => selectMovieDetail(state, movieId));
@@ -116,20 +118,27 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
           <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
         ) : null}
 
-        <View style={styles.heroWrapper}>
-          {displayMovie.image ? (
-            <Image source={displayMovie.image} resizeMode="cover" style={styles.heroImage} />
-          ) : (
-            <View style={[styles.heroImage, styles.heroPlaceholder]} />
-          )}
-          <Pressable style={styles.playButtonOverlay} onPress={() => onPlay?.(displayMovie)}>
-            <View style={[styles.playButton, showSubscriptionGate ? styles.playButtonLocked : null]}>
-              <Ionicons
-                name={showSubscriptionGate ? "lock-closed" : "play"}
-                size={28}
-                color="#1D1B20"
-                style={showSubscriptionGate ? null : styles.playIcon}
-              />
+        <View style={styles.heroSlot}>
+          <Pressable
+            style={[styles.heroWrapper, heroFocused ? styles.heroWrapperFocused : null]}
+            onPress={() => onPlay?.(displayMovie)}
+            onFocus={() => setHeroFocused(true)}
+            onBlur={() => setHeroFocused(false)}
+          >
+            {displayMovie.image ? (
+              <Image source={displayMovie.image} resizeMode="cover" style={styles.heroImage} />
+            ) : (
+              <View style={[styles.heroImage, styles.heroPlaceholder]} />
+            )}
+            <View style={styles.playButtonOverlay} pointerEvents="none">
+              <View style={[styles.playButton, showSubscriptionGate ? styles.playButtonLocked : null]}>
+                <Ionicons
+                  name={showSubscriptionGate ? "lock-closed" : "play"}
+                  size={28}
+                  color="#1D1B20"
+                  style={showSubscriptionGate ? null : styles.playIcon}
+                />
+              </View>
             </View>
           </Pressable>
         </View>
@@ -251,13 +260,19 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
   },
+  heroSlot: {
+    padding: 4,
+    marginBottom: 8,
+    alignSelf: "center",
+  },
   heroWrapper: {
     width: HERO_WIDTH,
     height: HERO_HEIGHT,
-    borderRadius: 12,
+    borderRadius: 4,
     overflow: "hidden",
-    alignSelf: "center",
+    ...focusBorderBase,
   },
+  heroWrapperFocused: focusBorderActive,
   heroImage: {
     width: "100%",
     height: "100%",

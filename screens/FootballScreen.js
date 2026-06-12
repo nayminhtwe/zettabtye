@@ -164,7 +164,10 @@ export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) 
               return (
                 <Pressable
                   key={league.id}
-                  style={styles.leagueTabButton}
+                  style={[
+                    styles.leagueTabButton,
+                    focusedLeagueId === league.id ? styles.leagueTabButtonFocused : null,
+                  ]}
                   onPress={() => setSelectedLeagueId(league.id)}
                   onFocus={() => setFocusedLeagueId(league.id)}
                   onBlur={() => setFocusedLeagueId(null)}
@@ -299,6 +302,13 @@ const styles = StyleSheet.create({
   },
   leagueTabButton: {
     paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  leagueTabButtonFocused: {
+    borderColor: "#FFFFFF",
   },
   leagueTabText: {
     color: "#8D93A4",

@@ -15,10 +15,15 @@ import { useDispatch, useSelector } from "react-redux";
 import VsIcon from "../assets/images/football/vs.svg";
 import FootballMatchCard from "../components/FootballMatchCard";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
+import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { fetchMatchDetailRequest } from "../store/catalog/actions";
 import { selectMatchDetail, selectMatchDetailLoading } from "../store/catalog/selectors";
-import { getServerStatusMessage, mapMatchLinksToServers } from "../utils/football";
+import {
+  formatMatchSchedule,
+  getServerStatusMessage,
+  mapMatchLinksToServers,
+} from "../utils/football";
 import { SUBSCRIPTION_WATCH_LABEL } from "../utils/playback";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -62,6 +67,7 @@ export default function FootballDetailScreen({
   const [heroFocused, setHeroFocused] = useState(false);
   const [selectedServerId, setSelectedServerId] = useState(null);
   const [serverTabFocused, setServerTabFocused] = useState(null);
+  const [seeAllFocused, setSeeAllFocused] = useState(false);
 
   useEffect(() => {
     if (matchId) {
@@ -107,6 +113,7 @@ export default function FootballDetailScreen({
       : "No stream available yet";
   const playServer =
     selectedServer && selectedServer.url ? selectedServer : playableServers[0] ?? null;
+  const matchSchedule = formatMatchSchedule(displayMatch);
 
   const handlePlay = () => {
     if (!playServer || !playServer.url) {
@@ -202,9 +209,17 @@ export default function FootballDetailScreen({
             <Text style={styles.leagueChipText}>{displayMatch.league}</Text>
           </View>
 
-          <View style={styles.durationChip}>
-            <Ionicons name="time-outline" size={14} color="#D2D2D2" />
-            <Text style={styles.durationChipText}>{displayMatch.duration}</Text>
+          <View style={styles.matchTimeChip}>
+            {matchSchedule.isLive ? (
+              <View style={styles.liveBadge}>
+                <Text style={styles.liveBadgeText}>{matchSchedule.label}</Text>
+              </View>
+            ) : (
+              <>
+                <Ionicons name="time-outline" size={14} color="#D2D2D2" />
+                <Text style={styles.matchTimeChipText}>{matchSchedule.label}</Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -223,7 +238,10 @@ export default function FootballDetailScreen({
                 return (
                   <Pressable
                     key={server.id}
-                    style={styles.serverTabButton}
+                    style={[
+                      styles.serverTabButton,
+                      serverTabFocused === server.id ? styles.serverTabButtonFocused : null,
+                    ]}
                     onPress={() => setSelectedServerId(server.id)}
                     onFocus={() => setServerTabFocused(server.id)}
                     onBlur={() => setServerTabFocused(null)}
@@ -291,7 +309,12 @@ export default function FootballDetailScreen({
           <View style={styles.relatedSection}>
             <View style={styles.relatedHeader}>
               <Text style={styles.relatedTitle}>Matches You Might Like</Text>
-              <Pressable onPress={onSeeAllFootball}>
+              <Pressable
+                onPress={onSeeAllFootball}
+                onFocus={() => setSeeAllFocused(true)}
+                onBlur={() => setSeeAllFocused(false)}
+                style={[styles.relatedSeeAllButton, seeAllFocused ? styles.relatedSeeAllButtonFocused : null]}
+              >
                 <Text style={styles.relatedSeeAll}>See all</Text>
               </Pressable>
             </View>
@@ -363,11 +386,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     alignSelf: "center",
+    ...focusBorderBase,
   },
-  heroWrapperFocused: {
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
+  heroWrapperFocused: focusBorderActive,
   playButtonDisabled: {
     backgroundColor: "rgba(255,255,255,0.5)",
   },
@@ -451,7 +472,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     ...gillSans("400"),
   },
-  durationChip: {
+  matchTimeChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -460,11 +481,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#3E2A2A",
   },
-  durationChipText: {
+  matchTimeChipText: {
     color: "#FFFFFF",
     fontSize: 12,
     lineHeight: 18,
     ...gillSans("400"),
+  },
+  liveBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: "#E71809",
+  },
+  liveBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    lineHeight: 16,
+    ...gillSans("600"),
   },
   loadingIndicator: {
     marginTop: 20,
@@ -486,7 +519,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingBottom: 8,
+    paddingHorizontal: 4,
+    borderRadius: 6,
+    ...focusBorderBase,
   },
+  serverTabButtonFocused: focusBorderActive,
   serverTabLabelRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -567,6 +604,13 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
     ...gillSans("600"),
   },
+  relatedSeeAllButton: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    ...focusBorderBase,
+  },
+  relatedSeeAllButtonFocused: focusBorderActive,
   relatedSeeAll: {
     color: "#D2D2D2",
     fontSize: 14,

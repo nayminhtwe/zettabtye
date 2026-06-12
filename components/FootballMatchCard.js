@@ -1,5 +1,6 @@
 import React, { forwardRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 
 function TeamLogo({ logo, name, badgeColor }) {
@@ -71,18 +72,14 @@ const styles = StyleSheet.create({
   footballCard: {
     position: "relative",
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
+    ...focusBorderBase,
     backgroundColor: "#2F2E37",
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 64,
     justifyContent: "center",
   },
-  footballCardFocused: {
-    borderColor: "#FFFFFF",
-    transform: [{ scale: 1.01 }],
-  },
+  footballCardFocused: focusBorderActive,
   fixturePillAnchor: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
