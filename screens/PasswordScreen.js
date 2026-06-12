@@ -2,15 +2,13 @@ import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   findNodeHandle,
-  Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import AuthPasswordInput from "../components/AuthPasswordInput";
+import FloatingPasswordInput from "../components/FloatingPasswordInput";
 import FocusablePressable from "../components/FocusablePressable";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
@@ -31,7 +29,7 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
   const [continueFocused, setContinueFocused] = useState(false);
 
   const backRef = useRef(null);
-  const passwordFieldRef = useRef(null);
+  const passwordInputRef = useRef(null);
   const forgotPasswordRef = useRef(null);
   const continueRef = useRef(null);
 
@@ -47,21 +45,17 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
-          nextFocusDown: findNodeHandle(passwordFieldRef.current) ?? undefined,
+          nextFocusDown: findNodeHandle(passwordInputRef.current) ?? undefined,
         }}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.content}>
         <Text style={styles.title}>Enter Your Password</Text>
 
         <View style={styles.passwordSection}>
-          <AuthPasswordInput
-            ref={passwordFieldRef}
-            placeholder="Enter your password"
+          <FloatingPasswordInput
+            inputRef={passwordInputRef}
+            autoFocus
             value={password}
             editable={!isLoading}
             showPassword={showPassword}
@@ -72,8 +66,10 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
                 setPasswordError("");
               }
             }}
-            nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
-            nextFocusDown={findNodeHandle(forgotPasswordRef.current) ?? undefined}
+            focusableProps={{
+              nextFocusUp: findNodeHandle(backRef.current) ?? undefined,
+              nextFocusDown: findNodeHandle(forgotPasswordRef.current) ?? undefined,
+            }}
           />
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           <FocusablePressable
@@ -83,7 +79,7 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
               forgotPasswordFocused ? styles.forgotPasswordButtonFocused : null,
             ]}
             onPress={onForgotPassword}
-            nextFocusUp={findNodeHandle(passwordFieldRef.current) ?? undefined}
+            nextFocusUp={findNodeHandle(passwordInputRef.current) ?? undefined}
             nextFocusDown={findNodeHandle(continueRef.current) ?? undefined}
             onFocus={() => setForgotPasswordFocused(true)}
             onBlur={() => setForgotPasswordFocused(false)}
@@ -129,7 +125,7 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
             </Text>
           )}
         </FocusablePressable>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -143,11 +139,8 @@ const styles = StyleSheet.create({
     height: 52,
     backgroundColor: "#1D1B20",
   },
-  flex: {
-    flex: 1,
-  },
   content: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
   },
