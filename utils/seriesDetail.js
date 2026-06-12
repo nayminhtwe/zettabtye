@@ -1,4 +1,3 @@
-import { getErrorMessage } from "../api/client";
 import { extractItemData, mapSeriesDetail } from "../api/mappers";
 import { fetchSeriesById } from "../api/contentService";
 import { parsePlaybackBlock, subscriptionRequiredBlock } from "./playback";
@@ -71,25 +70,11 @@ export async function resolveSeriesPlayItem(item = {}, cachedDetail = null) {
     playItem = buildSeriesPlayItem(series);
 
     if (playItem.movieUrl) {
-      console.log("[Player] resolved series playback URL", {
-        id: playItem.id,
-        title: playItem.title,
-        movieUrl: playItem.movieUrl,
-      });
       return { playItem, series, blocked: null };
     }
 
-    console.warn("[Player] GET /series/{id}/detail returned no episode_url", {
-      id: seriesId,
-    });
     return { playItem, series, blocked: subscriptionRequiredBlock() };
   } catch (error) {
-    console.warn("[Player] GET /series/{id}/detail failed", {
-      id: seriesId,
-      status: error?.response?.status ?? null,
-      message: getErrorMessage(error),
-    });
-
     return {
       playItem: buildSeriesPlayItem(series),
       series,

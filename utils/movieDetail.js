@@ -1,4 +1,3 @@
-import { getErrorMessage } from "../api/client";
 import { extractItemData, mapMovieDetail } from "../api/mappers";
 import { fetchMovieById } from "../api/contentService";
 import { noStreamBlock, parsePlaybackBlock, subscriptionRequiredBlock } from "./playback";
@@ -44,11 +43,6 @@ export async function resolveMoviePlayItem(item = {}, cachedDetail = null) {
   try {
     const response = await fetchMovieById(movieId);
     const detailed = buildMovieDetail(mapMovieDetail(extractItemData(response)));
-    console.log("[Player] resolved movie playback URL", {
-      id: detailed.id,
-      title: detailed.title,
-      movieUrl: detailed.movieUrl,
-    });
 
     if (detailed.movieUrl) {
       return { playItem: detailed, blocked: null };
@@ -59,12 +53,6 @@ export async function resolveMoviePlayItem(item = {}, cachedDetail = null) {
       blocked: subscriptionRequiredBlock(),
     };
   } catch (error) {
-    console.warn("[Player] GET /movies/{id} failed", {
-      id: movieId,
-      status: error?.response?.status ?? null,
-      message: getErrorMessage(error),
-    });
-
     return {
       playItem: fromItem,
       blocked: parsePlaybackBlock(error) ?? subscriptionRequiredBlock(),

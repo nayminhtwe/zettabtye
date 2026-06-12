@@ -111,6 +111,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
     lastPressTs: 0,
     multiplier: 1,
   });
+  const playbackIntentRef = useRef(true);
 
   const dimensionsAreLandscape = width > height;
   const orientationIsLandscape = isLandscapeOrientation(deviceOrientation);
@@ -138,27 +139,41 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const isBuffering = status === "loading" || status === "idle";
   const hasError = status === "error" || (!streamUri && !!movie);
 
+  // Native players often pause when the video surface is resized or reattached.
   useEffect(() => {
-    console.log("[Player] streaming link", {
-      title: movie?.title ?? null,
-      type: movie?.type ?? "movie",
-      isLive,
-      streamUri,
-      movieUrl: movie?.movieUrl ?? null,
-      streamUrl: movie?.streamUrl ?? null,
-      url: movie?.url ?? null,
-    });
-  }, [movie, streamUri, isLive]);
-
-  useEffect(() => {
-    if (status === "error") {
-      console.warn("[Player] playback error", { status, error, streamUri });
+    if (
+      status !== "readyToPlay" ||
+      !player ||
+      !playbackIntentRef.current ||
+      player.playing
+    ) {
       return;
     }
-    if (status === "readyToPlay") {
-      console.log("[Player] ready", { streamUri, duration: player?.duration });
+
+    try {
+      player.play();
+    } catch (_error) {
+      // ignore resume errors during layout transitions
     }
-  }, [status, error, streamUri, player]);
+  }, [status, player]);
+
+  useEffect(() => {
+    if (!player || !streamUri || !playbackIntentRef.current) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      try {
+        if (!player.playing && status !== "error") {
+          player.play();
+        }
+      } catch (_error) {
+        // ignore resume errors during orientation changes
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [width, height, showLandscapeLayout, player, streamUri, status]);
 
   // Keep a lightweight progress poll so the scrubber stays in sync without native controls.
   useEffect(() => {
@@ -230,8 +245,10 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }
 
     if (player.playing) {
+      playbackIntentRef.current = false;
       player.pause();
     } else {
+      playbackIntentRef.current = true;
       player.play();
     }
     revealControls();
@@ -353,6 +370,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const handleBack = useCallback(async () => {
     clearHideTimer();
     setIsFullscreen(false);
+    playbackIntentRef.current = false;
     if (player) {
       try {
         player.pause();
@@ -608,72 +626,74 @@ export default function MoviePlayScreen({ movie, onBack }) {
     </Pressable>
   );
 
-  if (showLandscapeLayout) {
-    return (
-      <View style={[styles.root, { width, height }]}>
-        <StatusBar hidden />
-        {renderVideoSurface()}
-
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onFocus={() => setFocusZone("surface")}
-          onPress={() => (controlsVisible ? togglePlay() : revealControls())}
-        />
-
-        {controlsVisible ? (
-          <>
-            <LinearGradient
-              colors={["rgba(0,0,0,0.55)", "transparent", "rgba(0,0,0,0.85)"]}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            <View style={[styles.landscapeOverlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-              {renderBackButton(styles.backButton)}
-              <View style={styles.centerPlayWrap} pointerEvents="box-none">
-                {renderCenterPlay()}
-              </View>
-              <View style={[styles.landscapeControlsWrap, { paddingHorizontal: Math.max(insets.left, 16) }]}>
-                {renderControlsBar()}
-              </View>
-            </View>
-          </>
-        ) : null}
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.root, { width, height }]}>
-      <StatusBar style="light" />
+      <StatusBar hidden={showLandscapeLayout} style="light" />
 
-      <View style={styles.portraitBody}>
-        <View style={styles.portraitVideoCenter}>
-          <View style={[styles.portraitVideoShell, { height: portraitVideoHeight }]}>
-            {renderVideoSurface()}
+      <View style={showLandscapeLayout ? styles.fullscreenHost : styles.portraitHost}>
+        <View
+          style={[
+            styles.videoShell,
+            showLandscapeLayout
+              ? StyleSheet.absoluteFillObject
+              : { height: portraitVideoHeight },
+          ]}
+        >
+          {renderVideoSurface()}
 
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onFocus={() => setFocusZone("surface")}
-              onPress={() => (controlsVisible ? togglePlay() : revealControls())}
-            />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onFocus={() => setFocusZone("surface")}
+            onPress={() => (controlsVisible ? togglePlay() : revealControls())}
+          />
 
-            {controlsVisible ? (
-              <>
-                <LinearGradient
-                  colors={["rgba(0,0,0,0.45)", "transparent", "rgba(0,0,0,0.9)"]}
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                />
-                <View style={styles.portraitVideoOverlay}>
-                  {renderBackButton([styles.portraitBackButton, { top: insets.top }])}
-                  <View style={styles.centerPlayWrap}>{renderCenterPlay()}</View>
-                  {renderControlsBar()}
+          {controlsVisible ? (
+            <>
+              <LinearGradient
+                colors={
+                  showLandscapeLayout
+                    ? ["rgba(0,0,0,0.55)", "transparent", "rgba(0,0,0,0.85)"]
+                    : ["rgba(0,0,0,0.45)", "transparent", "rgba(0,0,0,0.9)"]
+                }
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <View
+                style={[
+                  showLandscapeLayout ? styles.landscapeOverlay : styles.portraitVideoOverlay,
+                  showLandscapeLayout
+                    ? { paddingTop: insets.top, paddingBottom: insets.bottom }
+                    : null,
+                ]}
+              >
+                {renderBackButton(
+                  showLandscapeLayout
+                    ? styles.backButton
+                    : [styles.portraitBackButton, { top: insets.top }],
+                )}
+                <View
+                  style={styles.centerPlayWrap}
+                  pointerEvents={showLandscapeLayout ? "box-none" : undefined}
+                >
+                  {renderCenterPlay()}
                 </View>
-              </>
-            ) : (
-              renderBackButton([styles.portraitBackButton, { top: insets.top }])
-            )}
-          </View>
+                {showLandscapeLayout ? (
+                  <View
+                    style={[
+                      styles.landscapeControlsWrap,
+                      { paddingHorizontal: Math.max(insets.left, 16) },
+                    ]}
+                  >
+                    {renderControlsBar()}
+                  </View>
+                ) : (
+                  renderControlsBar()
+                )}
+              </View>
+            </>
+          ) : showLandscapeLayout ? null : (
+            renderBackButton([styles.portraitBackButton, { top: insets.top }])
+          )}
         </View>
       </View>
     </View>
@@ -686,8 +706,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
     overflow: "hidden",
   },
-  portraitBody: {
+  portraitHost: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullscreenHost: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  videoShell: {
+    width: "100%",
+    backgroundColor: "#000000",
+    overflow: "hidden",
   },
   portraitBackButton: {
     position: "absolute",
@@ -697,16 +727,6 @@ const styles = StyleSheet.create({
     zIndex: 3,
     alignItems: "center",
     justifyContent: "center",
-  },
-  portraitVideoCenter: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  portraitVideoShell: {
-    width: "100%",
-    backgroundColor: "#000000",
-    overflow: "hidden",
   },
   portraitVideoOverlay: {
     ...StyleSheet.absoluteFillObject,

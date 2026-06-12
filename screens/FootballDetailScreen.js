@@ -115,19 +115,8 @@ export default function FootballDetailScreen({
         return;
       }
 
-      console.warn("[Player] football watch blocked — no playable server", {
-        matchId,
-        selectedServerId,
-        playableCount: playableServers.length,
-      });
       return;
     }
-    console.log("[Player] football server selected", {
-      matchId,
-      serverId: playServer.id,
-      serverLabel: playServer.label,
-      streamUrl: playServer.url,
-    });
     onPlayMatch?.(displayMatch, playServer);
   };
 

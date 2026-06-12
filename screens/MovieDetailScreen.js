@@ -60,17 +60,6 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
     }
   }, [dispatch, movieId]);
 
-  useEffect(() => {
-    if (!fetchedMovie) {
-      return;
-    }
-    console.log("[Player] movie detail API", {
-      id: movieId,
-      title: fetchedMovie.title,
-      movieUrl: fetchedMovie.movieUrl ?? fetchedMovie.movie_url ?? null,
-    });
-  }, [fetchedMovie, movieId]);
-
   const handleToggleFavorite = () => {
     if (!movieId) {
       return;

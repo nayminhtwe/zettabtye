@@ -272,11 +272,6 @@ export default function App() {
         return;
       }
 
-      console.log("[Player] open series", {
-        id: playItem.id,
-        title: playItem.title,
-        movieUrl: playItem.movieUrl,
-      });
       setSelectedMovie(playItem);
       setMoviePlayReturnScreen(returnScreen);
       setCurrentPage(SCREEN.MOVIE_PLAY);
@@ -303,11 +298,6 @@ export default function App() {
         return;
       }
 
-      console.log("[Player] open movie", {
-        id: playItem.id,
-        title: playItem.title,
-        movieUrl: playItem.movieUrl,
-      });
       setSelectedMovie(playItem);
       setMoviePlayReturnScreen(returnScreen);
       setCurrentPage(SCREEN.MOVIE_PLAY);
@@ -332,13 +322,6 @@ export default function App() {
         handlePlaybackBlocked(blocked ?? noStreamBlock());
         return;
       }
-
-      console.log("[Player] open match", {
-        matchId: resolvedMatch?.id ?? matchId,
-        serverId: playServer.id,
-        serverLabel: playServer.label,
-        streamUrl: playServer.url,
-      });
 
       setSelectedMovie({
         id: `match-${resolvedMatch?.id ?? matchId ?? "live"}`,
