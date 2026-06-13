@@ -1,21 +1,20 @@
-import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   findNodeHandle,
-  Pressable,
+  Keyboard,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
+import FloatingPasswordInput from "../components/FloatingPasswordInput";
+import FocusablePressable from "../components/FocusablePressable";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
-import { authInputBase, authInputFocused, authPrimaryButtonFocused } from "../constants/focusStyles";
-import { authSetPasswordRequest } from "../store/auth/actions";
+import { authPrimaryButtonFocused } from "../constants/focusStyles";
+import { authClearError, authSetPasswordRequest } from "../store/auth/actions";
 import { selectAuthError, selectAuthLoading } from "../store/auth/selectors";
 
 export default function CreatePasswordScreen() {
@@ -26,29 +25,115 @@ export default function CreatePasswordScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [confirmFocused, setConfirmFocused] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
+  const [focusChainReady, setFocusChainReady] = useState(false);
 
+  const dummyBackRef = useRef(null);
   const passwordInputRef = useRef(null);
   const confirmInputRef = useRef(null);
   const continueRef = useRef(null);
-  const dummyBackRef = useRef(null);
+  const suppressInputInactiveRef = useRef(false);
 
-  const handleContinue = () => {
-    if (password.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
+  const focusNextField = useCallback((fromRef, toRef, { dismissKeyboard = true } = {}) => {
+    suppressInputInactiveRef.current = true;
+
+    if (dismissKeyboard) {
+      Keyboard.dismiss();
+    }
+    fromRef.current?.blur();
+
+    requestAnimationFrame(() => {
+      toRef.current?.focus?.();
+      setTimeout(() => {
+        suppressInputInactiveRef.current = false;
+      }, 100);
+    });
+  }, []);
+
+  const focusConfirmField = useCallback(() => {
+    focusNextField(passwordInputRef, confirmInputRef);
+  }, [focusNextField]);
+
+  const focusContinueButton = useCallback(() => {
+    focusNextField(confirmInputRef, continueRef, { dismissKeyboard: true });
+  }, [focusNextField]);
+
+  const handleContinue = useCallback(() => {
+    const trimmedPassword = password.trim();
+    const trimmedConfirm = confirmPassword.trim();
+    const isPasswordEmpty = trimmedPassword.length === 0;
+    const isConfirmEmpty = trimmedConfirm.length === 0;
+    const passwordsMismatch = trimmedPassword !== trimmedConfirm;
+
+    setPasswordError(isPasswordEmpty ? "Please enter a password" : "");
+    setConfirmPasswordError(
+      isConfirmEmpty
+        ? "Please confirm your password"
+        : passwordsMismatch
+          ? "Passwords do not match"
+          : "",
+    );
+
+    if (
+      isPasswordEmpty ||
+      isConfirmEmpty ||
+      passwordsMismatch ||
+      trimmedPassword.length < 8 ||
+      isLoading
+    ) {
+      if (trimmedPassword.length > 0 && trimmedPassword.length < 8) {
+        setPasswordError("Password must be at least 8 characters");
+      }
       return;
     }
-    if (password !== confirmPassword) {
-      setPasswordError("Passwords do not match");
-      return;
+
+    dispatch(authSetPasswordRequest(trimmedPassword));
+  }, [confirmPassword, dispatch, isLoading, password]);
+
+  useEffect(() => {
+    dispatch(authClearError());
+    setFocusChainReady(true);
+    return () => {
+      dispatch(authClearError());
+    };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!focusChainReady || isLoading) {
+      return undefined;
     }
-    setPasswordError("");
-    dispatch(authSetPasswordRequest(password));
-  };
+    const timer = setTimeout(() => {
+      passwordInputRef.current?.focus?.();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [focusChainReady, isLoading]);
+
+  const passwordFocusProps = useMemo(
+    () => ({
+      nextFocusDown: focusChainReady
+        ? findNodeHandle(confirmInputRef.current) ?? undefined
+        : undefined,
+    }),
+    [focusChainReady],
+  );
+
+  const confirmFocusProps = useMemo(
+    () => ({
+      nextFocusUp: focusChainReady
+        ? findNodeHandle(passwordInputRef.current) ?? undefined
+        : undefined,
+      nextFocusDown: focusChainReady ? findNodeHandle(continueRef.current) ?? undefined : undefined,
+    }),
+    [focusChainReady],
+  );
+
+  const continueUpTarget = useMemo(
+    () => (focusChainReady ? findNodeHandle(confirmInputRef.current) ?? undefined : undefined),
+    [focusChainReady],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,77 +144,60 @@ export default function CreatePasswordScreen() {
         backRef={dummyBackRef}
         onBack={null}
         isBackFocused={false}
+        backFocusable={false}
         backFocusProps={{}}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.content}>
         <Text style={styles.subtitle}>
           Create a password for your account so you can log in next time.
         </Text>
 
         <View style={styles.fieldSection}>
-          <View style={[styles.inputContainer, passwordFocused ? styles.inputFocused : null]}>
-            <TextInput
-              ref={passwordInputRef}
-              style={styles.input}
-              placeholder="Create password"
-              placeholderTextColor="#A7A7A7"
-              secureTextEntry={!showPassword}
-              showSoftInputOnFocus
-              value={password}
-              editable={!isLoading}
-              onChangeText={(v) => {
-                setPassword(v);
-                if (passwordError) setPasswordError("");
-              }}
-              nextFocusDown={findNodeHandle(confirmInputRef.current) ?? undefined}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-            />
-            <Pressable style={styles.eyeButton} onPress={() => setShowPassword((p) => !p)}>
-              <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#D2D2D2" />
-            </Pressable>
-          </View>
-
-          <View
-            style={[
-              styles.inputContainer,
-              styles.inputMarginTop,
-              confirmFocused ? styles.inputFocused : null,
-            ]}
-          >
-            <TextInput
-              ref={confirmInputRef}
-              style={styles.input}
-              placeholder="Confirm password"
-              placeholderTextColor="#A7A7A7"
-              secureTextEntry={!showConfirm}
-              showSoftInputOnFocus
-              value={confirmPassword}
-              editable={!isLoading}
-              onChangeText={(v) => {
-                setConfirmPassword(v);
-                if (passwordError) setPasswordError("");
-              }}
-              nextFocusUp={findNodeHandle(passwordInputRef.current) ?? undefined}
-              nextFocusDown={findNodeHandle(continueRef.current) ?? undefined}
-              onFocus={() => setConfirmFocused(true)}
-              onBlur={() => setConfirmFocused(false)}
-            />
-            <Pressable style={styles.eyeButton} onPress={() => setShowConfirm((p) => !p)}>
-              <Ionicons name={showConfirm ? "eye-off" : "eye"} size={20} color="#D2D2D2" />
-            </Pressable>
-          </View>
-
+          <FloatingPasswordInput
+            inputRef={passwordInputRef}
+            label="Create password"
+            value={password}
+            editable={!isLoading}
+            showPassword={showPassword}
+            onToggleVisibility={() => setShowPassword((prev) => !prev)}
+            onChangeText={(value) => {
+              setPassword(value);
+              if (passwordError) {
+                setPasswordError("");
+              }
+            }}
+            focusableProps={passwordFocusProps}
+            onEnterPress={focusConfirmField}
+          />
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
         </View>
 
-        <Pressable
+        <View style={styles.fieldSection}>
+          <FloatingPasswordInput
+            inputRef={confirmInputRef}
+            label="Confirm password"
+            value={confirmPassword}
+            editable={!isLoading}
+            showPassword={showConfirmPassword}
+            onToggleVisibility={() => setShowConfirmPassword((prev) => !prev)}
+            onChangeText={(value) => {
+              setConfirmPassword(value);
+              if (confirmPasswordError) {
+                setConfirmPasswordError("");
+              }
+            }}
+            focusableProps={confirmFocusProps}
+            onEnterPress={focusContinueButton}
+          />
+          {confirmPasswordError ? (
+            <Text style={styles.errorText}>{confirmPasswordError}</Text>
+          ) : null}
+        </View>
+
+        {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+
+        <FocusablePressable
           ref={continueRef}
           style={[
             styles.continueButton,
@@ -137,7 +205,7 @@ export default function CreatePasswordScreen() {
             isLoading ? styles.continueButtonDisabled : null,
           ]}
           disabled={isLoading}
-          nextFocusUp={findNodeHandle(confirmInputRef.current) ?? undefined}
+          nextFocusUp={continueUpTarget}
           onFocus={() => setContinueFocused(true)}
           onBlur={() => setContinueFocused(false)}
           onPress={handleContinue}
@@ -145,14 +213,12 @@ export default function CreatePasswordScreen() {
           {isLoading ? (
             <ActivityIndicator color={continueFocused ? "#C80D00" : "#D2D2D2"} />
           ) : (
-            <Text
-              style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}
-            >
+            <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
               Set Password
             </Text>
           )}
-        </Pressable>
-      </ScrollView>
+        </FocusablePressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -166,11 +232,8 @@ const styles = StyleSheet.create({
     height: 52,
     backgroundColor: "#1D1B20",
   },
-  flex: {
-    flex: 1,
-  },
   content: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
   },
@@ -184,37 +247,6 @@ const styles = StyleSheet.create({
   },
   fieldSection: {
     marginBottom: 8,
-  },
-  inputContainer: {
-    minHeight: 64,
-    paddingTop: 4,
-    paddingBottom: 4,
-    backgroundColor: "#1A1A1A",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    borderBottomColor: "#4A4A4A",
-    ...authInputBase,
-  },
-  inputMarginTop: {
-    marginTop: 12,
-  },
-  inputFocused: authInputFocused,
-  input: {
-    flex: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    color: "#D2D2D2",
-    fontSize: 20,
-    lineHeight: 24,
-    ...gillSans("400"),
-    backgroundColor: "transparent",
-  },
-  eyeButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
   },
   errorText: {
     marginTop: 8,

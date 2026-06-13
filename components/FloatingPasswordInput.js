@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
+  Platform,
   Pressable,
   StyleSheet,
   TextInput,
@@ -10,6 +11,8 @@ import {
 import { gillSans } from "../constants/fonts";
 import { authInputBase } from "../constants/focusStyles";
 import { createActivationKeyHandler } from "../utils/remoteKeys";
+
+const isTv = Platform.isTV === true;
 
 const DEFAULT_LABEL = "Enter your password";
 const ANIMATION_MS = 300;
@@ -31,6 +34,7 @@ export default function FloatingPasswordInput({
   onToggleVisibility,
   label = DEFAULT_LABEL,
   onEnterPress,
+  inputFocusable = true,
 }) {
   const [focused, setFocused] = useState(false);
   const focusedRef = useRef(false);
@@ -86,14 +90,20 @@ export default function FloatingPasswordInput({
 
   const handleFocus = (event) => {
     focusedRef.current = true;
-    setFocused(true);
+    highlightAnim.setValue(1);
+    requestAnimationFrame(() => {
+      setFocused(true);
+    });
     onFocus?.(event);
     focusableOnFocus?.(event);
   };
 
   const handleBlur = (event) => {
     focusedRef.current = false;
-    setFocused(false);
+    highlightAnim.setValue(0);
+    requestAnimationFrame(() => {
+      setFocused(false);
+    });
     onBlur?.(event);
     focusableOnBlur?.(event);
   };
@@ -161,13 +171,14 @@ export default function FloatingPasswordInput({
           showSoftInputOnFocus
           autoFocus={autoFocus}
           editable={editable}
+          focusable={inputFocusable}
           placeholder=""
           selectionColor="#E71809"
           onFocus={handleFocus}
           onBlur={handleBlur}
           blurOnSubmit={false}
           returnKeyType={onEnterPress ? "done" : "default"}
-          onSubmitEditing={onEnterPress ? handleEnterPress : undefined}
+          onSubmitEditing={!isTv && onEnterPress ? handleEnterPress : undefined}
           onKeyPress={onEnterPress ? handleInputKey : focusableOnKeyPress}
           onKeyDown={onEnterPress ? handleInputKey : focusableOnKeyDown}
           {...restFocusableProps}
