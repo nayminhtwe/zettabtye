@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   findNodeHandle,
-  Pressable,
+  Keyboard,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -11,6 +11,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import CountrySelector, { getPhoneFieldUpTarget } from "../components/CountrySelector";
 import FloatingPhoneInput from "../components/FloatingPhoneInput";
+import FocusablePressable from "../components/FocusablePressable";
 import ScreenHeader from "../components/ScreenHeader";
 import { DEFAULT_COUNTRY_ID } from "../constants/countries";
 import { gillSans } from "../constants/fonts";
@@ -40,6 +41,7 @@ export default function ForgotPasswordPhoneScreen({
   const [continueFocused, setContinueFocused] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
+  const [phoneActive, setPhoneActive] = useState(false);
   const submittedRef = useRef(false);
   const lastTransactionIdRef = useRef(null);
 
@@ -48,12 +50,48 @@ export default function ForgotPasswordPhoneScreen({
   const countryOptionRefs = useRef({});
   const phoneInputRef = useRef(null);
   const continueRef = useRef(null);
+  const suppressPhoneInactiveRef = useRef(false);
 
   const phoneFieldUpTarget = getPhoneFieldUpTarget(
     isCountryDropdownOpen,
     countryOptionRefs,
     countrySelectorRef,
   );
+
+  const setBackFocusable = useCallback((focusable) => {
+    backRef.current?.setNativeProps?.({ focusable });
+  }, []);
+
+  const handlePhoneFocus = useCallback(() => {
+    setPhoneActive(true);
+    setBackFocusable(false);
+  }, [setBackFocusable]);
+
+  const handlePhoneBlur = useCallback(() => {
+    if (suppressPhoneInactiveRef.current) {
+      return;
+    }
+    setPhoneActive(false);
+    setBackFocusable(true);
+  }, [setBackFocusable]);
+
+  const focusContinueButton = useCallback(() => {
+    suppressPhoneInactiveRef.current = true;
+    setPhoneActive(true);
+    setBackFocusable(false);
+
+    Keyboard.dismiss();
+    phoneInputRef.current?.blur();
+
+    requestAnimationFrame(() => {
+      continueRef.current?.focus?.();
+      setTimeout(() => {
+        suppressPhoneInactiveRef.current = false;
+        setPhoneActive(false);
+        setBackFocusable(true);
+      }, 100);
+    });
+  }, [setBackFocusable]);
 
   useEffect(() => {
     dispatch(authClearError());
@@ -106,6 +144,7 @@ export default function ForgotPasswordPhoneScreen({
         backRef={backRef}
         onBack={onBack}
         isBackFocused={backFocused}
+        backFocusable={!phoneActive}
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
@@ -140,6 +179,8 @@ export default function ForgotPasswordPhoneScreen({
           <FloatingPhoneInput
             inputRef={phoneInputRef}
             value={phoneNumber}
+            onFocus={handlePhoneFocus}
+            onBlur={handlePhoneBlur}
             onChangeText={(value) => {
               setPhoneNumber(value);
               if (phoneError) {
@@ -154,13 +195,14 @@ export default function ForgotPasswordPhoneScreen({
               nextFocusUp: phoneFieldUpTarget,
               nextFocusDown: findNodeHandle(continueRef.current) ?? undefined,
             }}
+            onEnterPress={focusContinueButton}
           />
           {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
           {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
           {infoMessage ? <Text style={styles.infoText}>{infoMessage}</Text> : null}
         </View>
 
-        <Pressable
+        <FocusablePressable
           ref={continueRef}
           style={[
             styles.continueButton,
@@ -174,7 +216,7 @@ export default function ForgotPasswordPhoneScreen({
           onPress={handleContinue}
         >
           {isLoading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={continueFocused ? "#C80D00" : "#D2D2D2"} />
           ) : (
             <Text
               style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}
@@ -182,7 +224,7 @@ export default function ForgotPasswordPhoneScreen({
               Continue
             </Text>
           )}
-        </Pressable>
+        </FocusablePressable>
       </View>
     </SafeAreaView>
   );

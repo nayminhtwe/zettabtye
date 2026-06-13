@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -6,12 +6,12 @@ import {
   TextInput,
 } from "react-native";
 import { gillSans } from "../constants/fonts";
-import { authInputBase, authInputFocused } from "../constants/focusStyles";
+import { authInputBase } from "../constants/focusStyles";
+import { createActivationKeyHandler } from "../utils/remoteKeys";
 
 const LABEL = "Enter your phone number";
 const ANIMATION_MS = 300;
 
-// Shared text row: 4px padding + 24px line (label & input use same metrics when idle)
 const ROW_TOP = 16;
 const FLOAT_LABEL_TOP = 4;
 const FLOAT_INPUT_PADDING_TOP = 20;
@@ -25,12 +25,41 @@ export default function FloatingPhoneInput({
   focusableProps = {},
   autoFocus = false,
   editable = true,
+  onEnterPress,
 }) {
   const [focused, setFocused] = useState(false);
+  const focusedRef = useRef(false);
   const floatAnim = useRef(new Animated.Value(value.length > 0 ? 1 : 0)).current;
   const highlightAnim = useRef(new Animated.Value(0)).current;
 
   const shouldFloat = value.length > 0;
+
+  const {
+    onFocus: focusableOnFocus,
+    onBlur: focusableOnBlur,
+    onKeyPress: focusableOnKeyPress,
+    onKeyDown: focusableOnKeyDown,
+    ...restFocusableProps
+  } = focusableProps;
+
+  const handleEnterPress = useCallback(() => {
+    if (!focusedRef.current || !onEnterPress) {
+      return;
+    }
+    onEnterPress();
+  }, [onEnterPress]);
+
+  const handleInputKey = useCallback(
+    (event) => {
+      focusableOnKeyPress?.(event);
+      focusableOnKeyDown?.(event);
+      if (!onEnterPress) {
+        return;
+      }
+      createActivationKeyHandler(handleEnterPress)(event);
+    },
+    [focusableOnKeyDown, focusableOnKeyPress, handleEnterPress, onEnterPress],
+  );
 
   useEffect(() => {
     Animated.timing(floatAnim, {
@@ -51,15 +80,17 @@ export default function FloatingPhoneInput({
   }, [focused, highlightAnim]);
 
   const handleFocus = (event) => {
+    focusedRef.current = true;
     setFocused(true);
     onFocus?.(event);
-    focusableProps.onFocus?.(event);
+    focusableOnFocus?.(event);
   };
 
   const handleBlur = (event) => {
+    focusedRef.current = false;
     setFocused(false);
     onBlur?.(event);
-    focusableProps.onBlur?.(event);
+    focusableOnBlur?.(event);
   };
 
   const labelTop = floatAnim.interpolate({
@@ -122,14 +153,19 @@ export default function FloatingPhoneInput({
           value={value}
           onChangeText={onChangeText}
           keyboardType="phone-pad"
-          showSoftInputOnFocus={true}
+          showSoftInputOnFocus
           autoFocus={autoFocus}
           editable={editable}
           placeholder=""
           selectionColor="#E71809"
           onFocus={handleFocus}
           onBlur={handleBlur}
-          {...focusableProps}
+          blurOnSubmit={false}
+          returnKeyType={onEnterPress ? "done" : "default"}
+          onSubmitEditing={onEnterPress ? handleEnterPress : undefined}
+          onKeyPress={onEnterPress ? handleInputKey : focusableOnKeyPress}
+          onKeyDown={onEnterPress ? handleInputKey : focusableOnKeyDown}
+          {...restFocusableProps}
         />
       </Animated.View>
     </Animated.View>
@@ -146,7 +182,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#4A4A4A",
     ...authInputBase,
   },
-  containerFocused: authInputFocused,
   label: {
     position: "absolute",
     left: 0,
