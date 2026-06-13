@@ -88,10 +88,8 @@ export default function ProfileScreen({
   username: usernameProp,
   hasAccountPassword = true,
   passwordUpdateSuccess,
-  phoneUpdateSuccess,
   onBack,
   onCreatePasswordPress,
-  onEditPhonePress,
   onUsernameChange,
   onSearchPress,
 }) {
@@ -216,12 +214,7 @@ export default function ProfileScreen({
             onEditPress={() => setUsernameModalVisible(true)}
           />
           <View style={styles.settingDivider} />
-          <View>
-            <SettingRow icon="call-outline" label={displayPhone} editable={false} />
-            {phoneUpdateSuccess ? (
-              <Text style={styles.phoneUpdateSuccessText}>Phone number is successfully changed!</Text>
-            ) : null}
-          </View>
+          <SettingRow icon="call-outline" label={displayPhone} editable={false} />
         </View>
 
         <Text style={styles.sectionTitle}>Set a password</Text>
@@ -418,15 +411,6 @@ const styles = StyleSheet.create({
   settingDivider: {
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-  phoneUpdateSuccessText: {
-    color: "#8BE28B",
-    fontSize: 12,
-    lineHeight: 16,
-    textAlign: "right",
-    paddingRight: 4,
-    paddingBottom: 10,
-    ...gillSans("400"),
   },
   passwordDescription: {
     color: "rgba(255, 255, 255, 0.72)",

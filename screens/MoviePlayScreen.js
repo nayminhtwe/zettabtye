@@ -22,7 +22,7 @@ import { useTVEventHandler as rnUseTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { gillSans } from "../constants/fonts";
 
-const APP_LOGO = require("../assets/images/logo.png");
+const APP_ICON = require("../assets/images/app-icon.png");
 
 // react-native-tvos exposes useTVEventHandler; on phones it is a harmless no-op hook.
 // Resolve once at module load so the hook order stays stable across renders.
@@ -602,7 +602,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
       ) : null}
 
       <View style={styles.matchLogoWrap}>
-        <Image source={APP_LOGO} resizeMode="contain" style={styles.matchLogo} />
+        <Image source={APP_ICON} resizeMode="contain" style={styles.matchLogo} />
       </View>
 
       {matchTeams.away ? (

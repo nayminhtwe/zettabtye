@@ -660,21 +660,14 @@ export default function App() {
           username={authUser?.name ?? accountUsername}
           hasAccountPassword={isAuthenticated}
           passwordUpdateSuccess={passwordUpdateSuccess}
-          phoneUpdateSuccess={phoneUpdateSuccess}
           onUsernameChange={setAccountUsername}
           onBack={() => {
             setPasswordUpdateSuccess(false);
-            setPhoneUpdateSuccess(false);
             setCurrentPage(SCREEN.HOME);
           }}
           onCreatePasswordPress={() => {
             setPasswordUpdateSuccess(false);
-            setPhoneUpdateSuccess(false);
             setCurrentPage(SCREEN.SET_PROFILE_PASSWORD);
-          }}
-          onEditPhonePress={() => {
-            setPhoneUpdateSuccess(false);
-            setCurrentPage(SCREEN.EDIT_PHONE_NUMBER);
           }}
           onSearchPress={() => openSearch(SCREEN.PROFILE)}
         />

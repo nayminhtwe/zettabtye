@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { gillSans } from "../constants/fonts";
 
-export default function EditUsernameModal({
+function EditUsernameModal({
   visible,
   initialValue,
   onClose,
@@ -214,3 +214,5 @@ const styles = StyleSheet.create({
     color: "#C80D00",
   },
 });
+
+export default EditUsernameModal;
