@@ -5,6 +5,8 @@ import {
   findNodeHandle,
   FlatList,
   Image,
+  BackHandler,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -529,6 +531,33 @@ export default function HomeScreen({
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [deleteAccountConfirmVisible, setDeleteAccountConfirmVisible] = useState(false);
   const [deleteAccountFocused, setDeleteAccountFocused] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (deleteAccountConfirmVisible) {
+        setDeleteAccountConfirmVisible(false);
+        return true;
+      }
+
+      if (logoutConfirmVisible) {
+        setLogoutConfirmVisible(false);
+        return true;
+      }
+
+      if (drawerOpen) {
+        setDrawerOpen(false);
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [deleteAccountConfirmVisible, drawerOpen, logoutConfirmVisible]);
 
   const handleDrawerItemPress = useCallback(
     (item) => {

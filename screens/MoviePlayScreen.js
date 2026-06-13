@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEvent } from "expo";
+import { useKeepAwake } from "expo-keep-awake";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
@@ -7,7 +8,9 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -30,6 +33,7 @@ const SCRUB_RESUME_MS = 700;
 const SCRUB_ACCEL_WINDOW_MS = 320;
 // Cap acceleration at 6x (i.e. up to 60s per press when held).
 const SCRUB_MAX_MULTIPLIER = 6;
+const KEEP_AWAKE_TAG = "movie-playback";
 
 function isLandscapeOrientation(orientation) {
   return (
@@ -85,6 +89,8 @@ function formatTime(seconds) {
 }
 
 export default function MoviePlayScreen({ movie, onBack }) {
+  useKeepAwake(KEEP_AWAKE_TAG);
+
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
 
@@ -381,6 +387,25 @@ export default function MoviePlayScreen({ movie, onBack }) {
     await lockPortrait();
     onBack?.();
   }, [clearHideTimer, onBack, player]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return undefined;
+    }
+
+    const onHardwareBack = () => {
+      if (isFullscreen) {
+        toggleExpand();
+        return true;
+      }
+
+      handleBack();
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
+    return () => subscription.remove();
+  }, [handleBack, isFullscreen, toggleExpand]);
 
   // Robust D-pad handling. The video surface acts as a scrub zone (left/right seek),
   // while the bottom transport bar uses native focus movement + onPress.

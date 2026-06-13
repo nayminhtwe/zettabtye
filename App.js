@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, BackHandler, Platform, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { useAppFonts } from "./hooks/useAppFonts";
@@ -393,10 +393,10 @@ export default function App() {
     }
   };
 
-  const goToOnboardingPhoneStep = () => {
+  const goToOnboardingPhoneStep = useCallback(() => {
     setResumeOnboardingAtPhone(true);
     setCurrentPage(SCREEN.ONBOARDING);
-  };
+  }, []);
 
   const handleLogout = () => {
     dispatch(authLogoutRequest());
@@ -423,6 +423,107 @@ export default function App() {
     setSplashFinished(true);
     setCurrentPage(SCREEN.ONBOARDING);
   };
+
+  const handleHardwareBack = useCallback(() => {
+    switch (currentPage) {
+      case SCREEN.MOVIE_PLAY:
+        setCurrentPage(moviePlayReturnScreen);
+        return true;
+      case SCREEN.MOVIE_DETAIL:
+        setCurrentPage(movieDetailReturnScreen);
+        if (movieDetailReturnScreen === SCREEN.HOME) {
+          setSelectedMovie(null);
+        }
+        return true;
+      case SCREEN.SERIES_DETAIL:
+        setCurrentPage(seriesDetailReturnScreen);
+        if (
+          seriesDetailReturnScreen === SCREEN.SERIES ||
+          seriesDetailReturnScreen === SCREEN.HISTORY ||
+          seriesDetailReturnScreen === SCREEN.NOTIFICATIONS
+        ) {
+          setSelectedSeries(null);
+        }
+        return true;
+      case SCREEN.FOOTBALL_DETAIL:
+        setCurrentPage(footballDetailReturnScreen);
+        if (footballDetailReturnScreen === SCREEN.HOME) {
+          setSelectedFootballMatch(null);
+        }
+        return true;
+      case SCREEN.MOVIES:
+        setCurrentPage(moviesReturnScreen);
+        return true;
+      case SCREEN.SERIES:
+        setCurrentPage(seriesReturnScreen);
+        return true;
+      case SCREEN.SEARCH:
+        setCurrentPage(searchReturnScreen);
+        return true;
+      case SCREEN.FOOTBALL_LIST:
+        setCurrentPage(footballReturnScreen);
+        return true;
+      case SCREEN.NOTIFICATIONS:
+      case SCREEN.HISTORY:
+      case SCREEN.CATEGORIES:
+      case SCREEN.GET_HELP:
+        setCurrentPage(SCREEN.HOME);
+        return true;
+      case SCREEN.PROFILE:
+        setPasswordUpdateSuccess(false);
+        setPhoneUpdateSuccess(false);
+        setCurrentPage(SCREEN.HOME);
+        return true;
+      case SCREEN.EDIT_PHONE_NUMBER:
+        setCurrentPage(SCREEN.PROFILE);
+        return true;
+      case SCREEN.EDIT_PHONE_OTP:
+        setCurrentPage(SCREEN.EDIT_PHONE_NUMBER);
+        return true;
+      case SCREEN.SET_PROFILE_PASSWORD:
+        setCurrentPage(SCREEN.PROFILE);
+        return true;
+      case SCREEN.OTP:
+        goToOnboardingPhoneStep();
+        return true;
+      case SCREEN.PASSWORD:
+        goToOnboardingPhoneStep();
+        return true;
+      case SCREEN.FORGOT_PASSWORD_PHONE:
+        setCurrentPage(SCREEN.PASSWORD);
+        return true;
+      case SCREEN.RESET_PASSWORD:
+        setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE);
+        return true;
+      case SCREEN.HOME:
+      case SCREEN.SPLASH:
+      case SCREEN.ONBOARDING:
+      case SCREEN.CREATE_PASSWORD:
+        return true;
+      default:
+        return true;
+    }
+  }, [
+    currentPage,
+    footballDetailReturnScreen,
+    footballReturnScreen,
+    goToOnboardingPhoneStep,
+    movieDetailReturnScreen,
+    moviePlayReturnScreen,
+    moviesReturnScreen,
+    searchReturnScreen,
+    seriesDetailReturnScreen,
+    seriesReturnScreen,
+  ]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", handleHardwareBack);
+    return () => subscription.remove();
+  }, [handleHardwareBack]);
 
   const renderScreen = () => {
     switch (currentPage) {

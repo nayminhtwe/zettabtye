@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -101,6 +103,23 @@ export default function ProfileScreen({
   const [usernameModalVisible, setUsernameModalVisible] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (usernameModalVisible) {
+        setUsernameModalVisible(false);
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [usernameModalVisible]);
 
   useEffect(() => {
     dispatch(fetchHomeRequest());

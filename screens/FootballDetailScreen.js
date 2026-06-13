@@ -164,7 +164,7 @@ export default function FootballDetailScreen({
         contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable
+        {/* <Pressable
           style={[styles.heroWrapper, heroFocused ? styles.heroWrapperFocused : null]}
           disabled={!canWatch && !subscriptionBlocked}
           onPress={handlePlay}
@@ -186,7 +186,7 @@ export default function FootballDetailScreen({
               />
             </View>
           </View>
-        </Pressable>
+        </Pressable> */}
 
         <View style={styles.matchTitleRow}>
           <View style={styles.vsIconWrap}>

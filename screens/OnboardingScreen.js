@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   Dimensions,
   findNodeHandle,
   FlatList,
@@ -141,6 +142,28 @@ export default function OnboardingScreen({
     listRef.current?.scrollToIndex({ index, animated: true });
     setActiveIndex(index);
   };
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (isCountryDropdownOpen) {
+        setIsCountryDropdownOpen(false);
+        return true;
+      }
+
+      if (activeIndex > 0) {
+        goToSlide(activeIndex - 1);
+        return true;
+      }
+
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [activeIndex, isCountryDropdownOpen]);
 
   const handleNext = () => {
     if (activeIndex >= LAST_SLIDE_INDEX) {
