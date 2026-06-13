@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEvent } from "expo";
 import { useKeepAwake } from "expo-keep-awake";
 import { LinearGradient } from "expo-linear-gradient";
+import * as NavigationBar from "expo-navigation-bar";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -58,6 +59,31 @@ async function lockLandscape() {
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
   } catch (_error) {
     // ignore orientation lock errors (e.g. TV devices)
+  }
+}
+
+async function enterImmersivePlayback() {
+  if (Platform.OS !== "android") {
+    return;
+  }
+
+  try {
+    // With edgeToEdgeEnabled, only visibility/style APIs are supported.
+    await NavigationBar.setVisibilityAsync("hidden");
+  } catch (_error) {
+    // ignore navigation bar errors (e.g. TV devices)
+  }
+}
+
+async function exitImmersivePlayback() {
+  if (Platform.OS !== "android") {
+    return;
+  }
+
+  try {
+    await NavigationBar.setVisibilityAsync("visible");
+  } catch (_error) {
+    // ignore navigation bar errors (e.g. TV devices)
   }
 }
 
@@ -151,6 +177,26 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const dimensionsAreLandscape = width > height;
   const orientationIsLandscape = isLandscapeOrientation(deviceOrientation);
   const showLandscapeLayout = isFullscreen && dimensionsAreLandscape && orientationIsLandscape;
+  const landscapeOverlayInsets = showLandscapeLayout
+    ? {
+        paddingTop: Math.max(insets.top, 8),
+        paddingBottom: Math.max(insets.bottom, 8),
+        paddingLeft: Math.max(insets.left, 0),
+        paddingRight: Math.max(insets.right, 0),
+      }
+    : null;
+
+  useEffect(() => {
+    if (showLandscapeLayout) {
+      enterImmersivePlayback();
+      return () => {
+        exitImmersivePlayback();
+      };
+    }
+
+    exitImmersivePlayback();
+    return undefined;
+  }, [showLandscapeLayout]);
 
   const player = useVideoPlayer(streamUri, (instance) => {
     if (!instance) {
@@ -246,6 +292,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
     return () => {
       mounted = false;
       ScreenOrientation.removeOrientationChangeListener(subscription);
+      exitImmersivePlayback();
       lockPortrait();
     };
   }, []);
@@ -394,13 +441,17 @@ export default function MoviePlayScreen({ movie, onBack }) {
     revealControls();
     if (isFullscreen) {
       setIsFullscreen(false);
+      await exitImmersivePlayback();
       await lockPortrait();
       return;
     }
 
     setIsFullscreen(true);
     await lockLandscape();
-  }, [isFullscreen, revealControls]);
+    if (width > height) {
+      await enterImmersivePlayback();
+    }
+  }, [isFullscreen, revealControls, width, height]);
 
   const handleBack = useCallback(async () => {
     clearHideTimer();
@@ -413,6 +464,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
         // ignore
       }
     }
+    await exitImmersivePlayback();
     await lockPortrait();
     onBack?.();
   }, [clearHideTimer, onBack, player]);
@@ -721,7 +773,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   );
 
   return (
-    <View style={[styles.root, { width, height }]}>
+    <View style={styles.root}>
       <StatusBar hidden={showLandscapeLayout} style="light" />
 
       <View style={showLandscapeLayout ? styles.fullscreenHost : styles.portraitHost}>
@@ -755,9 +807,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
               <View
                 style={[
                   showLandscapeLayout ? styles.landscapeOverlay : styles.portraitVideoOverlay,
-                  showLandscapeLayout
-                    ? { paddingTop: insets.top, paddingBottom: insets.bottom }
-                    : null,
+                  landscapeOverlayInsets,
                 ]}
               >
                 {renderBackButton(
@@ -775,7 +825,10 @@ export default function MoviePlayScreen({ movie, onBack }) {
                   <View
                     style={[
                       styles.landscapeControlsWrap,
-                      { paddingHorizontal: Math.max(insets.left, 16) },
+                      {
+                        paddingHorizontal: Math.max(insets.left, insets.right, 16),
+                        paddingBottom: Math.max(insets.bottom, 8),
+                      },
                     ]}
                   >
                     {renderControlsBar()}
@@ -876,7 +929,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 8,
+    bottom: 0,
   },
   backButton: {
     position: "absolute",

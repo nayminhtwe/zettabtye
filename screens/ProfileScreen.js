@@ -58,7 +58,7 @@ function formatSubscriptionDate(isoDate) {
   });
 }
 
-function SettingRow({ icon, label, onEditPress }) {
+function SettingRow({ icon, label, onEditPress, editable = true }) {
   const [editFocused, setEditFocused] = useState(false);
 
   return (
@@ -69,14 +69,16 @@ function SettingRow({ icon, label, onEditPress }) {
       <Text style={styles.settingLabel} numberOfLines={1}>
         {label}
       </Text>
-      <Pressable
-        onPress={onEditPress}
-        onFocus={() => setEditFocused(true)}
-        onBlur={() => setEditFocused(false)}
-        style={[styles.editButton, editFocused ? styles.editButtonFocused : null]}
-      >
-        <Ionicons name="pencil" size={16} color="#FFFFFF" />
-      </Pressable>
+      {editable && onEditPress ? (
+        <Pressable
+          onPress={onEditPress}
+          onFocus={() => setEditFocused(true)}
+          onBlur={() => setEditFocused(false)}
+          style={[styles.editButton, editFocused ? styles.editButtonFocused : null]}
+        >
+          <Ionicons name="pencil" size={16} color="#FFFFFF" />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -215,7 +217,7 @@ export default function ProfileScreen({
           />
           <View style={styles.settingDivider} />
           <View>
-            <SettingRow icon="call-outline" label={displayPhone} onEditPress={onEditPhonePress} />
+            <SettingRow icon="call-outline" label={displayPhone} editable={false} />
             {phoneUpdateSuccess ? (
               <Text style={styles.phoneUpdateSuccessText}>Phone number is successfully changed!</Text>
             ) : null}
