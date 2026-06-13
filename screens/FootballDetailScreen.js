@@ -189,18 +189,17 @@ export default function FootballDetailScreen({
         </Pressable> */}
 
         <View style={styles.matchTitleRow}>
+          <Text style={styles.matchTeamName} numberOfLines={2}>
+            {displayMatch.home}
+          </Text>
+
           <View style={styles.vsIconWrap}>
             <VsIcon width={31} height={64} />
           </View>
 
-          <View style={styles.matchNames}>
-            <Text style={styles.matchTeamName} numberOfLines={2}>
-              {displayMatch.home}
-            </Text>
-            <Text style={styles.matchTeamName} numberOfLines={2}>
-              {displayMatch.away}
-            </Text>
-          </View>
+          <Text style={styles.matchTeamName} numberOfLines={2}>
+            {displayMatch.away}
+          </Text>
         </View>
 
         <View style={styles.metaChipRow}>
@@ -418,24 +417,18 @@ const styles = StyleSheet.create({
   },
   matchTitleRow: {
     marginTop: 16,
-    flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 2,
   },
   vsIconWrap: {
-    width: 31,
-    height: 64,
     alignItems: "center",
     justifyContent: "center",
-  },
-  matchNames: {
-    flex: 1,
-    gap: 4,
   },
   matchTeamName: {
     color: "#FFFFFF",
     fontSize: 18,
     lineHeight: 26,
+    textAlign: "center",
     ...gillSans("700"),
   },
   metaChipRow: {
