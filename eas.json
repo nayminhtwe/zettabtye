@@ -12,6 +12,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://v2.zplusmm.com/api"
+      },
       "ios": {
         "resourceClass": "m1-medium"
       },
@@ -20,6 +23,9 @@
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://v2.zplusmm.com/api"
+      },
       "ios": {
         "resourceClass": "m1-medium"
       },

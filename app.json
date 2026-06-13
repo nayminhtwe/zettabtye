@@ -10,7 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "zettabyte.movies"
+      "bundleIdentifier": "zettabyte.movies",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoadsInMedia": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,6 +26,7 @@
       },
       "package": "zettabyte.movies",
       "versionCode": 8,
+      "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false
@@ -55,7 +61,8 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "2.1.20"
+            "kotlinVersion": "2.1.20",
+            "usesCleartextTraffic": true
           }
         }
       ],
@@ -68,7 +75,8 @@
         }
       ],
       "./plugins/withAdMobPlayServicesFix.js",
-      "./plugins/withRemoteKeyEvents.js"
+      "./plugins/withRemoteKeyEvents.js",
+      "./plugins/withCleartextTraffic.js"
     ],
     "extra": {
       "eas": {
