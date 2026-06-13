@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { gillSans } from "../constants/fonts";
 import { authInputBase } from "../constants/focusStyles";
+import { createActivationKeyHandler } from "../utils/remoteKeys";
 
 const DEFAULT_LABEL = "Enter your password";
 const ANIMATION_MS = 300;
@@ -29,12 +30,41 @@ export default function FloatingPasswordInput({
   showPassword = false,
   onToggleVisibility,
   label = DEFAULT_LABEL,
+  onEnterPress,
 }) {
   const [focused, setFocused] = useState(false);
+  const focusedRef = useRef(false);
   const floatAnim = useRef(new Animated.Value(value.length > 0 ? 1 : 0)).current;
   const highlightAnim = useRef(new Animated.Value(0)).current;
 
   const shouldFloat = value.length > 0;
+
+  const {
+    onFocus: focusableOnFocus,
+    onBlur: focusableOnBlur,
+    onKeyPress: focusableOnKeyPress,
+    onKeyDown: focusableOnKeyDown,
+    ...restFocusableProps
+  } = focusableProps;
+
+  const handleEnterPress = useCallback(() => {
+    if (!focusedRef.current || !onEnterPress) {
+      return;
+    }
+    onEnterPress();
+  }, [onEnterPress]);
+
+  const handleInputKey = useCallback(
+    (event) => {
+      focusableOnKeyPress?.(event);
+      focusableOnKeyDown?.(event);
+      if (!onEnterPress) {
+        return;
+      }
+      createActivationKeyHandler(handleEnterPress)(event);
+    },
+    [focusableOnKeyDown, focusableOnKeyPress, handleEnterPress, onEnterPress],
+  );
 
   useEffect(() => {
     Animated.timing(floatAnim, {
@@ -55,15 +85,17 @@ export default function FloatingPasswordInput({
   }, [focused, highlightAnim]);
 
   const handleFocus = (event) => {
+    focusedRef.current = true;
     setFocused(true);
     onFocus?.(event);
-    focusableProps.onFocus?.(event);
+    focusableOnFocus?.(event);
   };
 
   const handleBlur = (event) => {
+    focusedRef.current = false;
     setFocused(false);
     onBlur?.(event);
-    focusableProps.onBlur?.(event);
+    focusableOnBlur?.(event);
   };
 
   const labelTop = floatAnim.interpolate({
@@ -133,7 +165,12 @@ export default function FloatingPasswordInput({
           selectionColor="#E71809"
           onFocus={handleFocus}
           onBlur={handleBlur}
-          {...focusableProps}
+          blurOnSubmit={false}
+          returnKeyType={onEnterPress ? "done" : "default"}
+          onSubmitEditing={onEnterPress ? handleEnterPress : undefined}
+          onKeyPress={onEnterPress ? handleInputKey : focusableOnKeyPress}
+          onKeyDown={onEnterPress ? handleInputKey : focusableOnKeyDown}
+          {...restFocusableProps}
         />
         <Pressable
           focusable={false}

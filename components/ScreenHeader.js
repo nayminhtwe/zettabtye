@@ -9,6 +9,7 @@ export default function ScreenHeader({
   backRef,
   onBack,
   isBackFocused = false,
+  backFocusable = true,
   backFocusProps = {},
   backFocusedStyle,
 }) {
@@ -17,6 +18,7 @@ export default function ScreenHeader({
       <Pressable
         ref={backRef}
         android_ripple={null}
+        focusable={backFocusable}
         style={
           isBackFocused
             ? [styles.backButton, styles.backButtonFocused, backFocusedStyle]

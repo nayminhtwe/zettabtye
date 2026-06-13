@@ -1,7 +1,8 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   findNodeHandle,
+  Keyboard,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -27,11 +28,48 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
   const [backFocused, setBackFocused] = useState(false);
   const [forgotPasswordFocused, setForgotPasswordFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
+  const [passwordActive, setPasswordActive] = useState(false);
 
   const backRef = useRef(null);
   const passwordInputRef = useRef(null);
   const forgotPasswordRef = useRef(null);
   const continueRef = useRef(null);
+  const suppressPasswordInactiveRef = useRef(false);
+
+  const setBackFocusable = useCallback((focusable) => {
+    backRef.current?.setNativeProps?.({ focusable });
+  }, []);
+
+  const handlePasswordFocus = useCallback(() => {
+    setPasswordActive(true);
+    setBackFocusable(false);
+  }, [setBackFocusable]);
+
+  const handlePasswordBlur = useCallback(() => {
+    if (suppressPasswordInactiveRef.current) {
+      return;
+    }
+    setPasswordActive(false);
+    setBackFocusable(true);
+  }, [setBackFocusable]);
+
+  const focusContinueButton = useCallback(() => {
+    suppressPasswordInactiveRef.current = true;
+    setPasswordActive(true);
+    setBackFocusable(false);
+
+    Keyboard.dismiss();
+    passwordInputRef.current?.blur();
+
+    requestAnimationFrame(() => {
+      continueRef.current?.focus?.();
+      setTimeout(() => {
+        suppressPasswordInactiveRef.current = false;
+        setPasswordActive(false);
+        setBackFocusable(true);
+      }, 100);
+    });
+  }, [setBackFocusable]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -42,6 +80,7 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
         backRef={backRef}
         onBack={onBack}
         isBackFocused={backFocused}
+        backFocusable={!passwordActive}
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
@@ -60,6 +99,8 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
             editable={!isLoading}
             showPassword={showPassword}
             onToggleVisibility={() => setShowPassword((prev) => !prev)}
+            onFocus={handlePasswordFocus}
+            onBlur={handlePasswordBlur}
             onChangeText={(v) => {
               setPassword(v);
               if (passwordError) {
@@ -70,6 +111,7 @@ export default function PasswordScreen({ phoneNumber, countryId, onBack, onForgo
               nextFocusUp: findNodeHandle(backRef.current) ?? undefined,
               nextFocusDown: findNodeHandle(forgotPasswordRef.current) ?? undefined,
             }}
+            onEnterPress={focusContinueButton}
           />
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           <FocusablePressable
