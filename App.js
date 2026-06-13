@@ -351,6 +351,8 @@ export default function App() {
           resolvedMatch?.home && resolvedMatch?.away
             ? `${resolvedMatch.home} vs ${resolvedMatch.away}`
             : resolvedMatch?.title ?? match?.title ?? "Live match",
+        home: resolvedMatch?.home ?? match?.home ?? "",
+        away: resolvedMatch?.away ?? match?.away ?? "",
         image: resolvedMatch?.previewImage ?? match?.previewImage ?? null,
         categories: resolvedMatch?.league ?? match?.league ?? "",
         streamUrl: playServer.url,

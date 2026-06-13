@@ -113,20 +113,20 @@ export default function FootballDetailScreen({
     : subscriptionBlocked
       ? SUBSCRIPTION_WATCH_LABEL
       : "No stream available yet";
-  const playServer =
-    selectedServer && selectedServer.url ? selectedServer : playableServers[0] ?? null;
   const matchSchedule = formatMatchSchedule(displayMatch);
 
   const handlePlay = () => {
-    if (!playServer || !playServer.url) {
-      if (subscriptionBlocked) {
-        onPlaybackBlocked?.();
-        return;
-      }
-
+    if (subscriptionBlocked) {
+      onPlaybackBlocked?.();
       return;
     }
-    onPlayMatch?.(displayMatch, playServer);
+
+    if (!selectedServer?.url && playableServers.length === 0) {
+      return;
+    }
+
+    // Always pass the server the user picked; resolveMatchPlay fetches its URL if needed.
+    onPlayMatch?.(displayMatch, selectedServer ?? playableServers[0] ?? null);
   };
 
   if (!match) {

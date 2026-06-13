@@ -19,6 +19,9 @@ import {
 } from "react-native";
 import { useTVEventHandler as rnUseTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { gillSans } from "../constants/fonts";
+
+const APP_LOGO = require("../assets/images/logo.png");
 
 // react-native-tvos exposes useTVEventHandler; on phones it is a harmless no-op hook.
 // Resolve once at module load so the hook order stays stable across renders.
@@ -88,6 +91,30 @@ function formatTime(seconds) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+function resolveMatchTeams(movie) {
+  if (!movie) {
+    return { home: "", away: "" };
+  }
+
+  if (movie.home || movie.away) {
+    return {
+      home: movie.home ?? "",
+      away: movie.away ?? "",
+    };
+  }
+
+  const title = typeof movie.title === "string" ? movie.title : "";
+  const parts = title.split(/\s+vs\s+/i);
+  if (parts.length === 2) {
+    return {
+      home: parts[0].trim(),
+      away: parts[1].trim(),
+    };
+  }
+
+  return { home: title, away: "" };
+}
+
 export default function MoviePlayScreen({ movie, onBack }) {
   useKeepAwake(KEEP_AWAKE_TAG);
 
@@ -96,6 +123,8 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
   const streamUri = resolveStreamUri(movie);
   const isLive = Boolean(movie?.isLive);
+  const isMatchPlayback = movie?.type === "match" || isLive;
+  const matchTeams = resolveMatchTeams(movie);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [deviceOrientation, setDeviceOrientation] = useState(
@@ -499,11 +528,38 @@ export default function MoviePlayScreen({ movie, onBack }) {
       ? 1
       : 0;
 
-  // Show the poster while there is nothing meaningful on screen yet.
+  // Movies: show poster while buffering or before playback starts.
   const showPoster =
+    !isMatchPlayback &&
     !!movie.image &&
     !hasError &&
     (isBuffering || (!isPlaying && (progress.position ?? 0) < 0.5));
+
+  const showMatchLoadingTitle =
+    isMatchPlayback &&
+    !hasError &&
+    isBuffering &&
+    (matchTeams.home || matchTeams.away);
+
+  const renderMatchLoadingTitle = () => (
+    <View style={styles.matchTitleRow} pointerEvents="none">
+      {matchTeams.home ? (
+        <Text style={styles.matchTeamName} numberOfLines={2}>
+          {matchTeams.home}
+        </Text>
+      ) : null}
+
+      <View style={styles.matchLogoWrap}>
+        <Image source={APP_LOGO} resizeMode="contain" style={styles.matchLogo} />
+      </View>
+
+      {matchTeams.away ? (
+        <Text style={styles.matchTeamName} numberOfLines={2}>
+          {matchTeams.away}
+        </Text>
+      ) : null}
+    </View>
+  );
 
   const renderVideoSurface = () => (
     <>
@@ -529,7 +585,11 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const renderCenterPlay = () => {
     if (isBuffering && !hasError) {
       return (
-        <View style={styles.centerStatusWrap} pointerEvents="none">
+        <View
+          style={[styles.centerStatusWrap, showMatchLoadingTitle ? styles.centerStatusMatchLoading : null]}
+          pointerEvents="none"
+        >
+          {showMatchLoadingTitle ? renderMatchLoadingTitle() : null}
           <ActivityIndicator size="large" color="#FFFFFF" />
         </View>
       );
@@ -769,6 +829,27 @@ const styles = StyleSheet.create({
   videoPlaceholder: {
     backgroundColor: "#0A0A0A",
   },
+  matchTitleRow: {
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+    paddingHorizontal: 24,
+  },
+  matchLogoWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  matchLogo: {
+    width: 48,
+    height: 48,
+  },
+  matchTeamName: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    lineHeight: 26,
+    textAlign: "center",
+    ...gillSans("700"),
+  },
   landscapeOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -781,6 +862,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
+  },
+  centerStatusMatchLoading: {
+    paddingTop: 36,
   },
   errorText: {
     marginTop: 12,

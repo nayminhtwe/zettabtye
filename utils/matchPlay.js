@@ -7,14 +7,20 @@ import {
   subscriptionRequiredBlock,
 } from "./playback";
 
-function pickPlayServer(match, preferredServerId) {
+function pickPlayServer(match, preferredServer = null) {
   const servers = mapMatchLinksToServers(match?.links ?? []);
   const playable = servers.filter((server) => Boolean(server.url));
+  const preferredId = preferredServer?.id != null ? String(preferredServer.id) : null;
 
-  if (preferredServerId) {
-    const preferred = playable.find((server) => server.id === String(preferredServerId));
-    if (preferred) {
-      return { match, server: preferred, servers };
+  if (preferredId) {
+    const preferredWithUrl = playable.find((server) => server.id === preferredId);
+    if (preferredWithUrl) {
+      return { match, server: preferredWithUrl, servers };
+    }
+
+    const preferredEntry = servers.find((server) => server.id === preferredId);
+    if (preferredEntry) {
+      return { match, server: preferredEntry, servers };
     }
   }
 
@@ -29,7 +35,7 @@ export async function resolveMatchPlay(match = {}, server = null, cachedDetail =
   const matchId = match?.id ?? match?.apiId;
   let detail = cachedDetail ?? match;
 
-  let resolved = pickPlayServer(detail, server?.id);
+  let resolved = pickPlayServer(detail, server);
   if (resolved.server?.url) {
     return { ...resolved, blocked: null };
   }
@@ -44,7 +50,7 @@ export async function resolveMatchPlay(match = {}, server = null, cachedDetail =
   try {
     const response = await fetchMatchById(matchId);
     detail = mapMatchDetail(extractItemData(response));
-    resolved = pickPlayServer(detail, server?.id);
+    resolved = pickPlayServer(detail, server);
 
     if (resolved.server?.url) {
       return { ...resolved, blocked: null };
@@ -56,7 +62,7 @@ export async function resolveMatchPlay(match = {}, server = null, cachedDetail =
     };
   } catch (error) {
     return {
-      ...pickPlayServer(detail, server?.id),
+      ...pickPlayServer(detail, server),
       blocked: parsePlaybackBlock(error) ?? subscriptionRequiredBlock(),
     };
   }
