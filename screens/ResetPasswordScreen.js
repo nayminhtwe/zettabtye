@@ -1,9 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   findNodeHandle,
-  Pressable,
+  Keyboard,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -11,11 +10,11 @@ import {
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
+import FloatingPasswordInput from "../components/FloatingPasswordInput";
+import FocusablePressable from "../components/FocusablePressable";
 import ScreenHeader from "../components/ScreenHeader";
 import { gillSans } from "../constants/fonts";
 import {
-  authInputBase,
-  authInputFocused,
   authOtpBoxActiveRow,
   authOtpBoxBase,
   authOtpBoxFocused,
@@ -27,6 +26,7 @@ import {
   selectAuthLoading,
 } from "../store/auth/selectors";
 import { maskPhone } from "../utils/phoneAuth";
+import { createActivationKeyHandler } from "../utils/remoteKeys";
 
 const OTP_LENGTH = 6;
 
@@ -42,13 +42,14 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) 
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [backFocused, setBackFocused] = useState(false);
   const [otpFocused, setOtpFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
   const [continueFocused, setContinueFocused] = useState(false);
+  const [inputActive, setInputActive] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const submittedRef = useRef(false);
+  const otpFocusedRef = useRef(false);
+  const suppressInputInactiveRef = useRef(false);
 
   const backRef = useRef(null);
   const otpInputRef = useRef(null);
@@ -62,6 +63,68 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) 
     const chars = otp.split("");
     return Array.from({ length: OTP_LENGTH }, (_, index) => chars[index] ?? "");
   }, [otp]);
+
+  const setBackFocusable = useCallback((focusable) => {
+    backRef.current?.setNativeProps?.({ focusable });
+  }, []);
+
+  const handleInputFocus = useCallback(() => {
+    setInputActive(true);
+    setBackFocusable(false);
+  }, [setBackFocusable]);
+
+  const handleInputBlur = useCallback(() => {
+    if (suppressInputInactiveRef.current) {
+      return;
+    }
+    setInputActive(false);
+    setBackFocusable(true);
+  }, [setBackFocusable]);
+
+  const focusNextField = useCallback(
+    (fromRef, toRef, { keepActive = true } = {}) => {
+      suppressInputInactiveRef.current = true;
+      setInputActive(true);
+      setBackFocusable(false);
+
+      Keyboard.dismiss();
+      fromRef.current?.blur();
+
+      requestAnimationFrame(() => {
+        toRef.current?.focus?.();
+        setTimeout(() => {
+          suppressInputInactiveRef.current = false;
+          if (!keepActive) {
+            setInputActive(false);
+            setBackFocusable(true);
+          }
+        }, 100);
+      });
+    },
+    [setBackFocusable],
+  );
+
+  const focusPasswordField = useCallback(() => {
+    focusNextField(otpInputRef, passwordInputRef);
+  }, [focusNextField]);
+
+  const focusConfirmField = useCallback(() => {
+    focusNextField(passwordInputRef, confirmInputRef);
+  }, [focusNextField]);
+
+  const focusContinueButton = useCallback(() => {
+    focusNextField(confirmInputRef, continueButtonRef, { keepActive: false });
+  }, [focusNextField]);
+
+  const handleOtpKeyPress = useCallback(
+    (event) => {
+      if (!otpFocusedRef.current) {
+        return;
+      }
+      createActivationKeyHandler(focusPasswordField)(event);
+    },
+    [focusPasswordField],
+  );
 
   useEffect(() => {
     dispatch(authClearError());
@@ -123,6 +186,7 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) 
         backRef={backRef}
         onBack={onBack}
         isBackFocused={backFocused}
+        backFocusable={!inputActive}
         backFocusProps={{
           onFocus: () => setBackFocused(true),
           onBlur: () => setBackFocused(false),
@@ -164,10 +228,20 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) 
               maxLength={OTP_LENGTH}
               showSoftInputOnFocus
               caretHidden
+              blurOnSubmit={false}
               nextFocusUp={findNodeHandle(backRef.current) ?? undefined}
               nextFocusDown={findNodeHandle(passwordInputRef.current) ?? undefined}
-              onFocus={() => setOtpFocused(true)}
-              onBlur={() => setOtpFocused(false)}
+              onFocus={() => {
+                otpFocusedRef.current = true;
+                setOtpFocused(true);
+                handleInputFocus();
+              }}
+              onBlur={() => {
+                otpFocusedRef.current = false;
+                setOtpFocused(false);
+                handleInputBlur();
+              }}
+              onKeyPress={handleOtpKeyPress}
             />
           </View>
           {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
@@ -175,90 +249,58 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) 
         </View>
 
         <View style={styles.fieldSection}>
-          <View
-            style={[
-              styles.inputContainer,
-              passwordFocused ? styles.inputContainerFocused : null,
-              passwordError ? styles.inputContainerError : null,
-            ]}
-          >
-            <TextInput
-              ref={passwordInputRef}
-              style={styles.input}
-              placeholder="Enter new password"
-              placeholderTextColor="#A7A7A7"
-              secureTextEntry={!showPassword}
-              showSoftInputOnFocus
-              value={password}
-              onChangeText={(value) => {
-                setPassword(value);
-                if (passwordError) {
-                  setPasswordError("");
-                }
-              }}
-              nextFocusUp={findNodeHandle(otpInputRef.current) ?? undefined}
-              nextFocusDown={findNodeHandle(confirmInputRef.current) ?? undefined}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-            />
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() => setShowPassword((prev) => !prev)}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#D2D2D2"
-              />
-            </Pressable>
-          </View>
+          <FloatingPasswordInput
+            inputRef={passwordInputRef}
+            label="Enter new password"
+            value={password}
+            editable={!isLoading}
+            showPassword={showPassword}
+            onToggleVisibility={() => setShowPassword((prev) => !prev)}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            onChangeText={(value) => {
+              setPassword(value);
+              if (passwordError) {
+                setPasswordError("");
+              }
+            }}
+            focusableProps={{
+              nextFocusUp: findNodeHandle(otpInputRef.current) ?? undefined,
+              nextFocusDown: findNodeHandle(confirmInputRef.current) ?? undefined,
+            }}
+            onEnterPress={focusConfirmField}
+          />
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
         </View>
 
         <View style={styles.fieldSection}>
-          <View
-            style={[
-              styles.inputContainer,
-              confirmPasswordFocused ? styles.inputContainerFocused : null,
-              confirmPasswordError ? styles.inputContainerError : null,
-            ]}
-          >
-            <TextInput
-              ref={confirmInputRef}
-              style={styles.input}
-              placeholder="Confirm new password"
-              placeholderTextColor="#A7A7A7"
-              secureTextEntry={!showConfirmPassword}
-              showSoftInputOnFocus
-              value={confirmPassword}
-              onChangeText={(value) => {
-                setConfirmPassword(value);
-                if (confirmPasswordError) {
-                  setConfirmPasswordError("");
-                }
-              }}
-              nextFocusUp={findNodeHandle(passwordInputRef.current) ?? undefined}
-              nextFocusDown={findNodeHandle(continueButtonRef.current) ?? undefined}
-              onFocus={() => setConfirmPasswordFocused(true)}
-              onBlur={() => setConfirmPasswordFocused(false)}
-            />
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() => setShowConfirmPassword((prev) => !prev)}
-            >
-              <Ionicons
-                name={showConfirmPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#D2D2D2"
-              />
-            </Pressable>
-          </View>
+          <FloatingPasswordInput
+            inputRef={confirmInputRef}
+            label="Confirm new password"
+            value={confirmPassword}
+            editable={!isLoading}
+            showPassword={showConfirmPassword}
+            onToggleVisibility={() => setShowConfirmPassword((prev) => !prev)}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            onChangeText={(value) => {
+              setConfirmPassword(value);
+              if (confirmPasswordError) {
+                setConfirmPasswordError("");
+              }
+            }}
+            focusableProps={{
+              nextFocusUp: findNodeHandle(passwordInputRef.current) ?? undefined,
+              nextFocusDown: findNodeHandle(continueButtonRef.current) ?? undefined,
+            }}
+            onEnterPress={focusContinueButton}
+          />
           {confirmPasswordError ? (
             <Text style={styles.errorText}>{confirmPasswordError}</Text>
           ) : null}
         </View>
 
-        <Pressable
+        <FocusablePressable
           ref={continueButtonRef}
           style={[
             styles.continueButton,
@@ -272,13 +314,13 @@ export default function ResetPasswordScreen({ phoneNumber, onBack, onSuccess }) 
           onPress={handleContinuePress}
         >
           {isLoading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={continueFocused ? "#C80D00" : "#D2D2D2"} />
           ) : (
             <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
               Set new Password
             </Text>
           )}
-        </Pressable>
+        </FocusablePressable>
       </View>
     </SafeAreaView>
   );
@@ -359,42 +401,6 @@ const styles = StyleSheet.create({
     height: 72,
     opacity: 0,
     color: "transparent",
-  },
-  inputContainer: {
-    minHeight: 64,
-    paddingTop: 4,
-    paddingBottom: 4,
-    backgroundColor: "#1A1A1A",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    borderBottomColor: "#4A4A4A",
-    ...authInputBase,
-  },
-  inputContainerFocused: authInputFocused,
-  inputContainerError: {
-    borderBottomWidth: 3,
-    borderBottomColor: "#E71809",
-    backgroundColor: "rgba(231, 24, 9, 0.15)",
-  },
-  input: {
-    flex: 1,
-    paddingTop: 4,
-    paddingRight: 8,
-    paddingBottom: 4,
-    paddingLeft: 8,
-    color: "#D2D2D2",
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0,
-    ...gillSans("400"),
-    backgroundColor: "transparent",
-  },
-  eyeButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
   },
   continueButton: {
     marginTop: 24,
