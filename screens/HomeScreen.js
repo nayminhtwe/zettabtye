@@ -250,7 +250,7 @@ const FeaturedCarousel = forwardRef(function FeaturedCarousel(
               }}
               onPress={() => {
                 selectIndex(index, true);
-                onMoviePress?.({ title: item.title, image: item.image });
+                onMoviePress?.(item);
               }}
               onFocus={() => selectIndex(index, true)}
               onBlur={() => setFocusedIndex(null)}
