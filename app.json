@@ -2,7 +2,7 @@
   "expo": {
     "name": "zettabyte",
     "slug": "zettabyte",
-    "version": "0.0.9",
+    "version": "0.1.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "zettabytev2",
@@ -25,7 +25,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "package": "zettabyte.movies",
-      "versionCode": 9,
+      "versionCode": 10,
       "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
