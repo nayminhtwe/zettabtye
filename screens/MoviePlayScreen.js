@@ -6,11 +6,12 @@ import * as NavigationBar from "expo-navigation-bar";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
   Image,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -33,11 +34,15 @@ const SEEK_STEP_SECONDS = 10;
 const CONTROLS_HIDE_MS = 4000;
 // Resume playback this long after the last scrub press (works even if key-up is missed).
 const SCRUB_RESUME_MS = 700;
+// Brief delay before resuming after a committed seek feels smoother on TV/box.
+const SCRUB_PLAY_RESUME_MS = 120;
 // Consecutive presses within this window accelerate the seek step.
 const SCRUB_ACCEL_WINDOW_MS = 320;
 // Cap acceleration at 6x (i.e. up to 60s per press when held).
 const SCRUB_MAX_MULTIPLIER = 6;
 const KEEP_AWAKE_TAG = "movie-playback";
+const PROGRESS_THUMB_SIZE = 14;
+const isPhone = Platform.isTV !== true;
 
 function isLandscapeOrientation(orientation) {
   return (
@@ -152,7 +157,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const isMatchPlayback = movie?.type === "match" || isLive;
   const matchTeams = resolveMatchTeams(movie);
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
   const [deviceOrientation, setDeviceOrientation] = useState(
     ScreenOrientation.Orientation.PORTRAIT_UP,
   );
@@ -161,6 +166,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const [focusedControl, setFocusedControl] = useState("play");
   const [progress, setProgress] = useState({ position: 0, duration: 0 });
   const [scrub, setScrub] = useState({ active: false, preview: 0 });
+  const [isSeeking, setIsSeeking] = useState(false);
 
   const hideTimerRef = useRef(null);
   const resumeTimerRef = useRef(null);
@@ -173,6 +179,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
     multiplier: 1,
   });
   const playbackIntentRef = useRef(true);
+  const progressTrackWidthRef = useRef(0);
 
   const dimensionsAreLandscape = width > height;
   const orientationIsLandscape = isLandscapeOrientation(deviceOrientation);
@@ -220,9 +227,16 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const isBuffering = status === "loading" || status === "idle";
   const hasError = status === "error" || (!streamUri && !!movie);
 
+  useEffect(() => {
+    if (isPlaying) {
+      setIsSeeking(false);
+    }
+  }, [isPlaying]);
+
   // Native players often pause when the video surface is resized or reattached.
   useEffect(() => {
     if (
+      scrubRef.current.active ||
       status !== "readyToPlay" ||
       !player ||
       !playbackIntentRef.current ||
@@ -239,7 +253,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   }, [status, player]);
 
   useEffect(() => {
-    if (!player || !streamUri || !playbackIntentRef.current) {
+    if (!player || !streamUri || !playbackIntentRef.current || scrubRef.current.active) {
       return undefined;
     }
 
@@ -263,6 +277,10 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }
 
     const interval = setInterval(() => {
+      if (scrubRef.current.active) {
+        return;
+      }
+
       setProgress({
         position: player.currentTime ?? 0,
         duration: player.duration ?? 0,
@@ -283,7 +301,8 @@ export default function MoviePlayScreen({ movie, onBack }) {
     };
 
     syncOrientation();
-    lockPortrait();
+    setIsFullscreen(true);
+    lockLandscape();
 
     const subscription = ScreenOrientation.addOrientationChangeListener((event) => {
       setDeviceOrientation(event.orientationInfo.orientation);
@@ -366,7 +385,16 @@ export default function MoviePlayScreen({ movie, onBack }) {
       try {
         player.currentTime = state.target;
         if (state.wasPlaying) {
-          player.play();
+          playbackIntentRef.current = true;
+          setTimeout(() => {
+            try {
+              if (playbackIntentRef.current && !scrubRef.current.active) {
+                player.play();
+              }
+            } catch (_error) {
+              // ignore resume errors
+            }
+          }, SCRUB_PLAY_RESUME_MS);
         }
       } catch (_error) {
         // ignore seek errors
@@ -383,7 +411,26 @@ export default function MoviePlayScreen({ movie, onBack }) {
     resumeTimerRef.current = setTimeout(endScrub, SCRUB_RESUME_MS);
   }, [clearResumeTimer, endScrub]);
 
-  // Pause-while-scrubbing with hold-to-accelerate steps; resumes on release or idle.
+  const beginScrubSession = useCallback(() => {
+    const state = scrubRef.current;
+    if (!player || state.active) {
+      return;
+    }
+
+    state.active = true;
+    state.wasPlaying = playbackIntentRef.current || player.playing;
+    state.target = player.currentTime ?? 0;
+    playbackIntentRef.current = false;
+    setIsSeeking(true);
+
+    try {
+      player.pause();
+    } catch (_error) {
+      // ignore
+    }
+  }, [player]);
+
+  // UI-only scrub while holding; one native seek on release (endScrub).
   const scrubStep = useCallback(
     (direction) => {
       if (!player || isLive) {
@@ -392,7 +439,6 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
       const duration = player.duration ?? 0;
       if (duration <= 0) {
-        // Duration not known yet — fall back to a simple relative seek.
         player.seekBy(direction * SEEK_STEP_SECONDS);
         revealControls();
         return;
@@ -402,15 +448,9 @@ export default function MoviePlayScreen({ movie, onBack }) {
       const now = Date.now();
 
       if (!state.active) {
-        state.active = true;
-        state.wasPlaying = player.playing;
-        state.target = player.currentTime ?? 0;
+        beginScrubSession();
         state.multiplier = 1;
-        try {
-          player.pause();
-        } catch (_error) {
-          // ignore
-        }
+        state.lastPressTs = 0;
       } else {
         state.multiplier =
           now - state.lastPressTs <= SCRUB_ACCEL_WINDOW_MS
@@ -422,20 +462,65 @@ export default function MoviePlayScreen({ movie, onBack }) {
       const step = SEEK_STEP_SECONDS * state.multiplier;
       state.target = Math.max(0, Math.min(duration, state.target + direction * step));
 
-      try {
-        player.currentTime = state.target;
-      } catch (_error) {
-        // ignore
-      }
-
       setScrub({ active: true, preview: state.target });
       revealControls();
       scheduleResume();
     },
-    [player, isLive, revealControls, scheduleResume],
+    [player, isLive, beginScrubSession, revealControls, scheduleResume],
   );
 
   useEffect(() => clearResumeTimer, [clearResumeTimer]);
+
+  const updateProgressDrag = useCallback(
+    (locationX) => {
+      if (!player || isLive || !isPhone) {
+        return;
+      }
+
+      const duration = player.duration ?? progress.duration ?? 0;
+      const trackWidth = progressTrackWidthRef.current;
+      if (duration <= 0 || trackWidth <= 0) {
+        return;
+      }
+
+      const ratio = Math.max(0, Math.min(1, locationX / trackWidth));
+      const target = ratio * duration;
+      const state = scrubRef.current;
+
+      if (!state.active) {
+        beginScrubSession();
+      }
+
+      state.target = target;
+      setScrub({ active: true, preview: target });
+      revealControls();
+    },
+    [player, isLive, progress.duration, beginScrubSession, revealControls],
+  );
+
+  const progressPanResponder = useMemo(() => {
+    if (!isPhone) {
+      return null;
+    }
+
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => !isLive,
+      onMoveShouldSetPanResponder: () => !isLive,
+      onPanResponderGrant: (event) => {
+        clearResumeTimer();
+        updateProgressDrag(event.nativeEvent.locationX);
+      },
+      onPanResponderMove: (event) => {
+        updateProgressDrag(event.nativeEvent.locationX);
+      },
+      onPanResponderRelease: () => {
+        endScrub();
+      },
+      onPanResponderTerminate: () => {
+        endScrub();
+      },
+    });
+  }, [clearResumeTimer, endScrub, isLive, updateProgressDrag]);
 
   const toggleExpand = useCallback(async () => {
     revealControls();
@@ -453,9 +538,8 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }
   }, [isFullscreen, revealControls, width, height]);
 
-  const handleBack = useCallback(async () => {
+  const handleBack = useCallback(() => {
     clearHideTimer();
-    setIsFullscreen(false);
     playbackIntentRef.current = false;
     if (player) {
       try {
@@ -464,8 +548,6 @@ export default function MoviePlayScreen({ movie, onBack }) {
         // ignore
       }
     }
-    await exitImmersivePlayback();
-    await lockPortrait();
     onBack?.();
   }, [clearHideTimer, onBack, player]);
 
@@ -475,18 +557,13 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }
 
     const onHardwareBack = () => {
-      if (isFullscreen) {
-        toggleExpand();
-        return true;
-      }
-
       handleBack();
       return true;
     };
 
     const subscription = BackHandler.addEventListener("hardwareBackPress", onHardwareBack);
     return () => subscription.remove();
-  }, [handleBack, isFullscreen, toggleExpand]);
+  }, [handleBack]);
 
   // Robust D-pad handling. The video surface acts as a scrub zone (left/right seek),
   // while the bottom transport bar uses native focus movement + onPress.
@@ -500,23 +577,24 @@ export default function MoviePlayScreen({ movie, onBack }) {
       const type = event.eventType;
       const isKeyUp = event.eventKeyAction === 1;
 
-      // Media transport keys always work regardless of focus position (on press only).
+      // Media transport keys on press; hold FF/rewind scrubs smoothly like D-pad right/left.
       if (!isKeyUp) {
         if (type === "playPause" || type === "play" || type === "pause") {
           togglePlay();
           return;
         }
         if (type === "fastForward") {
-          seekBy(SEEK_STEP_SECONDS);
+          scrubStep(1);
           return;
         }
         if (type === "rewind") {
-          seekBy(-SEEK_STEP_SECONDS);
+          scrubStep(-1);
           return;
         }
       }
       if (type === "menu") {
-        return; // let system back handle it
+        handleBack();
+        return;
       }
 
       const isDirectional =
@@ -527,17 +605,24 @@ export default function MoviePlayScreen({ movie, onBack }) {
         return;
       }
 
-      // On release of a left/right hold over the surface, commit the seek and resume.
+      // On release, commit a held scrub or handle a single tap.
       if (isKeyUp) {
         if (type === "select" && focusZone === "surface") {
           togglePlay();
+          return;
+        }
+        if (type === "fastForward" || type === "rewind") {
+          if (scrubRef.current.active) {
+            endScrub();
+          } else {
+            seekBy(type === "fastForward" ? SEEK_STEP_SECONDS : -SEEK_STEP_SECONDS);
+          }
           return;
         }
         if ((type === "left" || type === "right") && focusZone === "surface") {
           if (scrubRef.current.active) {
             endScrub();
           } else {
-            // Phone emulator often only dispatches key-up; tap arrow once to seek.
             seekBy(type === "left" ? -SEEK_STEP_SECONDS : SEEK_STEP_SECONDS);
           }
         }
@@ -561,7 +646,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
         }
       }
     },
-    [controlsVisible, focusZone, revealControls, seekBy, togglePlay, scrubStep, endScrub],
+    [controlsVisible, focusZone, handleBack, revealControls, seekBy, togglePlay, scrubStep, endScrub],
   );
 
   // Robust remote handling on tvOS/Android TV; no-op on phones.
@@ -580,12 +665,14 @@ export default function MoviePlayScreen({ movie, onBack }) {
       ? 1
       : 0;
 
-  // Movies: show poster while buffering or before playback starts.
+  // Movies: show poster while buffering or before playback starts — never during scrub/seek.
   const showPoster =
     !isMatchPlayback &&
     !!movie.image &&
     !hasError &&
-    (isBuffering || (!isPlaying && (progress.position ?? 0) < 0.5));
+    !scrub.active &&
+    !isSeeking &&
+    (isBuffering || (!isPlaying && displayPosition < 0.5));
 
   const showMatchLoadingTitle =
     isMatchPlayback &&
@@ -635,6 +722,14 @@ export default function MoviePlayScreen({ movie, onBack }) {
   );
 
   const renderCenterPlay = () => {
+    if ((scrub.active || isSeeking) && !hasError) {
+      return (
+        <View style={styles.centerStatusWrap} pointerEvents="none">
+          <ActivityIndicator size="large" color="#FFFFFF" />
+        </View>
+      );
+    }
+
     if (isBuffering && !hasError) {
       return (
         <View
@@ -688,14 +783,37 @@ export default function MoviePlayScreen({ movie, onBack }) {
         <Text style={[styles.timeText, scrub.active ? styles.timeTextScrubbing : null]}>
           {isLive ? "LIVE" : formatTime(displayPosition)}
         </Text>
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${progressRatio * 100}%` },
-              isLive ? styles.progressFillLive : null,
-            ]}
-          />
+        <View
+          style={styles.progressTrackWrap}
+          onLayout={(event) => {
+            progressTrackWidthRef.current = event.nativeEvent.layout.width;
+          }}
+          {...(canSeek && progressPanResponder ? progressPanResponder.panHandlers : null)}
+        >
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${progressRatio * 100}%` },
+                isLive ? styles.progressFillLive : null,
+              ]}
+            />
+          </View>
+          {canSeek && isPhone ? (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.progressThumb,
+                {
+                  left: `${progressRatio * 100}%`,
+                  transform: [
+                    { translateX: -PROGRESS_THUMB_SIZE / 2 },
+                    ...(scrub.active ? [{ scale: 1.15 }] : []),
+                  ],
+                },
+              ]}
+            />
+          ) : null}
         </View>
         <Text style={styles.timeText}>{isLive ? "" : formatTime(progress.duration)}</Text>
       </View>
@@ -774,13 +892,13 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar hidden={showLandscapeLayout} style="light" />
+      <StatusBar hidden={isFullscreen} style="light" />
 
-      <View style={showLandscapeLayout ? styles.fullscreenHost : styles.portraitHost}>
+      <View style={isFullscreen ? styles.fullscreenHost : styles.portraitHost}>
         <View
           style={[
             styles.videoShell,
-            showLandscapeLayout
+            isFullscreen
               ? StyleSheet.absoluteFillObject
               : { height: portraitVideoHeight },
           ]}
@@ -797,7 +915,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
             <>
               <LinearGradient
                 colors={
-                  showLandscapeLayout
+                  showLandscapeLayout || isFullscreen
                     ? ["rgba(0,0,0,0.55)", "transparent", "rgba(0,0,0,0.85)"]
                     : ["rgba(0,0,0,0.45)", "transparent", "rgba(0,0,0,0.9)"]
                 }
@@ -838,7 +956,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
                 )}
               </View>
             </>
-          ) : showLandscapeLayout ? null : (
+          ) : isFullscreen ? null : (
             renderBackButton([styles.portraitBackButton, { top: insets.top }])
           )}
         </View>
@@ -981,8 +1099,12 @@ const styles = StyleSheet.create({
     color: "#E71809",
     fontWeight: "700",
   },
-  progressTrack: {
+  progressTrackWrap: {
     flex: 1,
+    height: 28,
+    justifyContent: "center",
+  },
+  progressTrack: {
     height: 4,
     borderRadius: 2,
     backgroundColor: "rgba(255, 255, 255, 0.35)",
@@ -995,6 +1117,17 @@ const styles = StyleSheet.create({
   },
   progressFillLive: {
     backgroundColor: "#E71809",
+  },
+  progressThumb: {
+    position: "absolute",
+    top: "50%",
+    width: PROGRESS_THUMB_SIZE,
+    height: PROGRESS_THUMB_SIZE,
+    marginTop: -PROGRESS_THUMB_SIZE / 2,
+    borderRadius: PROGRESS_THUMB_SIZE / 2,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#E71809",
   },
   controlsRow: {
     marginTop: 12,
