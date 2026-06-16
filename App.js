@@ -498,6 +498,8 @@ export default function App() {
         setCurrentPage(SCREEN.FORGOT_PASSWORD_PHONE);
         return true;
       case SCREEN.HOME:
+        BackHandler.exitApp();
+        return true;
       case SCREEN.SPLASH:
       case SCREEN.ONBOARDING:
       case SCREEN.CREATE_PASSWORD:

@@ -553,7 +553,8 @@ export default function HomeScreen({
         return true;
       }
 
-      return false;
+      BackHandler.exitApp();
+      return true;
     });
 
     return () => subscription.remove();
