@@ -1,5 +1,5 @@
 import { call, put, takeLatest } from "redux-saga/effects";
-import { extractListData } from "../../api/mappers";
+import { extractItemData, extractListData } from "../../api/mappers";
 import { addFavorite, fetchFavorites, removeFavorite } from "../../api/contentService";
 import { getErrorMessage } from "../../api/client";
 import { FAVORITES_TYPES } from "./actionTypes";

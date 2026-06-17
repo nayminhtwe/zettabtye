@@ -61,9 +61,10 @@ const computeFavoriteMediaItems = memoizeOnInputs((favorites, movies, series) =>
   const items = favorites
     .map((favorite, index) => {
       const catalogItem = findCatalogItem(movies, series, favorite);
+      const favoritableId = favorite.favoritableId != null ? String(favorite.favoritableId) : null;
 
       return {
-        id: `favorite-${favorite.id}`,
+        id: favoritableId ?? `favorite-${favorite.id}`,
         favoriteId: favorite.id,
         title: catalogItem?.title ?? favorite.title ?? "",
         subtitle: catalogItem?.categories ?? "",

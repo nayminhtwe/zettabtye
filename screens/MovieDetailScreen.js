@@ -25,6 +25,8 @@ import {
   selectFavoriteId,
   selectIsFavorited,
 } from "../store/favorites/selectors";
+import Toast from "../components/Toast";
+import { useToast } from "../hooks/useToast";
 import { buildMovieDetail } from "../utils/movieDetail";
 import { SUBSCRIPTION_WATCH_LABEL } from "../utils/playback";
 
@@ -49,6 +51,11 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
     selectIsFavorited(state, "movie", movieId),
   );
   const favoriteId = useSelector((state) => selectFavoriteId(state, "movie", movieId));
+  const favoritesSaving = useSelector((state) => state.favorites.saving);
+  const favoritesError = useSelector((state) => state.favorites.error);
+  const { toast, showToast } = useToast();
+  const pendingFavoriteActionRef = useRef(null);
+  const prevFavoritesSavingRef = useRef(false);
 
   const displayMovie = useMemo(() => {
     if (fetchedMovie) {
@@ -64,16 +71,34 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
     }
   }, [dispatch, movieId]);
 
+  useEffect(() => {
+    if (prevFavoritesSavingRef.current && !favoritesSaving) {
+      if (favoritesError) {
+        showToast(favoritesError);
+      } else if (pendingFavoriteActionRef.current === "add") {
+        showToast("Saved for later");
+      } else if (pendingFavoriteActionRef.current === "remove") {
+        showToast("Removed from saved list");
+      }
+
+      pendingFavoriteActionRef.current = null;
+    }
+
+    prevFavoritesSavingRef.current = favoritesSaving;
+  }, [favoritesSaving, favoritesError, showToast]);
+
   const handleToggleFavorite = () => {
-    if (!movieId) {
+    if (!movieId || favoritesSaving) {
       return;
     }
 
     if (isFavorited && favoriteId) {
+      pendingFavoriteActionRef.current = "remove";
       dispatch(removeFavoriteRequest(favoriteId));
       return;
     }
 
+    pendingFavoriteActionRef.current = "add";
     dispatch(addFavoriteRequest({ favoritableType: "movie", favoritableId: movieId }));
   };
 
@@ -215,6 +240,8 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
           Best Film
         </Text>
       </ScrollView>
+
+      <Toast visible={toast.visible} message={toast.message} bottom={contentBottomPadding} />
     </SafeAreaView>
   );
 }
