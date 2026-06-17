@@ -22,7 +22,6 @@ import FocusablePressable from "../components/FocusablePressable";
 import FootballMatchCard from "../components/FootballMatchCard";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
-import AdMobBanner from "../components/AdMobBanner";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { useScreenInsets } from "../hooks/useScreenInsets";
@@ -900,7 +899,6 @@ export default function HomeScreen({
                   nextFocusUp={getFeaturedHandle(1)}
                   nextFocusDown={getSectionCardHandle(1, 0)}
                 />
-                <AdMobBanner placement="home" />
               </>
             ) : null}
           </React.Fragment>

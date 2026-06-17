@@ -16,7 +16,8 @@
           "NSAllowsArbitraryLoadsInMedia": true
         },
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
@@ -67,15 +68,6 @@
           }
         }
       ],
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-7659508540424843~9149846256",
-          "iosAppId": "ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx",
-          "skAdNetworkItems": []
-        }
-      ],
-      "./plugins/withAdMobPlayServicesFix.js",
       "./plugins/withRemoteKeyEvents.js",
       "./plugins/withCleartextTraffic.js"
     ],

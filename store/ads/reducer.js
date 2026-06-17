@@ -5,7 +5,6 @@ export const initialAdsState = {
   loaded: false,
   error: null,
   settings: null,
-  sdkInitialized: false,
 };
 
 export default function adsReducer(state = initialAdsState, action) {
@@ -29,9 +28,6 @@ export default function adsReducer(state = initialAdsState, action) {
         loaded: true,
         error: action.payload,
       };
-
-    case ADS_TYPES.SDK_INITIALIZED:
-      return { ...state, sdkInitialized: true };
 
     default:
       return state;

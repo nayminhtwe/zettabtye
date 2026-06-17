@@ -25,7 +25,7 @@ const STATIC_FAQ_ITEMS = [
     id: "free",
     question: "Is this app free?",
     answer:
-      "Yes! You can watch movies for free with ads. We also offer a premium plan for ad-free streaming and extra perks.",
+      "Yes! You can browse and watch content for free. We also offer a premium plan with extra perks like football streaming.",
   },
   {
     id: "devices",

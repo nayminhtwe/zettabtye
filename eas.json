@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 3.6.1"
+    "version": ">= 3.6.1",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -25,6 +26,7 @@
       }
     },
     "production": {
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://v2.zplusmm.com/api"
       },

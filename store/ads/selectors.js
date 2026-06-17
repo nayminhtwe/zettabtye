@@ -1,11 +1,7 @@
-import { Platform } from "react-native";
-import { isSubscriptionActive, resolveBannerUnitId, shouldShowAds } from "../../utils/ads";
+import { isSubscriptionActive } from "../../utils/ads";
 import { parseSupportContacts } from "../../utils/appSettings";
 
 export const selectAppSettings = (state) => state.ads.settings;
-export const selectAdsSettings = (state) => state.ads.settings?.ads ?? null;
-export const selectAdsLoaded = (state) => state.ads.loaded;
-export const selectAdsSdkInitialized = (state) => state.ads.sdkInitialized;
 
 export const selectIsSubscriptionActive = (state) =>
   isSubscriptionActive(state.auth.user);
@@ -55,37 +51,4 @@ export const selectCanAccessFootball = (state) => {
   }
 
   return features.footballForNonSubscribers !== false;
-};
-
-const shouldShowAdsSelectorByPlacement = new Map();
-const bannerUnitIdSelectorByPlacement = new Map();
-
-export const selectShouldShowAdsForPlacement = (placement) => {
-  if (!shouldShowAdsSelectorByPlacement.has(placement)) {
-    shouldShowAdsSelectorByPlacement.set(placement, (state) =>
-      shouldShowAds({
-        adsSettings: selectAdsSettings(state),
-        placement,
-        isSubscriptionActive: selectIsSubscriptionActive(state),
-        isTV: Platform.isTV,
-      }),
-    );
-  }
-
-  return shouldShowAdsSelectorByPlacement.get(placement);
-};
-
-export const selectBannerUnitIdForPlacement = (placement) => {
-  if (!bannerUnitIdSelectorByPlacement.has(placement)) {
-    bannerUnitIdSelectorByPlacement.set(placement, (state) => {
-      const visible = selectShouldShowAdsForPlacement(placement)(state);
-      if (!visible) {
-        return null;
-      }
-
-      return resolveBannerUnitId(selectAdsSettings(state));
-    });
-  }
-
-  return bannerUnitIdSelectorByPlacement.get(placement);
 };

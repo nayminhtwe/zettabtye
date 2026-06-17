@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
-import AdMobBanner from "../components/AdMobBanner";
 import PosterGrid, { getPosterCardWidth } from "../components/PosterGrid";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
@@ -252,8 +251,6 @@ export default function SeriesScreen({
         {(seriesLoading || genresLoading) && seriesPosters.length === 0 ? (
           <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
         ) : null}
-
-        <AdMobBanner placement="series" />
 
         <PosterGrid
           posters={seriesPosters}

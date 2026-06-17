@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import FootballMatchCard from "../components/FootballMatchCard";
-import AdMobBanner from "../components/AdMobBanner";
 import { gillSans } from "../constants/fonts";
 import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchMatchesRequest } from "../store/catalog/actions";
@@ -188,8 +187,6 @@ export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) 
             })}
           </ScrollView>
         ) : null}
-
-        <AdMobBanner placement="football" />
 
         <View style={styles.matchList}>
           {matchesLoading && fixtures.length === 0 ? (

@@ -1,5 +1,4 @@
 import { call, put, takeLatest } from "redux-saga/effects";
-import mobileAds from "react-native-google-mobile-ads";
 import { fetchAppSettings, parseAppSettings } from "../../api/appSettingsService";
 import { getErrorMessage } from "../../api/client";
 import { ADS_TYPES } from "./actionTypes";
@@ -13,9 +12,6 @@ function* fetchAppSettingsSaga() {
       type: ADS_TYPES.FETCH_SETTINGS_SUCCESS,
       payload: { settings },
     });
-
-    yield call([mobileAds(), mobileAds().initialize]);
-    yield put({ type: ADS_TYPES.SDK_INITIALIZED });
   } catch (error) {
     yield put({
       type: ADS_TYPES.FETCH_SETTINGS_FAILURE,

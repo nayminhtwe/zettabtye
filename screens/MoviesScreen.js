@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
-import AdMobBanner from "../components/AdMobBanner";
 import PosterGrid, { getPosterCardWidth } from "../components/PosterGrid";
 import PremiumMembershipCard from "../components/PremiumMembershipCard";
 import SaleBannerCarousel from "../components/SaleBannerCarousel";
@@ -275,7 +274,6 @@ export default function MoviesScreen({
         />
 
         <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
-        <AdMobBanner placement="movies" />
 
         <PosterGrid
           posters={postersAfterBanner}
