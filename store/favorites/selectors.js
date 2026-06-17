@@ -2,10 +2,10 @@ import { getPosterSource } from "../../api/mappers";
 
 const EMPTY_ARRAY = [];
 
-const selectFavoritesState = (state) => state.favorites;
+const selectFavoritesState = (state) => state?.favorites;
 
-const selectCatalogMovies = (state) => state.catalog?.movies?.items ?? EMPTY_ARRAY;
-const selectCatalogSeries = (state) => state.catalog?.series?.items ?? EMPTY_ARRAY;
+const selectCatalogMovies = (state) => state?.catalog?.movies?.items ?? EMPTY_ARRAY;
+const selectCatalogSeries = (state) => state?.catalog?.series?.items ?? EMPTY_ARRAY;
 
 // Memoize on the input arrays so the same references yield the same output reference.
 function memoizeOnInputs(compute) {
@@ -27,9 +27,9 @@ function memoizeOnInputs(compute) {
   };
 }
 
-export const selectFavorites = (state) => selectFavoritesState(state).items;
-export const selectFavoritesLoading = (state) => selectFavoritesState(state).loading;
-export const selectFavoritesSaving = (state) => selectFavoritesState(state).saving;
+export const selectFavorites = (state) => selectFavoritesState(state)?.items ?? EMPTY_ARRAY;
+export const selectFavoritesLoading = (state) => selectFavoritesState(state)?.loading ?? false;
+export const selectFavoritesSaving = (state) => selectFavoritesState(state)?.saving ?? false;
 
 export function selectIsFavorited(state, favoritableType, favoritableId) {
   return selectFavorites(state).some(
@@ -58,7 +58,7 @@ function findCatalogItem(movies, series, favorite) {
 }
 
 const computeFavoriteMediaItems = memoizeOnInputs((favorites, movies, series) => {
-  const items = favorites
+  const items = (favorites ?? EMPTY_ARRAY)
     .map((favorite, index) => {
       const catalogItem = findCatalogItem(movies, series, favorite);
       const favoritableId = favorite.favoritableId != null ? String(favorite.favoritableId) : null;
@@ -94,7 +94,7 @@ export function selectFavoriteMediaItems(state) {
 }
 
 const computeFavoriteHistorySections = memoizeOnInputs((items) => {
-  if (!items.length) {
+  if (!items?.length) {
     return EMPTY_ARRAY;
   }
 

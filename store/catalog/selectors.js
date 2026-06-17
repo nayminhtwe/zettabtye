@@ -2,39 +2,41 @@ import { mapGenreToCategoryCard } from "../../api/mappers";
 
 const EMPTY_ARRAY = [];
 
-const selectCatalog = (state) => state.catalog;
+const selectCatalog = (state) => state?.catalog;
 
-export const selectMovies = (state) => selectCatalog(state).movies.items;
-export const selectMoviesLoading = (state) => selectCatalog(state).movies.loading;
-export const selectSeries = (state) => selectCatalog(state).series.items;
-export const selectSeriesLoading = (state) => selectCatalog(state).series.loading;
-export const selectAdvertisements = (state) => selectCatalog(state).advertisements.items;
-export const selectMatches = (state) => selectCatalog(state).matches.items;
-export const selectMatchesLoading = (state) => selectCatalog(state).matches.loading;
-export const selectGenres = (state) => selectCatalog(state).genres.items;
-export const selectGenresLoading = (state) => selectCatalog(state).genres.loading;
-export const selectHomeLoading = (state) => selectCatalog(state).homeLoading;
+export const selectMovies = (state) => selectCatalog(state)?.movies?.items ?? EMPTY_ARRAY;
+export const selectMoviesLoading = (state) => selectCatalog(state)?.movies?.loading ?? false;
+export const selectSeries = (state) => selectCatalog(state)?.series?.items ?? EMPTY_ARRAY;
+export const selectSeriesLoading = (state) => selectCatalog(state)?.series?.loading ?? false;
+export const selectAdvertisements = (state) =>
+  selectCatalog(state)?.advertisements?.items ?? EMPTY_ARRAY;
+export const selectMatches = (state) => selectCatalog(state)?.matches?.items ?? EMPTY_ARRAY;
+export const selectMatchesLoading = (state) => selectCatalog(state)?.matches?.loading ?? false;
+export const selectGenres = (state) => selectCatalog(state)?.genres?.items ?? EMPTY_ARRAY;
+export const selectGenresLoading = (state) => selectCatalog(state)?.genres?.loading ?? false;
+export const selectHomeLoading = (state) => selectCatalog(state)?.homeLoading ?? false;
 
 export const selectMovieDetail = (state, id) =>
-  id ? selectCatalog(state).movieDetails[String(id)] : null;
+  id ? selectCatalog(state)?.movieDetails?.[String(id)] ?? null : null;
 
 export const selectMovieDetailLoading = (state, id) =>
-  id ? Boolean(selectCatalog(state).movieDetailLoading[String(id)]) : false;
+  id ? Boolean(selectCatalog(state)?.movieDetailLoading?.[String(id)]) : false;
 
 export const selectSeriesDetail = (state, id) =>
-  id ? selectCatalog(state).seriesDetails[String(id)] : null;
+  id ? selectCatalog(state)?.seriesDetails?.[String(id)] ?? null : null;
 
 export const selectSeriesDetailLoading = (state, id) =>
-  id ? Boolean(selectCatalog(state).seriesDetailLoading[String(id)]) : false;
+  id ? Boolean(selectCatalog(state)?.seriesDetailLoading?.[String(id)]) : false;
 
 export const selectMatchDetail = (state, id) =>
-  id ? selectCatalog(state).matchDetails[String(id)] : null;
+  id ? selectCatalog(state)?.matchDetails?.[String(id)] ?? null : null;
 
 export const selectMatchDetailLoading = (state, id) =>
-  id ? Boolean(selectCatalog(state).matchDetailLoading[String(id)]) : false;
+  id ? Boolean(selectCatalog(state)?.matchDetailLoading?.[String(id)]) : false;
 
-export const selectSearchResults = (state) => selectCatalog(state).search.results;
-export const selectSearchLoading = (state) => selectCatalog(state).search.loading;
+export const selectSearchResults = (state) =>
+  selectCatalog(state)?.search?.results ?? EMPTY_ARRAY;
+export const selectSearchLoading = (state) => selectCatalog(state)?.search?.loading ?? false;
 
 function memoizeOnInput(fn) {
   let lastInput = null;
@@ -90,22 +92,26 @@ function mapSeriesToSectionItem(series) {
 }
 
 function filterMoviesByGenre(movies, genreName) {
+  const list = movies ?? EMPTY_ARRAY;
+
   if (!genreName || genreName === "All") {
-    return movies;
+    return list;
   }
 
   const normalized = genreName.toLowerCase();
-  return movies.filter((movie) =>
+  return list.filter((movie) =>
     movie.categories?.toLowerCase().includes(normalized),
   );
 }
 
 function buildGenreSection(movies, genreName, limit = 4) {
-  if (!movies.length) {
+  const list = movies ?? EMPTY_ARRAY;
+
+  if (!list.length) {
     return EMPTY_ARRAY;
   }
 
-  const filtered = filterMoviesByGenre(movies, genreName).slice(0, limit);
+  const filtered = filterMoviesByGenre(list, genreName).slice(0, limit);
   if (!filtered.length) {
     return EMPTY_ARRAY;
   }
@@ -114,7 +120,7 @@ function buildGenreSection(movies, genreName, limit = 4) {
 }
 
 const memoizedFeaturedMovies = memoizeOnInput((movies) => {
-  if (!movies.length) {
+  if (!movies?.length) {
     return EMPTY_ARRAY;
   }
 
@@ -122,7 +128,7 @@ const memoizedFeaturedMovies = memoizeOnInput((movies) => {
 });
 
 const memoizedTrendingMovies = memoizeOnInput((movies) => {
-  if (!movies.length) {
+  if (!movies?.length) {
     return EMPTY_ARRAY;
   }
 
@@ -130,7 +136,7 @@ const memoizedTrendingMovies = memoizeOnInput((movies) => {
 });
 
 const memoizedHomeSeriesItems = memoizeOnInput((series) => {
-  if (!series.length) {
+  if (!series?.length) {
     return EMPTY_ARRAY;
   }
 
@@ -138,7 +144,7 @@ const memoizedHomeSeriesItems = memoizeOnInput((series) => {
 });
 
 const memoizedHomeMatches = memoizeOnInput((matches) => {
-  if (!matches.length) {
+  if (!matches?.length) {
     return EMPTY_ARRAY;
   }
 
@@ -146,7 +152,7 @@ const memoizedHomeMatches = memoizeOnInput((matches) => {
 });
 
 const memoizedCategoryFilterChips = memoizeOnInput((genres) => {
-  if (!genres.length) {
+  if (!genres?.length) {
     return EMPTY_ARRAY;
   }
 
@@ -154,7 +160,7 @@ const memoizedCategoryFilterChips = memoizeOnInput((genres) => {
 });
 
 const memoizedCategoryCards = memoizeOnInput((genres) => {
-  if (!genres.length) {
+  if (!genres?.length) {
     return EMPTY_ARRAY;
   }
 
@@ -162,7 +168,7 @@ const memoizedCategoryCards = memoizeOnInput((genres) => {
 });
 
 const memoizedHomeGenreRows = memoizeOnGenreMovieInputs((genres, movies) => {
-  if (!genres.length) {
+  if (!genres?.length) {
     return EMPTY_ARRAY;
   }
 
@@ -233,7 +239,7 @@ function memoizeOnMoviesSeriesInputs(fn) {
 }
 
 const memoizedRecentNotifications = memoizeOnMoviesSeriesInputs((movies, series) => {
-  const movieItems = movies.slice(0, 5).map((movie) => ({
+  const movieItems = (movies ?? EMPTY_ARRAY).slice(0, 5).map((movie) => ({
     id: `movie-notif-${movie.id}`,
     title: movie.title,
     subtitle: movie.categories ?? "",
@@ -244,7 +250,7 @@ const memoizedRecentNotifications = memoizeOnMoviesSeriesInputs((movies, series)
     contentId: movie.id,
   }));
 
-  const seriesItems = series.slice(0, 5).map((item) => ({
+  const seriesItems = (series ?? EMPTY_ARRAY).slice(0, 5).map((item) => ({
     id: `series-notif-${item.id}`,
     title: item.title,
     subtitle: item.categories ?? "",

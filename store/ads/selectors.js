@@ -1,10 +1,10 @@
 import { isSubscriptionActive } from "../../utils/ads";
 import { parseSupportContacts } from "../../utils/appSettings";
 
-export const selectAppSettings = (state) => state.ads.settings;
+export const selectAppSettings = (state) => state?.ads?.settings ?? null;
 
 export const selectIsSubscriptionActive = (state) =>
-  isSubscriptionActive(state.auth.user);
+  isSubscriptionActive(state?.auth?.user);
 
 const EMPTY_SUPPORT_CONTACTS = Object.freeze([]);
 const DEFAULT_SUBSCRIPTION_PRICING = Object.freeze({
@@ -16,7 +16,7 @@ let cachedSupportContactsSource = null;
 let cachedSupportContacts = EMPTY_SUPPORT_CONTACTS;
 
 export const selectSupportContacts = (state) => {
-  const source = state.ads.settings?.support?.contacts;
+  const source = state?.ads?.settings?.support?.contacts;
 
   if (source === cachedSupportContactsSource) {
     return cachedSupportContacts;
@@ -37,10 +37,10 @@ export const selectSupportContacts = (state) => {
 };
 
 export const selectSubscriptionPricing = (state) =>
-  state.ads.settings?.subscription ?? DEFAULT_SUBSCRIPTION_PRICING;
+  state?.ads?.settings?.subscription ?? DEFAULT_SUBSCRIPTION_PRICING;
 
 export const selectAppFeatures = (state) =>
-  state.ads.settings?.features ?? { footballForNonSubscribers: true };
+  state?.ads?.settings?.features ?? { footballForNonSubscribers: true };
 
 export const selectCanAccessFootball = (state) => {
   const features = selectAppFeatures(state);

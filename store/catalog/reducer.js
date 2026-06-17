@@ -17,10 +17,18 @@ const initialState = {
   search: { query: "", results: [], loading: false, error: null },
 };
 
+function normalizeListSlice(slice, loading, error = null) {
+  return {
+    items: slice?.items ?? [],
+    loading,
+    error,
+  };
+}
+
 function setLoadingSlice(state, key, loading) {
   return {
     ...state,
-    [key]: { ...state[key], loading, error: loading ? null : state[key].error },
+    [key]: normalizeListSlice(state[key], loading, loading ? null : state[key]?.error ?? null),
   };
 }
 
@@ -33,11 +41,11 @@ export default function catalogReducer(state = initialState, action) {
       return {
         ...state,
         homeLoading: false,
-        movies: { items: action.payload.movies, loading: false, error: null },
-        series: { items: action.payload.series, loading: false, error: null },
-        advertisements: { items: action.payload.advertisements, loading: false, error: null },
-        matches: { items: action.payload.matches, loading: false, error: null },
-        genres: { items: action.payload.genres, loading: false, error: null },
+        movies: { items: action.payload.movies ?? [], loading: false, error: null },
+        series: { items: action.payload.series ?? [], loading: false, error: null },
+        advertisements: { items: action.payload.advertisements ?? [], loading: false, error: null },
+        matches: { items: action.payload.matches ?? [], loading: false, error: null },
+        genres: { items: action.payload.genres ?? [], loading: false, error: null },
       };
 
     case CATALOG_TYPES.FETCH_HOME_FAILURE:
@@ -49,13 +57,13 @@ export default function catalogReducer(state = initialState, action) {
     case CATALOG_TYPES.FETCH_MOVIES_SUCCESS:
       return {
         ...state,
-        movies: { items: action.payload, loading: false, error: null },
+        movies: normalizeListSlice({ items: action.payload ?? [] }, false),
       };
 
     case CATALOG_TYPES.FETCH_MOVIES_FAILURE:
       return {
         ...state,
-        movies: { ...state.movies, loading: false, error: action.payload },
+        movies: normalizeListSlice(state.movies, false, action.payload),
       };
 
     case CATALOG_TYPES.FETCH_SERIES_REQUEST:
@@ -64,13 +72,13 @@ export default function catalogReducer(state = initialState, action) {
     case CATALOG_TYPES.FETCH_SERIES_SUCCESS:
       return {
         ...state,
-        series: { items: action.payload, loading: false, error: null },
+        series: normalizeListSlice({ items: action.payload ?? [] }, false),
       };
 
     case CATALOG_TYPES.FETCH_SERIES_FAILURE:
       return {
         ...state,
-        series: { ...state.series, loading: false, error: action.payload },
+        series: normalizeListSlice(state.series, false, action.payload),
       };
 
     case CATALOG_TYPES.FETCH_MATCHES_REQUEST:
@@ -79,13 +87,13 @@ export default function catalogReducer(state = initialState, action) {
     case CATALOG_TYPES.FETCH_MATCHES_SUCCESS:
       return {
         ...state,
-        matches: { items: action.payload, loading: false, error: null },
+        matches: normalizeListSlice({ items: action.payload ?? [] }, false),
       };
 
     case CATALOG_TYPES.FETCH_MATCHES_FAILURE:
       return {
         ...state,
-        matches: { ...state.matches, loading: false, error: action.payload },
+        matches: normalizeListSlice(state.matches, false, action.payload),
       };
 
     case CATALOG_TYPES.FETCH_GENRES_REQUEST:
@@ -94,13 +102,13 @@ export default function catalogReducer(state = initialState, action) {
     case CATALOG_TYPES.FETCH_GENRES_SUCCESS:
       return {
         ...state,
-        genres: { items: action.payload, loading: false, error: null },
+        genres: normalizeListSlice({ items: action.payload ?? [] }, false),
       };
 
     case CATALOG_TYPES.FETCH_GENRES_FAILURE:
       return {
         ...state,
-        genres: { ...state.genres, loading: false, error: action.payload },
+        genres: normalizeListSlice(state.genres, false, action.payload),
       };
 
     case CATALOG_TYPES.FETCH_MOVIE_DETAIL_REQUEST:

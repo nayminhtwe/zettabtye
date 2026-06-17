@@ -2,12 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,13 +30,33 @@ import { useToast } from "../hooks/useToast";
 import { buildMovieDetail } from "../utils/movieDetail";
 import { SUBSCRIPTION_WATCH_LABEL } from "../utils/playback";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
-const HERO_WIDTH = SCREEN_WIDTH - CONTENT_PADDING * 2;
-const HERO_HEIGHT = Math.round(HERO_WIDTH * 0.56);
+const MAX_POSTER_SCREEN_FRACTION = 0.4;
+// Match home/PosterCard portrait ratio (width / height).
+const POSTER_ASPECT_RATIO = 0.67;
+
+function computePosterSize(screenWidth, screenHeight) {
+  const maxHeight = Math.round(screenHeight * MAX_POSTER_SCREEN_FRACTION);
+  const maxWidth = screenWidth - CONTENT_PADDING * 2;
+
+  let height = maxHeight;
+  let width = Math.round(height * POSTER_ASPECT_RATIO);
+
+  if (width > maxWidth) {
+    width = maxWidth;
+    height = Math.round(width / POSTER_ASPECT_RATIO);
+  }
+
+  return { width, height };
+}
 
 export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress }) {
   const dispatch = useDispatch();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: posterWidth, height: posterHeight } = useMemo(
+    () => computePosterSize(screenWidth, screenHeight),
+    [screenWidth, screenHeight],
+  );
   const { contentBottomPadding } = useScreenInsets(32);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -147,13 +167,21 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
 
         <View style={styles.heroSlot}>
           <Pressable
-            style={[styles.heroWrapper, heroFocused ? styles.heroWrapperFocused : null]}
+            style={[
+              styles.heroWrapper,
+              { width: posterWidth, height: posterHeight },
+              heroFocused ? styles.heroWrapperFocused : null,
+            ]}
             onPress={() => onPlay?.(displayMovie)}
             onFocus={() => setHeroFocused(true)}
             onBlur={() => setHeroFocused(false)}
           >
             {displayMovie.image ? (
-              <Image source={displayMovie.image} resizeMode="cover" style={styles.heroImage} />
+              <Image
+                source={displayMovie.image}
+                resizeMode="cover"
+                style={styles.heroImage}
+              />
             ) : (
               <View style={[styles.heroImage, styles.heroPlaceholder]} />
             )}
@@ -289,15 +317,15 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   heroSlot: {
-    padding: 4,
+    width: "100%",
     marginBottom: 8,
-    alignSelf: "center",
+    alignItems: "center",
   },
   heroWrapper: {
-    width: HERO_WIDTH,
-    height: HERO_HEIGHT,
     borderRadius: 4,
     overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#1A2741",
     ...focusBorderBase,
   },
   heroWrapperFocused: focusBorderActive,

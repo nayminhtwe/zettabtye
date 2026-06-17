@@ -13,7 +13,7 @@ export default function favoritesReducer(state = initialState, action) {
       return { ...state, loading: true, error: null };
 
     case FAVORITES_TYPES.FETCH_FAVORITES_SUCCESS:
-      return { ...state, items: action.payload, loading: false, error: null };
+      return { ...state, items: action.payload ?? [], loading: false, error: null };
 
     case FAVORITES_TYPES.FETCH_FAVORITES_FAILURE:
       return { ...state, loading: false, error: action.payload };
@@ -25,14 +25,17 @@ export default function favoritesReducer(state = initialState, action) {
     case FAVORITES_TYPES.ADD_FAVORITE_SUCCESS:
       return {
         ...state,
-        items: [...state.items.filter((item) => item.id !== action.payload.id), action.payload],
+        items: [
+          ...(state.items ?? []).filter((item) => item.id !== action.payload.id),
+          action.payload,
+        ],
         saving: false,
       };
 
     case FAVORITES_TYPES.REMOVE_FAVORITE_SUCCESS:
       return {
         ...state,
-        items: state.items.filter((item) => item.id !== action.payload),
+        items: (state.items ?? []).filter((item) => item.id !== action.payload),
         saving: false,
       };
 

@@ -7,11 +7,14 @@ export function buildMovieDetail(item = {}) {
   const imdbRating =
     item.imdbRating ||
     (item.imdb ? String(item.imdb).replace("/10", "").trim() : "");
+  const posterImage =
+    item.image ??
+    (item.posterImage ? { uri: item.posterImage } : null);
 
   return {
-    id: item.id ?? null,
+    id: item.id ?? item.favoritableId ?? null,
     title: movieTitle,
-    image: item.image ?? null,
+    image: posterImage,
     categories: item.categories ?? "",
     year: item.year ?? "",
     duration: item.duration ?? "",

@@ -88,6 +88,23 @@ const FEATURED_SIDE_PADDING = Math.max(0, (SCREEN_WIDTH - FEATURED_SLOT_WIDTH) /
 
 const clampFeaturedIndex = (index, length) => Math.max(0, Math.min(index, length - 1));
 
+function getSectionItemCount(sections, sectionIndex) {
+  if (sectionIndex < 0 || sectionIndex >= sections.length) {
+    return 0;
+  }
+
+  return sections[sectionIndex]?.items?.length ?? 0;
+}
+
+function getSectionItemFocusIndex(sections, sectionIndex, itemIndex) {
+  const itemCount = getSectionItemCount(sections, sectionIndex);
+  if (itemCount === 0) {
+    return 0;
+  }
+
+  return Math.min(itemIndex, itemCount - 1);
+}
+
 const DRAWER_PANEL_WIDTH = Math.min(
   400,
   Math.round(Dimensions.get("window").width * 0.72),
@@ -426,9 +443,9 @@ export default function HomeScreen({
           return canShowFootball && footballFixtures.length > 0;
         }
 
-        return section.items.length > 0;
+        return section.items?.length > 0;
       }),
-      ...genreRows.filter((row) => row.items.length > 0),
+      ...genreRows.filter((row) => (row?.items?.length ?? 0) > 0),
     ];
 
     if (favoriteItems.length > 0) {
@@ -458,7 +475,7 @@ export default function HomeScreen({
         return canShowFootball && footballFixtures.length > 0;
       }
 
-      return section.items.length > 0;
+      return section.items?.length > 0;
     });
   }, [trendingMovies, homeSeries, genreRows, favoriteItems, footballFixtures.length, canShowFootball]);
 
@@ -632,8 +649,17 @@ export default function HomeScreen({
   };
   const getFeaturedHandle = (index) =>
     featuredCarouselRef.current?.getNodeHandle(index) ?? undefined;
-  const getSectionCardHandle = (sectionIndex, itemIndex) =>
-    findNodeHandle(rowRefs.current[sectionIndex]?.[itemIndex]) ?? undefined;
+  const getSectionCardHandle = (sectionIndex, itemIndex) => {
+    if (sectionIndex < 0 || sectionIndex >= homeSections.length) {
+      return undefined;
+    }
+
+    return findNodeHandle(rowRefs.current[sectionIndex]?.[itemIndex]) ?? undefined;
+  };
+  const getHeaderFocusHandle = () =>
+    findNodeHandle(menuButtonRef.current) ??
+    findNodeHandle(searchButtonRef.current) ??
+    undefined;
   const getDrawerHandle = (index) =>
     findNodeHandle(drawerItemRefs.current[index]) ?? undefined;
   const getContentFocusHandle = () =>
@@ -798,7 +824,10 @@ export default function HomeScreen({
             nextFocusDownForIndex={(index) =>
               index === 1
                 ? findNodeHandle(bannerRef.current) ?? undefined
-                : getSectionCardHandle(0, Math.min(index, homeSections[0]?.items.length - 1 ?? 0))
+                : getSectionCardHandle(
+                    0,
+                    getSectionItemFocusIndex(homeSections, 0, index),
+                  )
             }
           />
         ) : null}
@@ -829,7 +858,14 @@ export default function HomeScreen({
                       onPress={() => openFootballDetail(fixture)}
                       nextFocusUp={
                         itemIndex === 0
-                          ? getSectionCardHandle(rowIndex - 1, 0)
+                          ? rowIndex > 0
+                            ? getSectionCardHandle(
+                                rowIndex - 1,
+                                getSectionItemFocusIndex(homeSections, rowIndex - 1, itemIndex),
+                              )
+                            : featuredItems.length > 0
+                              ? getFeaturedHandle(0)
+                              : getHeaderFocusHandle()
                           : getSectionCardHandle(rowIndex, itemIndex - 1)
                       }
                       nextFocusDown={
@@ -846,7 +882,7 @@ export default function HomeScreen({
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.rowContent}
                 >
-                  {row.items.map((item, itemIndex) => (
+                  {(row.items ?? []).map((item, itemIndex) => (
                     <MediaCard
                       key={`${row.id}-${item.id}-${itemIndex}`}
                       ref={(node) => {
@@ -868,20 +904,28 @@ export default function HomeScreen({
                       nextFocusUp={
                         rowIndex === 0 && featuredItems.length > 0
                           ? getFeaturedHandle(Math.min(itemIndex, featuredItems.length - 1))
-                          : rowIndex === 1
-                            ? findNodeHandle(bannerRef.current) ?? undefined
-                            : getSectionCardHandle(rowIndex - 1, Math.min(itemIndex, homeSections[rowIndex - 1].items.length - 1))
+                          : rowIndex === 0
+                            ? getHeaderFocusHandle()
+                            : rowIndex === 1
+                              ? findNodeHandle(bannerRef.current) ?? undefined
+                              : getSectionCardHandle(
+                                  rowIndex - 1,
+                                  getSectionItemFocusIndex(homeSections, rowIndex - 1, itemIndex),
+                                )
                       }
                       nextFocusDown={
                         rowIndex < homeSections.length - 1
-                          ? getSectionCardHandle(rowIndex + 1, Math.min(itemIndex, homeSections[rowIndex + 1].items.length - 1))
+                          ? getSectionCardHandle(
+                              rowIndex + 1,
+                              getSectionItemFocusIndex(homeSections, rowIndex + 1, itemIndex),
+                            )
                           : undefined
                       }
                       nextFocusLeft={
                         itemIndex > 0 ? getSectionCardHandle(rowIndex, itemIndex - 1) : undefined
                       }
                       nextFocusRight={
-                        itemIndex < row.items.length - 1
+                        itemIndex < (row.items?.length ?? 0) - 1
                           ? getSectionCardHandle(rowIndex, itemIndex + 1)
                           : undefined
                       }
