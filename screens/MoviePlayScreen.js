@@ -330,6 +330,11 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }, CONTROLS_HIDE_MS);
   }, [clearHideTimer]);
 
+  const hideControls = useCallback(() => {
+    clearHideTimer();
+    setControlsVisible(false);
+  }, [clearHideTimer]);
+
   const revealControls = useCallback(() => {
     setControlsVisible(true);
     scheduleHide();
@@ -905,14 +910,19 @@ export default function MoviePlayScreen({ movie, onBack }) {
         >
           {renderVideoSurface()}
 
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onFocus={() => setFocusZone("surface")}
-            onPress={() => (controlsVisible ? togglePlay() : revealControls())}
-          />
-
-          {controlsVisible ? (
+          {!controlsVisible ? (
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onFocus={() => setFocusZone("surface")}
+              onPress={revealControls}
+            />
+          ) : (
             <>
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onFocus={() => setFocusZone("surface")}
+                onPress={hideControls}
+              />
               <LinearGradient
                 colors={
                   showLandscapeLayout || isFullscreen
@@ -927,6 +937,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
                   showLandscapeLayout ? styles.landscapeOverlay : styles.portraitVideoOverlay,
                   landscapeOverlayInsets,
                 ]}
+                pointerEvents="box-none"
               >
                 {renderBackButton(
                   showLandscapeLayout
@@ -935,7 +946,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
                 )}
                 <View
                   style={styles.centerPlayWrap}
-                  pointerEvents={showLandscapeLayout ? "box-none" : undefined}
+                  pointerEvents="box-none"
                 >
                   {renderCenterPlay()}
                 </View>
@@ -948,6 +959,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
                         paddingBottom: Math.max(insets.bottom, 8),
                       },
                     ]}
+                    pointerEvents="box-none"
                   >
                     {renderControlsBar()}
                   </View>
@@ -956,9 +968,11 @@ export default function MoviePlayScreen({ movie, onBack }) {
                 )}
               </View>
             </>
-          ) : isFullscreen ? null : (
-            renderBackButton([styles.portraitBackButton, { top: insets.top }])
           )}
+
+          {!controlsVisible && !isFullscreen ? (
+            renderBackButton([styles.portraitBackButton, { top: insets.top }])
+          ) : null}
         </View>
       </View>
     </View>
