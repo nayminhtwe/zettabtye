@@ -167,6 +167,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const [progress, setProgress] = useState({ position: 0, duration: 0 });
   const [scrub, setScrub] = useState({ active: false, preview: 0 });
   const [isSeeking, setIsSeeking] = useState(false);
+  const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
 
   const hideTimerRef = useRef(null);
   const resumeTimerRef = useRef(null);
@@ -180,10 +181,13 @@ export default function MoviePlayScreen({ movie, onBack }) {
   });
   const playbackIntentRef = useRef(true);
   const progressTrackWidthRef = useRef(0);
+  const surfaceLaidOutRef = useRef(false);
 
   const dimensionsAreLandscape = width > height;
   const orientationIsLandscape = isLandscapeOrientation(deviceOrientation);
   const showLandscapeLayout = isFullscreen && dimensionsAreLandscape && orientationIsLandscape;
+  const shouldMountVideoView =
+    Boolean(streamUri) && (Platform.isTV === true || !isFullscreen || showLandscapeLayout);
   const landscapeOverlayInsets = showLandscapeLayout
     ? {
         paddingTop: Math.max(insets.top, 8),
@@ -192,6 +196,8 @@ export default function MoviePlayScreen({ movie, onBack }) {
         paddingRight: Math.max(insets.right, 0),
       }
     : null;
+
+  const portraitVideoHeight = Math.round(Math.min(width, height) * (9 / 16));
 
   useEffect(() => {
     if (showLandscapeLayout) {
@@ -211,9 +217,6 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }
     instance.loop = false;
     instance.timeUpdateEventInterval = 1;
-    if (streamUri) {
-      instance.play();
-    }
   });
 
   const { isPlaying } = useEvent(player, "playingChange", {
@@ -227,19 +230,40 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const isBuffering = status === "loading" || status === "idle";
   const hasError = status === "error" || (!streamUri && !!movie);
 
+  const showPoster =
+    !isMatchPlayback &&
+    !!movie?.image &&
+    !hasError &&
+    !hasStartedPlayback &&
+    !scrub.active &&
+    !isSeeking &&
+    (isBuffering || !isPlaying);
+
   useEffect(() => {
     if (isPlaying) {
+      setHasStartedPlayback(true);
       setIsSeeking(false);
     }
   }, [isPlaying]);
 
-  // Native players often pause when the video surface is resized or reattached.
   useEffect(() => {
+    surfaceLaidOutRef.current = false;
+  }, [streamUri]);
+
+  useEffect(() => {
+    if (!shouldMountVideoView) {
+      surfaceLaidOutRef.current = false;
+    }
+  }, [shouldMountVideoView]);
+
+  const tryStartPlayback = useCallback(() => {
     if (
       scrubRef.current.active ||
-      status !== "readyToPlay" ||
       !player ||
+      !streamUri ||
       !playbackIntentRef.current ||
+      status !== "readyToPlay" ||
+      !surfaceLaidOutRef.current ||
       player.playing
     ) {
       return;
@@ -250,25 +274,24 @@ export default function MoviePlayScreen({ movie, onBack }) {
     } catch (_error) {
       // ignore resume errors during layout transitions
     }
-  }, [status, player]);
+  }, [player, streamUri, status]);
 
   useEffect(() => {
-    if (!player || !streamUri || !playbackIntentRef.current || scrubRef.current.active) {
+    tryStartPlayback();
+  }, [status, tryStartPlayback]);
+
+  // Native players often pause when the video surface is resized or reattached.
+  useEffect(() => {
+    if (!player || !streamUri || !playbackIntentRef.current) {
       return undefined;
     }
 
     const timer = setTimeout(() => {
-      try {
-        if (!player.playing && status !== "error") {
-          player.play();
-        }
-      } catch (_error) {
-        // ignore resume errors during orientation changes
-      }
+      tryStartPlayback();
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [width, height, showLandscapeLayout, player, streamUri, status]);
+  }, [width, height, showLandscapeLayout, player, streamUri, tryStartPlayback]);
 
   // Keep a lightweight progress poll so the scrubber stays in sync without native controls.
   useEffect(() => {
@@ -661,7 +684,6 @@ export default function MoviePlayScreen({ movie, onBack }) {
     return null;
   }
 
-  const portraitVideoHeight = Math.round(Math.min(width, height) * (9 / 16));
   const displayPosition = scrub.active ? scrub.preview : progress.position;
   const canSeek = !isLive && progress.duration > 0;
   const progressRatio = canSeek
@@ -669,15 +691,6 @@ export default function MoviePlayScreen({ movie, onBack }) {
     : isLive
       ? 1
       : 0;
-
-  // Movies: show poster while buffering or before playback starts — never during scrub/seek.
-  const showPoster =
-    !isMatchPlayback &&
-    !!movie.image &&
-    !hasError &&
-    !scrub.active &&
-    !isSeeking &&
-    (isBuffering || (!isPlaying && displayPosition < 0.5));
 
   const showMatchLoadingTitle =
     isMatchPlayback &&
@@ -707,7 +720,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
   const renderVideoSurface = () => (
     <>
-      {streamUri ? (
+      {streamUri && shouldMountVideoView ? (
         <VideoView
           player={player}
           style={StyleSheet.absoluteFill}
@@ -715,6 +728,12 @@ export default function MoviePlayScreen({ movie, onBack }) {
           nativeControls={false}
           allowsFullscreen={false}
           allowsPictureInPicture={false}
+          surfaceType={Platform.OS === "android" ? "textureView" : undefined}
+          onLayout={(event) => {
+            const { width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+            surfaceLaidOutRef.current = layoutWidth > 0 && layoutHeight > 0;
+            tryStartPlayback();
+          }}
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.videoPlaceholder]} />
