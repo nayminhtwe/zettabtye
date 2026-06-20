@@ -168,6 +168,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const [scrub, setScrub] = useState({ active: false, preview: 0 });
   const [isSeeking, setIsSeeking] = useState(false);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
+  const [centerShowsPause, setCenterShowsPause] = useState(false);
 
   const hideTimerRef = useRef(null);
   const resumeTimerRef = useRef(null);
@@ -182,6 +183,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const playbackIntentRef = useRef(true);
   const progressTrackWidthRef = useRef(0);
   const surfaceLaidOutRef = useRef(false);
+  const toggleLockRef = useRef(false);
 
   const dimensionsAreLandscape = width > height;
   const orientationIsLandscape = isLandscapeOrientation(deviceOrientation);
@@ -242,12 +244,21 @@ export default function MoviePlayScreen({ movie, onBack }) {
   useEffect(() => {
     if (isPlaying) {
       setHasStartedPlayback(true);
+      setCenterShowsPause(playbackIntentRef.current);
       setIsSeeking(false);
+      return;
+    }
+
+    if (!playbackIntentRef.current) {
+      setCenterShowsPause(false);
     }
   }, [isPlaying]);
 
   useEffect(() => {
     surfaceLaidOutRef.current = false;
+    setHasStartedPlayback(false);
+    setCenterShowsPause(false);
+    playbackIntentRef.current = true;
   }, [streamUri]);
 
   useEffect(() => {
@@ -369,15 +380,22 @@ export default function MoviePlayScreen({ movie, onBack }) {
   }, [scheduleHide, clearHideTimer]);
 
   const togglePlay = useCallback(() => {
-    if (!player) {
+    if (!player || toggleLockRef.current) {
       return;
     }
 
+    toggleLockRef.current = true;
+    setTimeout(() => {
+      toggleLockRef.current = false;
+    }, 400);
+
     if (player.playing) {
       playbackIntentRef.current = false;
+      setCenterShowsPause(false);
       player.pause();
     } else {
       playbackIntentRef.current = true;
+      setCenterShowsPause(true);
       player.play();
     }
     revealControls();
@@ -414,6 +432,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
         player.currentTime = state.target;
         if (state.wasPlaying) {
           playbackIntentRef.current = true;
+          setCenterShowsPause(true);
           setTimeout(() => {
             try {
               if (playbackIntentRef.current && !scrubRef.current.active) {
@@ -449,6 +468,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
     state.wasPlaying = playbackIntentRef.current || player.playing;
     state.target = player.currentTime ?? 0;
     playbackIntentRef.current = false;
+    setCenterShowsPause(false);
     setIsSeeking(true);
 
     try {
@@ -745,6 +765,14 @@ export default function MoviePlayScreen({ movie, onBack }) {
     </>
   );
 
+  const showCenterLoading =
+    !hasError &&
+    !scrub.active &&
+    !isSeeking &&
+    !hasStartedPlayback &&
+    playbackIntentRef.current &&
+    (isBuffering || status === "readyToPlay");
+
   const renderCenterPlay = () => {
     if ((scrub.active || isSeeking) && !hasError) {
       return (
@@ -754,7 +782,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
       );
     }
 
-    if (isBuffering && !hasError) {
+    if (showCenterLoading) {
       return (
         <View
           style={[styles.centerStatusWrap, showMatchLoadingTitle ? styles.centerStatusMatchLoading : null]}
@@ -792,10 +820,10 @@ export default function MoviePlayScreen({ movie, onBack }) {
         onPress={togglePlay}
       >
         <Ionicons
-          name={isPlaying ? "pause" : "play"}
+          name={centerShowsPause ? "pause" : "play"}
           size={36}
           color="#FFFFFF"
-          style={isPlaying ? null : styles.centerPlayIcon}
+          style={centerShowsPause ? null : styles.centerPlayIcon}
         />
       </Pressable>
     );
