@@ -107,6 +107,8 @@ export default function MoviesScreen({
   const dispatch = useDispatch();
   const { contentBottomPadding } = useScreenInsets(28);
   const listRef = useRef(null);
+  const categoryScrollRef = useRef(null);
+  const categoryChipLayoutsRef = useRef({});
   const loadMoreAtRef = useRef(0);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -142,6 +144,34 @@ export default function MoviesScreen({
   useEffect(() => {
     setActiveCategory(initialCategory);
   }, [initialCategory]);
+
+  const scrollCategoryIntoView = useCallback((category) => {
+    const layout = categoryChipLayoutsRef.current[category];
+    if (!layout || !categoryScrollRef.current) {
+      return;
+    }
+
+    const viewportWidth = SCREEN_WIDTH - CONTENT_PADDING * 2;
+    const targetX = Math.max(0, layout.x - (viewportWidth - layout.width) / 2);
+
+    categoryScrollRef.current.scrollTo({ x: targetX, animated: false });
+  }, []);
+
+  useEffect(() => {
+    categoryChipLayoutsRef.current = {};
+  }, [categories]);
+
+  useEffect(() => {
+    if (!activeCategory || !categories.includes(activeCategory)) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      scrollCategoryIntoView(activeCategory);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [activeCategory, categories, scrollCategoryIntoView]);
 
   useEffect(() => {
     if (!genres.length && !genresLoading) {
@@ -276,6 +306,7 @@ export default function MoviesScreen({
         ) : null}
 
         <ScrollView
+          ref={categoryScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.categoryScroll}
@@ -287,6 +318,12 @@ export default function MoviesScreen({
               onPress={() => setActiveCategory(category)}
               onFocus={() => setFocusedCategory(category)}
               onBlur={() => setFocusedCategory(null)}
+              onLayout={(event) => {
+                categoryChipLayoutsRef.current[category] = event.nativeEvent.layout;
+                if (category === activeCategory) {
+                  scrollCategoryIntoView(category);
+                }
+              }}
               style={({ pressed }) => [
                 styles.categoryChip,
                 category === activeCategory ? styles.categoryChipActive : null,
