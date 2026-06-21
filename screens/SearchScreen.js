@@ -17,7 +17,7 @@ import { useDispatch, useSelector } from "react-redux";
 import CategoryCardImage from "../components/CategoryCardImage";
 import { gillSans } from "../constants/fonts";
 import { useScreenInsets } from "../hooks/useScreenInsets";
-import { fetchGenresRequest, fetchHomeRequest, searchRequest } from "../store/catalog/actions";
+import { fetchGenresRequest, fetchHomeRequest, searchClear, searchRequest } from "../store/catalog/actions";
 import {
   selectCategoryCards,
   selectGenres,
@@ -209,6 +209,7 @@ export default function SearchScreen({
 
   useEffect(() => {
     if (trimmedQuery.length < 2) {
+      dispatch(searchClear());
       return undefined;
     }
 

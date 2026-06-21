@@ -248,19 +248,6 @@ function* fetchMatchDetailSaga(action) {
   }
 }
 
-function normalizeSearchTerm(value) {
-  return value.trim().toLowerCase();
-}
-
-function filterByTitle(items, query) {
-  const normalized = normalizeSearchTerm(query);
-  if (!normalized) {
-    return [];
-  }
-
-  return items.filter((item) => item.title?.toLowerCase().includes(normalized));
-}
-
 function* searchSaga(action) {
   const { query } = action.payload;
   const trimmed = query.trim();
@@ -271,26 +258,37 @@ function* searchSaga(action) {
   }
 
   try {
-    const [moviesRes, seriesRes, moviesByGenreRes, moviesByCastRes, seriesByCastRes] = yield all([
-      call(fetchMovies, { per_page: 50 }),
-      call(fetchSeries, { per_page: 50 }),
+    const [
+      moviesByTitleRes,
+      seriesByTitleRes,
+      moviesByGenreRes,
+      seriesByGenreRes,
+      moviesByCastRes,
+      seriesByCastRes,
+    ] = yield all([
+      call(fetchMovies, { per_page: 50, search: trimmed }),
+      call(fetchSeries, { per_page: 50, search: trimmed }),
       call(fetchMovies, { per_page: 50, genere_name: trimmed }),
+      call(fetchSeries, { per_page: 50, genere_name: trimmed }),
       call(fetchMovies, { per_page: 50, cast_name: trimmed }),
       call(fetchSeries, { per_page: 50, cast_name: trimmed }),
     ]);
 
-    const allMovies = extractListData(moviesRes).map((item, index) => mapMovieListItem(item, index));
-    const allSeries = extractListData(seriesRes).map((item, index) => mapSeriesListItem(item, index));
+    const titleMovies = extractListData(moviesByTitleRes).map((item, index) => mapMovieListItem(item, index));
+    const titleSeries = extractListData(seriesByTitleRes).map((item, index) => mapSeriesListItem(item, index));
     const genreMovies = extractListData(moviesByGenreRes).map((item, index) => mapMovieListItem(item, index));
+    const genreSeries = extractListData(seriesByGenreRes).map((item, index) => mapSeriesListItem(item, index));
     const castMovies = extractListData(moviesByCastRes).map((item, index) => mapMovieListItem(item, index));
     const castSeries = extractListData(seriesByCastRes).map((item, index) => mapSeriesListItem(item, index));
 
-    const titleMatches = [
-      ...filterByTitle(allMovies, trimmed),
-      ...filterByTitle(allSeries, trimmed),
+    const merged = [
+      ...titleMovies,
+      ...titleSeries,
+      ...genreMovies,
+      ...genreSeries,
+      ...castMovies,
+      ...castSeries,
     ];
-
-    const merged = [...titleMatches, ...genreMovies, ...castMovies, ...castSeries];
     const seen = new Set();
     const results = merged.filter((item) => {
       const key = `${item.type ?? "movie"}-${item.id}`;
