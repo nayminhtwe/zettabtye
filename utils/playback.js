@@ -36,6 +36,14 @@ export function parsePlaybackBlock(error) {
     };
   }
 
+  if (status === 404) {
+    return {
+      reason: "no_stream",
+      title: "Stream unavailable",
+      message: message || "This episode was not found or has no stream file.",
+    };
+  }
+
   if (status === 403) {
     const errorCode = data.error_code;
 

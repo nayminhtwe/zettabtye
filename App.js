@@ -282,13 +282,14 @@ export default function App() {
     });
   }, []);
 
-  const openPlayFromSeries = async (item, returnScreen) => {
+  const openPlayFromSeries = async (item, returnScreen, episode) => {
     const seriesId = item?.id != null ? String(item.id) : null;
     const cachedDetail = seriesId ? store.getState().catalog.seriesDetails[seriesId] : null;
+    const sourceItem = cachedDetail ?? item;
 
     setPlayResolving(true);
     try {
-      const { playItem, blocked } = await resolveSeriesPlayItem(item, cachedDetail);
+      const { playItem, blocked } = await resolveSeriesPlayItem(sourceItem, cachedDetail, episode);
       if (blocked || !playItem.movieUrl) {
         handlePlaybackBlocked(blocked ?? subscriptionRequiredBlock());
         return;
@@ -633,7 +634,9 @@ export default function App() {
               setSelectedSeries(null);
             }
           }}
-          onPlay={(series) => openPlayFromSeries(series ?? selectedSeries, SCREEN.SERIES_DETAIL)}
+          onPlay={(series, episode) =>
+            openPlayFromSeries(series ?? selectedSeries, SCREEN.SERIES_DETAIL, episode)
+          }
           onSearchPress={() => openSearch(SCREEN.SERIES_DETAIL)}
         />
         );

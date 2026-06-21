@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  FlatList,
   Image,
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -61,6 +62,7 @@ export default function SeriesDetailScreen({
   const [overviewToggleFocused, setOverviewToggleFocused] = useState(false);
   const [focusedSeasonId, setFocusedSeasonId] = useState(null);
   const [focusedEpisodeId, setFocusedEpisodeId] = useState(null);
+  const listRef = useRef(null);
   const seriesId = series?.id;
   const fetchedSeries = useSelector((state) => selectSeriesDetail(state, seriesId));
   const detailLoading = useSelector((state) => selectSeriesDetailLoading(state, seriesId));
@@ -100,6 +102,8 @@ export default function SeriesDetailScreen({
     [displaySeries, selectedSeasonId],
   );
 
+  const episodes = selectedSeason?.episodes ?? [];
+
   const handleToggleFavorite = () => {
     if (!seriesId) {
       return;
@@ -117,41 +121,28 @@ export default function SeriesDetailScreen({
     Boolean(fetchedSeries) && !seriesHasPlayableEpisode(displaySeries);
   const watchLabel = showSubscriptionGate ? SUBSCRIPTION_WATCH_LABEL : "Watch now";
 
-  if (!series) {
-    return null;
-  }
+  const handlePlayPress = useCallback(
+    (episode) => {
+      onPlay?.(displaySeries, episode);
+    },
+    [displaySeries, onPlay],
+  );
 
-  return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <View style={styles.header}>
-        <Pressable
-          style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
-          onPress={onBack}
-          onFocus={() => setBackFocused(true)}
-          onBlur={() => setBackFocused(false)}
-        >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-        </Pressable>
+  const scrollEpisodeIntoView = useCallback((index) => {
+    if (index < 0) {
+      return;
+    }
 
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {displaySeries.title}
-        </Text>
+    listRef.current?.scrollToIndex({
+      index,
+      animated: true,
+      viewPosition: 0.35,
+    });
+  }, []);
 
-        <Pressable
-          style={[styles.headerIconButton, searchFocused ? styles.headerIconButtonFocused : null]}
-          onPress={onSearchPress}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-        >
-          <Ionicons name="search" size={22} color="#FFFFFF" />
-        </Pressable>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+  const listHeader = useMemo(
+    () => (
+      <>
         {detailLoading && !fetchedSeries ? (
           <ActivityIndicator color="#FFFFFF" style={styles.loadingIndicator} />
         ) : null}
@@ -159,7 +150,7 @@ export default function SeriesDetailScreen({
         <View style={styles.heroSlot}>
           <Pressable
             style={[styles.heroWrapper, heroFocused ? styles.heroWrapperFocused : null]}
-            onPress={() => onPlay?.(displaySeries)}
+            onPress={() => handlePlayPress()}
             onFocus={() => setHeroFocused(true)}
             onBlur={() => setHeroFocused(false)}
           >
@@ -207,7 +198,7 @@ export default function SeriesDetailScreen({
               showSubscriptionGate ? styles.watchNowButtonLocked : null,
               watchFocused ? styles.watchNowButtonFocused : null,
             ]}
-            onPress={() => onPlay?.(displaySeries)}
+            onPress={() => handlePlayPress()}
             onFocus={() => setWatchFocused(true)}
             onBlur={() => setWatchFocused(false)}
           >
@@ -256,12 +247,7 @@ export default function SeriesDetailScreen({
           ) : null}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.seasonTabsScroll}
-          contentContainerStyle={styles.seasonTabsContent}
-        >
+        <View style={styles.seasonTabsRow}>
           {(displaySeries.seasonsList ?? []).map((season) => {
             const isSelected = season.id === selectedSeason?.id;
 
@@ -289,34 +275,115 @@ export default function SeriesDetailScreen({
               </Pressable>
             );
           })}
-        </ScrollView>
-
-        <View style={styles.episodeList}>
-          {selectedSeason?.episodes.map((episode) => (
-            <Pressable
-              key={episode.id}
-              style={styles.episodeRow}
-              onFocus={() => setFocusedEpisodeId(episode.id)}
-              onBlur={() => setFocusedEpisodeId(null)}
-            >
-              <Image
-                source={episode.thumbnail}
-                resizeMode="cover"
-                style={[
-                  styles.episodeThumbnail,
-                  focusedEpisodeId === episode.id ? styles.episodeThumbnailFocused : null,
-                ]}
-              />
-              <View style={styles.episodeCopy}>
-                <Text style={styles.episodeTitle}>{episode.title}</Text>
-                <Text style={styles.episodeDescription} numberOfLines={3}>
-                  {episode.description}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
         </View>
-      </ScrollView>
+      </>
+    ),
+    [
+      detailLoading,
+      displaySeries,
+      fetchedSeries,
+      focusedSeasonId,
+      handlePlayPress,
+      handleToggleFavorite,
+      heroFocused,
+      isFavorited,
+      overviewDetailsExpanded,
+      overviewToggleFocused,
+      saveFocused,
+      selectedSeason?.id,
+      showSubscriptionGate,
+      watchFocused,
+      watchLabel,
+    ],
+  );
+
+  const renderEpisode = useCallback(
+    ({ item: episode, index }) => (
+      <Pressable
+        style={styles.episodeRow}
+        onPress={() => handlePlayPress(episode)}
+        onFocus={() => {
+          setFocusedEpisodeId(episode.id);
+          scrollEpisodeIntoView(index);
+        }}
+        onBlur={() => setFocusedEpisodeId(null)}
+      >
+        <Image
+          source={episode.thumbnail}
+          resizeMode="cover"
+          style={[
+            styles.episodeThumbnail,
+            focusedEpisodeId === episode.id ? styles.episodeThumbnailFocused : null,
+          ]}
+        />
+        <View style={styles.episodeCopy}>
+          <Text style={styles.episodeTitle}>{episode.title}</Text>
+          <Text style={styles.episodeDescription} numberOfLines={3}>
+            {episode.description}
+          </Text>
+        </View>
+      </Pressable>
+    ),
+    [focusedEpisodeId, handlePlayPress, scrollEpisodeIntoView],
+  );
+
+  if (!series) {
+    return null;
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={styles.header}>
+        <Pressable
+          style={[styles.headerIconButton, backFocused ? styles.headerIconButtonFocused : null]}
+          onPress={onBack}
+          onFocus={() => setBackFocused(true)}
+          onBlur={() => setBackFocused(false)}
+        >
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+        </Pressable>
+
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {displaySeries.title}
+        </Text>
+
+        <Pressable
+          style={[styles.headerIconButton, searchFocused ? styles.headerIconButtonFocused : null]}
+          onPress={onSearchPress}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+        >
+          <Ionicons name="search" size={22} color="#FFFFFF" />
+        </Pressable>
+      </View>
+
+      <FlatList
+        ref={listRef}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
+        data={episodes}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeader}
+        renderItem={renderEpisode}
+        ItemSeparatorComponent={() => <View style={styles.episodeSeparator} />}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={Platform.OS === "android"}
+        keyboardShouldPersistTaps="handled"
+        onScrollToIndexFailed={(info) => {
+          setTimeout(() => {
+            listRef.current?.scrollToIndex({
+              index: info.index,
+              animated: true,
+              viewPosition: 0.35,
+            });
+          }, 100);
+        }}
+        ListEmptyComponent={
+          fetchedSeries && episodes.length === 0 ? (
+            <Text style={styles.emptyEpisodesText}>No episodes available</Text>
+          ) : null
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -534,12 +601,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     ...gillSans("400"),
   },
-  seasonTabsScroll: {
+  seasonTabsRow: {
     marginTop: 24,
-  },
-  seasonTabsContent: {
-    gap: 20,
-    paddingRight: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
   },
   seasonTab: {
     paddingBottom: 6,
@@ -568,13 +634,13 @@ const styles = StyleSheet.create({
   seasonTabTextFocused: {
     color: "#FFFFFF",
   },
-  episodeList: {
-    marginTop: 16,
-    gap: 8,
+  episodeSeparator: {
+    height: 8,
   },
   episodeRow: {
     flexDirection: "row",
     gap: 8,
+    marginTop: 16,
   },
   episodeThumbnail: {
     width: EPISODE_THUMB_WIDTH,
@@ -598,6 +664,14 @@ const styles = StyleSheet.create({
     color: "#D2D2D2",
     fontSize: 13,
     lineHeight: 20,
+    ...gillSans("400"),
+  },
+  emptyEpisodesText: {
+    marginTop: 16,
+    color: "#8E8E8E",
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
     ...gillSans("400"),
   },
 });

@@ -1,6 +1,6 @@
 import { extractItemData, mapSeriesDetail } from "../api/mappers";
-import { fetchSeriesById } from "../api/contentService";
-import { parsePlaybackBlock, subscriptionRequiredBlock } from "./playback";
+import { fetchEpisode, fetchSeriesById } from "../api/contentService";
+import { noStreamBlock, parsePlaybackBlock, subscriptionRequiredBlock } from "./playback";
 
 export function buildSeriesDetail(item = {}) {
   return {
@@ -18,6 +18,16 @@ export function buildSeriesDetail(item = {}) {
   };
 }
 
+function findFirstEpisode(series) {
+  for (const season of series?.seasonsList ?? []) {
+    for (const episode of season.episodes ?? []) {
+      return episode;
+    }
+  }
+
+  return null;
+}
+
 function findFirstPlayableEpisode(series) {
   for (const season of series?.seasonsList ?? []) {
     for (const episode of season.episodes ?? []) {
@@ -30,52 +40,131 @@ function findFirstPlayableEpisode(series) {
   return null;
 }
 
+function resolveEpisodeInSeries(series, episodeHint) {
+  if (!episodeHint?.id) {
+    return null;
+  }
+
+  for (const season of series?.seasonsList ?? []) {
+    const match = season.episodes?.find(
+      (episode) => String(episode.id) === String(episodeHint.id),
+    );
+    if (match) {
+      return match;
+    }
+  }
+
+  return episodeHint;
+}
+
+function pickTargetEpisode(series, episodeHint) {
+  if (episodeHint?.id) {
+    return resolveEpisodeInSeries(series, episodeHint);
+  }
+
+  return findFirstPlayableEpisode(series) ?? findFirstEpisode(series);
+}
+
 export function buildSeriesPlayItem(series, episode) {
-  const firstEpisode = episode ?? findFirstPlayableEpisode(series);
+  const targetEpisode = episode?.id
+    ? resolveEpisodeInSeries(series, episode) ?? episode
+    : findFirstPlayableEpisode(series) ?? findFirstEpisode(series);
 
   return {
-    id: firstEpisode?.id ?? series?.id ?? null,
-    title: firstEpisode?.title ?? series?.title ?? "",
-    image: firstEpisode?.thumbnail ?? series?.image ?? null,
+    id: targetEpisode?.id ?? series?.id ?? null,
+    title: targetEpisode?.title ?? series?.title ?? "",
+    image: targetEpisode?.thumbnail ?? series?.image ?? null,
     categories: series?.categories ?? "",
     year: series?.year ?? "",
-    duration: firstEpisode?.duration ?? "",
+    duration: targetEpisode?.duration ?? "",
     imdbRating: series?.imdbRating ?? "",
-    movieUrl: firstEpisode?.episodeUrl ?? null,
+    movieUrl: targetEpisode?.episodeUrl ?? null,
+    seriesId: targetEpisode?.seriesId ?? series?.id ?? null,
+    seasonId: targetEpisode?.seasonId ?? null,
     type: "series",
   };
 }
 
-/**
- * Series list endpoints never include episode_url — fetch detail and pick the
- * first episode that has a stream URL (only returned for active subscribers).
- */
-export async function resolveSeriesPlayItem(item = {}, cachedDetail = null) {
-  let series = buildSeriesDetail(cachedDetail ?? item);
-  let playItem = buildSeriesPlayItem(series);
-
-  if (playItem.movieUrl) {
-    return { playItem, series, blocked: null };
+async function ensureSeriesDetail(series, item) {
+  if ((series.seasonsList ?? []).some((season) => (season.episodes ?? []).length > 0)) {
+    return series;
   }
 
   const seriesId = series.id ?? item?.id;
   if (!seriesId) {
-    return { playItem, series, blocked: subscriptionRequiredBlock() };
+    return series;
   }
 
+  const response = await fetchSeriesById(seriesId);
+  return buildSeriesDetail(mapSeriesDetail(extractItemData(response)));
+}
+
+async function fetchEpisodePlaybackUrl(series, episode) {
+  const seriesId = episode?.seriesId ?? series?.id;
+  const seasonId = episode?.seasonId;
+  const episodeId = episode?.id;
+
+  if (!seriesId || !seasonId || !episodeId) {
+    return null;
+  }
+
+  const response = await fetchEpisode(seriesId, seasonId, episodeId);
+  const data = extractItemData(response);
+  const playbackUrl = data?.episode_url ?? null;
+
+  if (!playbackUrl) {
+    return null;
+  }
+
+  return {
+    ...episode,
+    episodeUrl: playbackUrl,
+  };
+}
+
+/**
+ * Series list/detail metadata may omit episode_url. Resolve playback via the
+ * protected episode endpoint (same auth model as GET /movies/{id}).
+ */
+export async function resolveSeriesPlayItem(item = {}, cachedDetail = null, episodeHint = null) {
+  let series = buildSeriesDetail(cachedDetail ?? item);
+
   try {
-    const response = await fetchSeriesById(seriesId);
-    series = buildSeriesDetail(mapSeriesDetail(extractItemData(response)));
-    playItem = buildSeriesPlayItem(series);
+    series = await ensureSeriesDetail(series, item);
+
+    const targetEpisode = pickTargetEpisode(series, episodeHint);
+    if (!targetEpisode) {
+      return {
+        playItem: buildSeriesPlayItem(series),
+        series,
+        blocked: noStreamBlock("This series has no episodes yet."),
+      };
+    }
+
+    const resolvedEpisode =
+      targetEpisode.episodeUrl != null
+        ? targetEpisode
+        : await fetchEpisodePlaybackUrl(series, targetEpisode);
+
+    const playItem = buildSeriesPlayItem(
+      series,
+      resolvedEpisode ? { ...targetEpisode, ...resolvedEpisode } : targetEpisode,
+    );
 
     if (playItem.movieUrl) {
       return { playItem, series, blocked: null };
     }
 
-    return { playItem, series, blocked: subscriptionRequiredBlock() };
+    return {
+      playItem,
+      series,
+      blocked: noStreamBlock(
+        "No stream link is available for this episode. Upload the episode video in admin.",
+      ),
+    };
   } catch (error) {
     return {
-      playItem: buildSeriesPlayItem(series),
+      playItem: buildSeriesPlayItem(series, episodeHint ?? undefined),
       series,
       blocked: parsePlaybackBlock(error) ?? subscriptionRequiredBlock(),
     };
