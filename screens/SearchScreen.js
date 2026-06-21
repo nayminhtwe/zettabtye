@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import CategoryCardImage from "../components/CategoryCardImage";
 import { gillSans } from "../constants/fonts";
 import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchGenresRequest, fetchHomeRequest, searchRequest } from "../store/catalog/actions";
@@ -94,7 +94,11 @@ function CategoryCard({ item, onPress }) {
       onBlur={() => setFocused(false)}
       style={[styles.categoryCard, focused ? styles.categoryCardFocused : null]}
     >
-      <Image source={item.image} resizeMode="cover" style={styles.categoryImage} />
+      <CategoryCardImage
+        imageUrl={item.imageUrl}
+        posterIndex={Number(item.id) || 0}
+        style={styles.categoryImage}
+      />
       <LinearGradient
         colors={["rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0.85)"]}
         style={styles.categoryGradient}

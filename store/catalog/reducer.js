@@ -1,7 +1,22 @@
+import { dedupeListById } from "../../api/mappers";
 import { CATALOG_TYPES } from "./actionTypes";
 
+const DEFAULT_MOVIES_META = {
+  current_page: 0,
+  last_page: 1,
+  per_page: 50,
+  total: 0,
+};
+
 const initialState = {
-  movies: { items: [], loading: false, error: null },
+  movies: {
+    items: [],
+    meta: DEFAULT_MOVIES_META,
+    categoryKey: "All",
+    loading: false,
+    loadingMore: false,
+    error: null,
+  },
   series: { items: [], loading: false, error: null },
   advertisements: { items: [], loading: false, error: null },
   matches: { items: [], loading: false, error: null },
@@ -41,7 +56,14 @@ export default function catalogReducer(state = initialState, action) {
       return {
         ...state,
         homeLoading: false,
-        movies: { items: action.payload.movies ?? [], loading: false, error: null },
+        movies: {
+          items: action.payload.movies ?? [],
+          meta: DEFAULT_MOVIES_META,
+          categoryKey: "All",
+          loading: false,
+          loadingMore: false,
+          error: null,
+        },
         series: { items: action.payload.series ?? [], loading: false, error: null },
         advertisements: { items: action.payload.advertisements ?? [], loading: false, error: null },
         matches: { items: action.payload.matches ?? [], loading: false, error: null },
@@ -52,18 +74,68 @@ export default function catalogReducer(state = initialState, action) {
       return { ...state, homeLoading: false, homeError: action.payload };
 
     case CATALOG_TYPES.FETCH_MOVIES_REQUEST:
-      return setLoadingSlice(state, "movies", true);
-
-    case CATALOG_TYPES.FETCH_MOVIES_SUCCESS:
       return {
         ...state,
-        movies: normalizeListSlice({ items: action.payload ?? [] }, false),
+        movies: {
+          items: [],
+          meta: DEFAULT_MOVIES_META,
+          categoryKey: action.payload?.genere_name ?? "All",
+          loading: true,
+          loadingMore: false,
+          error: null,
+        },
       };
+
+    case CATALOG_TYPES.FETCH_MOVIES_MORE_REQUEST:
+      return {
+        ...state,
+        movies: {
+          ...state.movies,
+          loadingMore: true,
+          error: null,
+        },
+      };
+
+    case CATALOG_TYPES.FETCH_MOVIES_SUCCESS: {
+      const { movies = [], meta = DEFAULT_MOVIES_META, append = false, categoryKey } =
+        action.payload ?? {};
+      const previousItems = append ? state.movies.items : [];
+      const nextItems = dedupeListById(append ? [...previousItems, ...movies] : movies);
+      const items =
+        append && nextItems.length === previousItems.length ? previousItems : nextItems;
+
+      return {
+        ...state,
+        movies: {
+          items,
+          meta,
+          categoryKey: categoryKey ?? state.movies.categoryKey,
+          loading: false,
+          loadingMore: false,
+          error: null,
+        },
+      };
+    }
 
     case CATALOG_TYPES.FETCH_MOVIES_FAILURE:
       return {
         ...state,
-        movies: normalizeListSlice(state.movies, false, action.payload),
+        movies: {
+          ...state.movies,
+          loading: false,
+          loadingMore: false,
+          error: action.payload,
+        },
+      };
+
+    case CATALOG_TYPES.FETCH_MOVIES_MORE_FAILURE:
+      return {
+        ...state,
+        movies: {
+          ...state.movies,
+          loadingMore: false,
+          error: action.payload,
+        },
       };
 
     case CATALOG_TYPES.FETCH_SERIES_REQUEST:

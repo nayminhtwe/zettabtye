@@ -6,8 +6,8 @@ const PLACEHOLDER_POSTERS = [
 ];
 
 export function getPosterSource(url, index = 0) {
-  if (url && typeof url === "string") {
-    return { uri: url };
+  if (url && typeof url === "string" && url.trim().length > 0) {
+    return { uri: url.trim() };
   }
 
   return PLACEHOLDER_POSTERS[index % PLACEHOLDER_POSTERS.length];
@@ -179,14 +179,18 @@ export function mapGenre(genre) {
   return {
     id: genre.id,
     name: genre.name,
+    genereImage: genre.genere_image ?? null,
   };
 }
 
 export function mapGenreToCategoryCard(genre, index = 0) {
+  const imageUrl = genre.genereImage ?? genre.genere_image ?? null;
+
   return {
     id: String(genre.id),
     label: genre.name,
-    image: getPosterSource(genre.image_url, index),
+    image: getPosterSource(imageUrl, index),
+    imageUrl,
     destination: "movies",
     moviesCategory: genre.name,
   };
@@ -213,6 +217,43 @@ export function extractListData(payload) {
   }
 
   return [];
+}
+
+export function extractPaginationMeta(payload) {
+  const meta = payload?.meta;
+  if (!meta || typeof meta !== "object") {
+    return {
+      current_page: 1,
+      last_page: 1,
+      per_page: 50,
+      total: extractListData(payload).length,
+    };
+  }
+
+  return {
+    current_page: meta.current_page ?? 1,
+    last_page: meta.last_page ?? 1,
+    per_page: meta.per_page ?? 50,
+    total: meta.total ?? 0,
+  };
+}
+
+export function dedupeListById(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = item?.id;
+    if (key == null) {
+      return false;
+    }
+
+    const normalizedKey = String(key);
+    if (seen.has(normalizedKey)) {
+      return false;
+    }
+
+    seen.add(normalizedKey);
+    return true;
+  });
 }
 
 export function extractItemData(payload) {

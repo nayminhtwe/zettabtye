@@ -7,6 +7,10 @@ export const fetchMoviesRequest = (params = {}) => ({
   payload: params,
 });
 
+export const fetchMoviesMoreRequest = () => ({
+  type: CATALOG_TYPES.FETCH_MOVIES_MORE_REQUEST,
+});
+
 export const fetchSeriesRequest = (params = {}) => ({
   type: CATALOG_TYPES.FETCH_SERIES_REQUEST,
   payload: params,

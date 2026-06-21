@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { gillSans } from "../constants/fonts";
 import { useScreenInsets } from "../hooks/useScreenInsets";
 import { fetchGenresRequest } from "../store/catalog/actions";
+import CategoryCardImage from "../components/CategoryCardImage";
 import {
   selectCategoryCards,
   selectGenres,
@@ -38,7 +38,11 @@ function CategoryCard({ item, onPress }) {
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <Image source={item.image} resizeMode="cover" style={styles.categoryImage} />
+      <CategoryCardImage
+        imageUrl={item.imageUrl}
+        posterIndex={Number(item.id) || 0}
+        style={styles.categoryImage}
+      />
       <LinearGradient
         colors={["rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0.85)"]}
         style={styles.categoryGradient}

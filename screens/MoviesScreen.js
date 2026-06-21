@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -21,17 +21,20 @@ import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { useScreenInsets } from "../hooks/useScreenInsets";
-import { fetchGenresRequest, fetchMoviesRequest } from "../store/catalog/actions";
+import { fetchGenresRequest, fetchMoviesMoreRequest, fetchMoviesRequest } from "../store/catalog/actions";
 import {
   selectAdvertisements,
   selectCategoryFilterChips,
   selectGenres,
   selectGenresLoading,
   selectMovies,
+  selectMoviesHasMore,
   selectMoviesLoading,
+  selectMoviesLoadingMore,
 } from "../store/catalog/selectors";
 
 const POSTERS_BEFORE_BANNER = 8;
+const SCROLL_LOAD_MORE_PADDING = 160;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 14;
@@ -104,6 +107,7 @@ export default function MoviesScreen({
   const dispatch = useDispatch();
   const { contentBottomPadding } = useScreenInsets(28);
   const listRef = useRef(null);
+  const loadMoreAtRef = useRef(0);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
@@ -111,6 +115,8 @@ export default function MoviesScreen({
   const [focusedCategory, setFocusedCategory] = useState(null);
   const movies = useSelector(selectMovies);
   const moviesLoading = useSelector(selectMoviesLoading);
+  const moviesLoadingMore = useSelector(selectMoviesLoadingMore);
+  const moviesHasMore = useSelector(selectMoviesHasMore);
   const advertisements = useSelector(selectAdvertisements);
   const genres = useSelector(selectGenres);
   const genresLoading = useSelector(selectGenresLoading);
@@ -125,7 +131,10 @@ export default function MoviesScreen({
     [movies],
   );
 
-  const filteredMovies = movies;
+  const filteredMovies = useMemo(
+    () => movies.filter((movie) => movie?.id != null),
+    [movies],
+  );
 
   const postersBeforeBanner = filteredMovies.slice(0, POSTERS_BEFORE_BANNER);
   const postersAfterBanner = filteredMovies.slice(POSTERS_BEFORE_BANNER);
@@ -141,8 +150,41 @@ export default function MoviesScreen({
   }, [dispatch, genres.length, genresLoading]);
 
   useEffect(() => {
-    dispatch(fetchMoviesRequest({ genere_name: activeCategory }));
+    dispatch(fetchMoviesRequest({ genere_name: activeCategory, page: 1 }));
   }, [dispatch, activeCategory]);
+
+  const loadMoreMovies = useCallback(() => {
+    if (moviesLoading || moviesLoadingMore || !moviesHasMore) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - loadMoreAtRef.current < 600) {
+      return;
+    }
+
+    loadMoreAtRef.current = now;
+    dispatch(fetchMoviesMoreRequest());
+  }, [dispatch, moviesHasMore, moviesLoading, moviesLoadingMore]);
+
+  const loadMoreRef = useRef(false);
+
+  useEffect(() => {
+    loadMoreRef.current = moviesLoadingMore;
+  }, [moviesLoadingMore]);
+
+  const handleScroll = useCallback(
+    (event) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      const reachedBottom =
+        layoutMeasurement.height + contentOffset.y >= contentSize.height - SCROLL_LOAD_MORE_PADDING;
+
+      if (reachedBottom && !loadMoreRef.current) {
+        loadMoreMovies();
+      }
+    },
+    [loadMoreMovies],
+  );
 
   useEffect(() => {
     if (heroSlides.length <= 1) {
@@ -188,6 +230,8 @@ export default function MoviesScreen({
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={200}
+        onScroll={handleScroll}
       >
         {heroSlides.length > 0 ? (
           <>
@@ -271,15 +315,26 @@ export default function MoviesScreen({
           posters={postersBeforeBanner}
           onPosterPress={onMoviePress}
           cardWidth={POSTER_CARD_WIDTH}
+          totalCount={filteredMovies.length}
+          onLoadMore={loadMoreMovies}
         />
 
         <SaleBannerCarousel slides={advertisements} style={styles.saleBanner} />
 
-        <PosterGrid
-          posters={postersAfterBanner}
-          onPosterPress={onMoviePress}
-          cardWidth={POSTER_CARD_WIDTH}
-        />
+        {postersAfterBanner.length > 0 ? (
+          <PosterGrid
+            posters={postersAfterBanner}
+            onPosterPress={onMoviePress}
+            cardWidth={POSTER_CARD_WIDTH}
+            indexOffset={postersBeforeBanner.length}
+            totalCount={filteredMovies.length}
+            onLoadMore={loadMoreMovies}
+          />
+        ) : null}
+
+        {moviesLoadingMore ? (
+          <ActivityIndicator color="#FFFFFF" style={styles.loadingMoreIndicator} />
+        ) : null}
 
         <PremiumMembershipCard style={styles.premiumCard} />
       </ScrollView>
@@ -479,6 +534,10 @@ const styles = StyleSheet.create({
   },
   loadingIndicator: {
     marginVertical: 24,
+  },
+  loadingMoreIndicator: {
+    marginTop: 16,
+    marginBottom: 8,
   },
   saleBanner: {
     marginTop: 16,

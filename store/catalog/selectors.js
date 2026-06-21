@@ -5,7 +5,28 @@ const EMPTY_ARRAY = [];
 const selectCatalog = (state) => state?.catalog;
 
 export const selectMovies = (state) => selectCatalog(state)?.movies?.items ?? EMPTY_ARRAY;
+export const selectMoviesItems = selectMovies;
 export const selectMoviesLoading = (state) => selectCatalog(state)?.movies?.loading ?? false;
+export const selectMoviesLoadingMore = (state) => selectCatalog(state)?.movies?.loadingMore ?? false;
+export const selectMoviesMeta = (state) =>
+  selectCatalog(state)?.movies?.meta ?? {
+    current_page: 0,
+    last_page: 1,
+    per_page: 50,
+    total: 0,
+  };
+export const selectMoviesCategoryKey = (state) =>
+  selectCatalog(state)?.movies?.categoryKey ?? "All";
+export const selectMoviesHasMore = (state) => {
+  const meta = selectMoviesMeta(state);
+  const items = selectMovies(state);
+
+  if (meta.total > 0 && items.length >= meta.total) {
+    return false;
+  }
+
+  return meta.current_page > 0 && meta.current_page < meta.last_page;
+};
 export const selectSeries = (state) => selectCatalog(state)?.series?.items ?? EMPTY_ARRAY;
 export const selectSeriesLoading = (state) => selectCatalog(state)?.series?.loading ?? false;
 export const selectAdvertisements = (state) =>

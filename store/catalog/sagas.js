@@ -1,7 +1,8 @@
-import { all, call, put, takeLatest } from "redux-saga/effects";
+import { all, call, put, select, takeLatest, takeLeading } from "redux-saga/effects";
 import {
   extractItemData,
   extractListData,
+  extractPaginationMeta,
   mapAdvertisement,
   mapMatchDetail,
   mapMatchToFixture,
@@ -23,6 +24,30 @@ import {
 } from "../../api/contentService";
 import { getErrorMessage } from "../../api/client";
 import { CATALOG_TYPES } from "./actionTypes";
+import {
+  selectMoviesCategoryKey,
+  selectMoviesItems,
+  selectMoviesLoading,
+  selectMoviesMeta,
+} from "./selectors";
+
+const MOVIES_PAGE_SIZE = 50;
+
+function buildMovieQueryParams(categoryKey, page) {
+  const params = { per_page: MOVIES_PAGE_SIZE, page };
+
+  if (categoryKey && categoryKey !== "All") {
+    params.genere_name = categoryKey;
+  }
+
+  return params;
+}
+
+function mapMoviesResponse(response, baseIndex = 0) {
+  return extractListData(response)
+    .filter((item) => item && item.id != null)
+    .map((item, index) => mapMovieListItem(item, baseIndex + index));
+}
 
 function* fetchHomeSaga() {
   try {
@@ -53,20 +78,71 @@ function* fetchHomeSaga() {
 }
 
 function* fetchMoviesSaga(action) {
-  const { genere_name: genreName, ...rest } = action.payload ?? {};
-  const params = { per_page: 50, ...rest };
+  const { genere_name: genreName, page = 1, ...rest } = action.payload ?? {};
+  const categoryKey = genreName ?? "All";
+  const params = buildMovieQueryParams(categoryKey, page);
 
-  if (genreName && genreName !== "All") {
-    params.genere_name = genreName;
-  }
+  Object.assign(params, rest);
 
   try {
     const response = yield call(fetchMovies, params);
-    const movies = extractListData(response).map((item, index) => mapMovieListItem(item, index));
-    yield put({ type: CATALOG_TYPES.FETCH_MOVIES_SUCCESS, payload: movies });
+    const movies = mapMoviesResponse(response, 0);
+    const meta = extractPaginationMeta(response);
+
+    yield put({
+      type: CATALOG_TYPES.FETCH_MOVIES_SUCCESS,
+      payload: { movies, meta, append: false, categoryKey },
+    });
   } catch (error) {
     yield put({
       type: CATALOG_TYPES.FETCH_MOVIES_FAILURE,
+      payload: getErrorMessage(error),
+    });
+  }
+}
+
+function* fetchMoviesMoreSaga() {
+  const loading = yield select(selectMoviesLoading);
+  const meta = yield select(selectMoviesMeta);
+  const categoryKey = yield select(selectMoviesCategoryKey);
+  const existingItems = yield select(selectMoviesItems);
+
+  if (loading) {
+    yield put({ type: CATALOG_TYPES.FETCH_MOVIES_MORE_FAILURE, payload: null });
+    return;
+  }
+
+  if (meta.current_page >= meta.last_page) {
+    yield put({ type: CATALOG_TYPES.FETCH_MOVIES_MORE_FAILURE, payload: null });
+    return;
+  }
+
+  const nextPage = meta.current_page + 1;
+
+  if (nextPage > meta.last_page) {
+    yield put({ type: CATALOG_TYPES.FETCH_MOVIES_MORE_FAILURE, payload: null });
+    return;
+  }
+
+  const params = buildMovieQueryParams(categoryKey, nextPage);
+
+  try {
+    const response = yield call(fetchMovies, params);
+    const movies = mapMoviesResponse(response, existingItems.length);
+    const nextMeta = extractPaginationMeta(response);
+
+    yield put({
+      type: CATALOG_TYPES.FETCH_MOVIES_SUCCESS,
+      payload: {
+        movies,
+        meta: nextMeta,
+        append: true,
+        categoryKey,
+      },
+    });
+  } catch (error) {
+    yield put({
+      type: CATALOG_TYPES.FETCH_MOVIES_MORE_FAILURE,
       payload: getErrorMessage(error),
     });
   }
@@ -241,6 +317,7 @@ export default function* catalogSaga() {
   yield all([
     takeLatest(CATALOG_TYPES.FETCH_HOME_REQUEST, fetchHomeSaga),
     takeLatest(CATALOG_TYPES.FETCH_MOVIES_REQUEST, fetchMoviesSaga),
+    takeLeading(CATALOG_TYPES.FETCH_MOVIES_MORE_REQUEST, fetchMoviesMoreSaga),
     takeLatest(CATALOG_TYPES.FETCH_SERIES_REQUEST, fetchSeriesSaga),
     takeLatest(CATALOG_TYPES.FETCH_MATCHES_REQUEST, fetchMatchesSaga),
     takeLatest(CATALOG_TYPES.FETCH_GENRES_REQUEST, fetchGenresSaga),
