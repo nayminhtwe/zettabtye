@@ -89,6 +89,29 @@ const AUTH_FLOW_SCREENS = new Set([
   SCREEN.RESET_PASSWORD,
 ]);
 
+/**
+ * Search is a transient overlay. When leaving Search for a list screen, skip Search
+ * in the back chain. If Search was opened from that same list, use the list's own
+ * return target so back does not land on the same screen again.
+ */
+function resolveReturnAfterSearch(
+  searchReturnScreen,
+  { moviesReturnScreen, seriesReturnScreen, footballReturnScreen },
+) {
+  switch (searchReturnScreen) {
+    case SCREEN.MOVIES:
+      return moviesReturnScreen;
+    case SCREEN.SERIES:
+      return seriesReturnScreen;
+    case SCREEN.FOOTBALL_LIST:
+      return footballReturnScreen;
+    case SCREEN.SEARCH:
+      return SCREEN.HOME;
+    default:
+      return searchReturnScreen;
+  }
+}
+
 export default function App() {
   const { fontsLoaded } = useAppFonts();
   const dispatch = useDispatch();
@@ -384,20 +407,29 @@ export default function App() {
   };
 
   const navigateFromCategory = (category, returnScreen) => {
+    const resolvedReturn =
+      returnScreen === SCREEN.SEARCH
+        ? resolveReturnAfterSearch(searchReturnScreen, {
+            moviesReturnScreen,
+            seriesReturnScreen,
+            footballReturnScreen,
+          })
+        : returnScreen;
+
     if (category.destination === "football_list") {
       if (canAccessFootball) {
-        openFootballList(returnScreen);
+        openFootballList(resolvedReturn);
       }
       return;
     }
 
     if (category.destination === "series") {
-      openSeries(returnScreen);
+      openSeries(resolvedReturn);
       return;
     }
 
     if (category.destination === "movies") {
-      openMovies(returnScreen, category.moviesCategory || "All");
+      openMovies(resolvedReturn, category.moviesCategory || "All");
     }
   };
 
