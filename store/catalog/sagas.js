@@ -2,6 +2,7 @@ import { all, call, put, select, takeLatest, takeLeading } from "redux-saga/effe
 import {
   extractItemData,
   extractListData,
+  extractMatchListData,
   extractPaginationMeta,
   mapAdvertisement,
   mapMatchDetail,
@@ -55,14 +56,16 @@ function* fetchHomeSaga() {
       call(fetchMovies, { per_page: 50 }),
       call(fetchSeries, { per_page: 20 }),
       call(fetchAdvertisements),
-      call(fetchMatches, { per_page: 30 }),
+      call(fetchMatches, { days: 7 }),
       call(fetchGenres),
     ]);
 
     const movies = extractListData(moviesRes).map((item, index) => mapMovieListItem(item, index));
     const series = extractListData(seriesRes).map((item, index) => mapSeriesListItem(item, index));
     const advertisements = extractListData(adsRes).map((item, index) => mapAdvertisement(item, index));
-    const matches = extractListData(matchesRes).map((item, index) => mapMatchToFixture(item, index));
+    const matches = extractMatchListData(matchesRes).map((item, index) =>
+      mapMatchToFixture(item, index),
+    );
     const genres = extractListData(genresRes).map(mapGenre);
 
     yield put({
@@ -170,8 +173,11 @@ function* fetchSeriesSaga(action) {
 
 function* fetchMatchesSaga(action) {
   try {
-    const response = yield call(fetchMatches, { per_page: 50, ...action.payload });
-    const matches = extractListData(response).map((item, index) => mapMatchToFixture(item, index));
+    const { per_page: _perPage, ...rest } = action.payload ?? {};
+    const response = yield call(fetchMatches, { days: 7, ...rest });
+    const matches = extractMatchListData(response).map((item, index) =>
+      mapMatchToFixture(item, index),
+    );
     yield put({ type: CATALOG_TYPES.FETCH_MATCHES_SUCCESS, payload: matches });
   } catch (error) {
     yield put({

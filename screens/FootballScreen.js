@@ -72,7 +72,7 @@ export default function FootballScreen({ onBack, onMatchPress, onSearchPress }) 
   const [focusedLeagueId, setFocusedLeagueId] = useState(null);
 
   useEffect(() => {
-    dispatch(fetchMatchesRequest({ per_page: 50 }));
+    dispatch(fetchMatchesRequest({ days: 7 }));
   }, [dispatch]);
 
   const dateTabs = useMemo(() => buildDateTabsFromMatches(apiMatches), [apiMatches]);

@@ -245,6 +245,33 @@ export function extractListData(payload) {
   return [];
 }
 
+/**
+ * Matches API returns today + upcoming grouped by day (not a flat paginated list).
+ * Flattens that shape for list screens; falls back to legacy flat arrays when present.
+ */
+export function extractMatchListData(payload, { includeToday = true } = {}) {
+  const root = payload?.data ?? payload;
+
+  if (Array.isArray(root)) {
+    return root;
+  }
+
+  if (!root || typeof root !== "object") {
+    return [];
+  }
+
+  const today = Array.isArray(root.today) ? root.today : [];
+  const upcoming = Array.isArray(root.upcoming)
+    ? root.upcoming.flatMap((day) => (Array.isArray(day?.matches) ? day.matches : []))
+    : [];
+
+  if (includeToday) {
+    return [...today, ...upcoming];
+  }
+
+  return upcoming;
+}
+
 export function extractPaginationMeta(payload) {
   const meta = payload?.meta;
   if (!meta || typeof meta !== "object") {
