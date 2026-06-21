@@ -14,7 +14,6 @@ export function buildSeriesDetail(item = {}) {
     overview: item.overview ?? "",
     director: item.director ?? "",
     cast: item.cast ?? "",
-    awards: item.awards ?? "",
     seasonsList: item.seasonsList ?? [],
   };
 }

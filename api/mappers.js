@@ -51,6 +51,26 @@ function formatRating(rating) {
   return String(rating);
 }
 
+function formatCastCredits(casts = []) {
+  if (!Array.isArray(casts) || casts.length === 0) {
+    return { director: "", cast: "" };
+  }
+
+  const directors = casts
+    .filter((person) => person?.role === "director")
+    .map((person) => person.name)
+    .filter(Boolean);
+  const actors = casts
+    .filter((person) => person?.role === "actor")
+    .map((person) => person.name)
+    .filter(Boolean);
+
+  return {
+    director: directors.join(", "),
+    cast: actors.join(", "),
+  };
+}
+
 export function mapMovieListItem(movie, index = 0) {
   return {
     id: movie.id,
@@ -63,16 +83,21 @@ export function mapMovieListItem(movie, index = 0) {
     imdbRating: formatRating(movie.rating),
     categories: formatGenres(movie.generes),
     overview: movie.description ?? "",
+    casts: movie.casts ?? [],
     type: "movie",
   };
 }
 
 export function mapMovieDetail(movie, index = 0) {
+  const credits = formatCastCredits(movie.casts);
+
   return {
     ...mapMovieListItem(movie, index),
     movieUrl: movie.movie_url ?? null,
     casts: movie.casts ?? [],
     generes: movie.generes ?? [],
+    director: credits.director,
+    cast: credits.cast,
   };
 }
 
@@ -91,11 +116,13 @@ export function mapSeriesListItem(series, index = 0) {
     overview: series.description ?? "",
     seasons: seasonCount > 0 ? `${seasonCount} Seasons` : "—",
     seasonCount,
+    casts: series.casts ?? [],
     type: "series",
   };
 }
 
 export function mapSeriesDetail(series, index = 0) {
+  const credits = formatCastCredits(series.casts);
   const seasons = (series.seasons ?? []).map((season) => ({
     id: String(season.id),
     label: `Season ${season.season_number}`,
@@ -115,9 +142,8 @@ export function mapSeriesDetail(series, index = 0) {
 
   return {
     ...mapSeriesListItem(series, index),
-    director: series.director ?? "",
-    cast: (series.casts ?? []).map((c) => c.name).join(", "),
-    awards: series.awards ?? "",
+    director: credits.director,
+    cast: credits.cast,
     seasonsList: seasons,
     seasons: seasons.length > 0 ? `${seasons.length} Seasons` : "—",
   };

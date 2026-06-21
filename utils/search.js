@@ -21,5 +21,10 @@ export function buildSearchSuggestions(query, { genres = [], movies = [], series
     .map((item) => item.title)
     .filter((title) => title?.toLowerCase().includes(normalized));
 
-  return [...new Set([...titleMatches, ...genreMatches])].slice(0, 8);
+  const castMatches = [...movies, ...series]
+    .flatMap((item) => item.casts ?? [])
+    .map((person) => person.name)
+    .filter((name) => name?.toLowerCase().includes(normalized));
+
+  return [...new Set([...titleMatches, ...genreMatches, ...castMatches])].slice(0, 8);
 }

@@ -21,6 +21,8 @@ export function buildMovieDetail(item = {}) {
     imdbRating,
     overview: item.overview ?? "",
     movieUrl: item.movieUrl ?? null,
+    director: item.director ?? "",
+    cast: item.cast ?? "",
     type: item.type ?? "movie",
   };
 }

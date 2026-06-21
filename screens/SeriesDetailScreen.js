@@ -250,9 +250,8 @@ export default function SeriesDetailScreen({
           </Pressable>
           {overviewDetailsExpanded ? (
             <View style={styles.overviewDetailsContent}>
-              <OverviewDetailField label="Directed by:" value={displaySeries.director} />
-              <OverviewDetailField label="Cast:" value={displaySeries.cast} />
-              <OverviewDetailField label="Awards:" value={displaySeries.awards} />
+              <OverviewDetailField label="Directed by:" value={displaySeries.director || "—"} />
+              <OverviewDetailField label="Cast:" value={displaySeries.cast || "—"} />
             </View>
           ) : null}
         </View>

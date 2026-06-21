@@ -254,19 +254,10 @@ export default function MovieDetailScreen({ movie, onBack, onPlay, onSearchPress
         </Text>
 
         <Text style={styles.overviewLabel}>Directed by:</Text>
-        <Text style={styles.overviewValue}>Christopher Nolan</Text>
+        <Text style={styles.overviewValue}>{displayMovie.director || "—"}</Text>
 
         <Text style={styles.overviewLabel}>Cast:</Text>
-        <Text style={styles.overviewValue}>
-          Matthew McConaughey, Anne Hathaway, Jessica Chastain, Bill Irwin, Ellen Burstyn and
-          Michael Caine
-        </Text>
-
-        <Text style={styles.overviewLabel}>Awards:</Text>
-        <Text style={styles.overviewValue}>
-          Academy Award For Best Visual Effects, Empire Award For Best Director, Empire Award For
-          Best Film
-        </Text>
+        <Text style={styles.overviewValue}>{displayMovie.cast || "—"}</Text>
       </ScrollView>
 
       <Toast visible={toast.visible} message={toast.message} bottom={contentBottomPadding} />
