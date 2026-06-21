@@ -1,6 +1,7 @@
 import MaskedView from "@react-native-masked-view/masked-view";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ExpoSplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -323,6 +324,7 @@ export default function SplashScreen({ onFinish }) {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
       <View style={styles.stage}>
         <Text
           style={styles.brandTextMeasure}
@@ -354,6 +356,7 @@ export default function SplashScreen({ onFinish }) {
             source={require("../assets/images/logo.png")}
             resizeMode="contain"
             style={styles.logoImage}
+            fadeDuration={0}
           />
         </Animated.View>
 
