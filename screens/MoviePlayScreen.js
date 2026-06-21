@@ -21,7 +21,15 @@ import {
 } from "react-native";
 import { useTVEventHandler as rnUseTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSelector } from "react-redux";
+import { fetchContinueWatching, saveWatchProgress } from "../api/contentService";
+import { extractListData } from "../api/mappers";
 import { gillSans } from "../constants/fonts";
+import { selectAuthAuthenticated } from "../store/auth/selectors";
+import {
+  resolveResumePositionMs,
+  shouldSaveWatchProgress,
+} from "../utils/watchProgress";
 
 const APP_ICON = require("../assets/images/app-icon.png");
 
@@ -42,6 +50,7 @@ const SCRUB_ACCEL_WINDOW_MS = 320;
 const SCRUB_MAX_MULTIPLIER = 6;
 const KEEP_AWAKE_TAG = "movie-playback";
 const PROGRESS_THUMB_SIZE = 14;
+const WATCH_PROGRESS_SAVE_MS = 5000;
 const isPhone = Platform.isTV !== true;
 
 function isLandscapeOrientation(orientation) {
@@ -122,6 +131,22 @@ function formatTime(seconds) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+function readPlayerProgress(player) {
+  if (!player) {
+    return null;
+  }
+
+  try {
+    return {
+      position: player.currentTime ?? 0,
+      duration: player.duration ?? 0,
+      playing: Boolean(player.playing),
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
 function resolveMatchTeams(movie) {
   if (!movie) {
     return { home: "", away: "" };
@@ -151,11 +176,13 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const isAuthenticated = useSelector(selectAuthAuthenticated);
 
   const streamUri = resolveStreamUri(movie);
   const isLive = Boolean(movie?.isLive);
   const isMatchPlayback = movie?.type === "match" || isLive;
   const matchTeams = resolveMatchTeams(movie);
+  const canTrackWatchProgress = isAuthenticated && !isLive && !isMatchPlayback && movie?.id != null;
 
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [deviceOrientation, setDeviceOrientation] = useState(
@@ -169,6 +196,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const [isSeeking, setIsSeeking] = useState(false);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [centerShowsPause, setCenterShowsPause] = useState(false);
+  const [resumeLookupDone, setResumeLookupDone] = useState(true);
 
   const hideTimerRef = useRef(null);
   const resumeTimerRef = useRef(null);
@@ -184,6 +212,13 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const progressTrackWidthRef = useRef(0);
   const surfaceLaidOutRef = useRef(false);
   const toggleLockRef = useRef(false);
+  const resumePositionSecondsRef = useRef(0);
+  const resumeAppliedRef = useRef(false);
+  const watchProgressSaveRef = useRef({ lastSavedMs: 0, lastSavedAt: 0 });
+  const movieIdRef = useRef(movie?.id);
+  const playbackProgressRef = useRef({ position: 0, duration: 0 });
+  const isLeavingRef = useRef(false);
+  const flushWatchProgressRef = useRef(null);
 
   const dimensionsAreLandscape = width > height;
   const orientationIsLandscape = isLandscapeOrientation(deviceOrientation);
@@ -200,6 +235,107 @@ export default function MoviePlayScreen({ movie, onBack }) {
     : null;
 
   const portraitVideoHeight = Math.round(Math.min(width, height) * (9 / 16));
+
+  useEffect(() => {
+    movieIdRef.current = movie?.id;
+  }, [movie?.id]);
+
+  useEffect(() => {
+    resumeAppliedRef.current = false;
+    resumePositionSecondsRef.current = 0;
+
+    if (!canTrackWatchProgress) {
+      setResumeLookupDone(true);
+      return undefined;
+    }
+
+    const fromMovie = resolveResumePositionMs(movie?.startPositionMs, movie?.videoLengthMs);
+    if (fromMovie > 0) {
+      resumePositionSecondsRef.current = fromMovie / 1000;
+      setResumeLookupDone(true);
+      return undefined;
+    }
+
+    setResumeLookupDone(false);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await fetchContinueWatching();
+        const items = extractListData(response);
+        const match = items.find((item) => String(item.id) === String(movie.id));
+        if (cancelled || !match) {
+          return;
+        }
+
+        const resumeMs = resolveResumePositionMs(match.watching_minute, match.video_length);
+        if (resumeMs > 0) {
+          resumePositionSecondsRef.current = resumeMs / 1000;
+        }
+      } catch (_error) {
+        // ignore resume lookup failures
+      } finally {
+        if (!cancelled) {
+          setResumeLookupDone(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canTrackWatchProgress,
+    movie?.id,
+    movie?.startPositionMs,
+    movie?.videoLengthMs,
+    streamUri,
+  ]);
+
+  const flushWatchProgress = useCallback(async (positionSeconds, durationSeconds) => {
+    if (!canTrackWatchProgress || !movieIdRef.current) {
+      return;
+    }
+
+    const positionMs = Math.floor((positionSeconds ?? 0) * 1000);
+    const durationMs = Math.floor((durationSeconds ?? 0) * 1000);
+    if (!shouldSaveWatchProgress(positionMs, durationMs)) {
+      return;
+    }
+
+    const saveState = watchProgressSaveRef.current;
+    if (
+      Math.abs(positionMs - saveState.lastSavedMs) < 1000 &&
+      Date.now() - saveState.lastSavedAt < 4000
+    ) {
+      return;
+    }
+
+    try {
+      await saveWatchProgress(movieIdRef.current, positionMs);
+      watchProgressSaveRef.current = {
+        lastSavedMs: positionMs,
+        lastSavedAt: Date.now(),
+      };
+    } catch (_error) {
+      // ignore save failures during playback
+    }
+  }, [canTrackWatchProgress]);
+
+  useEffect(() => {
+    flushWatchProgressRef.current = flushWatchProgress;
+  }, [flushWatchProgress]);
+
+  useEffect(() => {
+    isLeavingRef.current = false;
+    playbackProgressRef.current = { position: 0, duration: 0 };
+
+    return () => {
+      isLeavingRef.current = true;
+      const { position, duration } = playbackProgressRef.current;
+      flushWatchProgressRef.current?.(position, duration);
+    };
+  }, [streamUri]);
 
   useEffect(() => {
     if (showLandscapeLayout) {
@@ -232,6 +368,31 @@ export default function MoviePlayScreen({ movie, onBack }) {
   const isBuffering = status === "loading" || status === "idle";
   const hasError = status === "error" || (!streamUri && !!movie);
 
+  useEffect(() => {
+    if (!player || !canTrackWatchProgress) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      if (isLeavingRef.current) {
+        return;
+      }
+
+      const snapshot = readPlayerProgress(player);
+      if (!snapshot?.playing) {
+        return;
+      }
+
+      playbackProgressRef.current = {
+        position: snapshot.position,
+        duration: snapshot.duration,
+      };
+      flushWatchProgress(snapshot.position, snapshot.duration);
+    }, WATCH_PROGRESS_SAVE_MS);
+
+    return () => clearInterval(interval);
+  }, [player, canTrackWatchProgress, flushWatchProgress]);
+
   const showPoster =
     !isMatchPlayback &&
     !!movie?.image &&
@@ -255,6 +416,32 @@ export default function MoviePlayScreen({ movie, onBack }) {
   }, [isPlaying]);
 
   useEffect(() => {
+    if (!player || isLive || resumeAppliedRef.current || !resumeLookupDone || isLeavingRef.current) {
+      return;
+    }
+
+    const resumeSeconds = resumePositionSecondsRef.current;
+    if (resumeSeconds <= 0 || status !== "readyToPlay") {
+      return;
+    }
+
+    try {
+      player.currentTime = resumeSeconds;
+      resumeAppliedRef.current = true;
+      playbackProgressRef.current = {
+        position: resumeSeconds,
+        duration: playbackProgressRef.current.duration,
+      };
+      setProgress((current) => ({
+        ...current,
+        position: resumeSeconds,
+      }));
+    } catch (_error) {
+      // ignore seek errors; playback can still start from the beginning
+    }
+  }, [player, status, isLive, resumeLookupDone]);
+
+  useEffect(() => {
     surfaceLaidOutRef.current = false;
     setHasStartedPlayback(false);
     setCenterShowsPause(false);
@@ -273,11 +460,35 @@ export default function MoviePlayScreen({ movie, onBack }) {
       !player ||
       !streamUri ||
       !playbackIntentRef.current ||
+      !resumeLookupDone ||
       status !== "readyToPlay" ||
       !surfaceLaidOutRef.current ||
-      player.playing
+      isLeavingRef.current
     ) {
       return;
+    }
+
+    const snapshot = readPlayerProgress(player);
+    if (!snapshot || snapshot.playing) {
+      return;
+    }
+
+    const resumeSeconds = resumePositionSecondsRef.current;
+    if (!resumeAppliedRef.current && resumeSeconds > 0) {
+      try {
+        player.currentTime = resumeSeconds;
+        resumeAppliedRef.current = true;
+        playbackProgressRef.current = {
+          position: resumeSeconds,
+          duration: snapshot.duration,
+        };
+        setProgress((current) => ({
+          ...current,
+          position: resumeSeconds,
+        }));
+      } catch (_error) {
+        // ignore seek errors during layout transitions
+      }
     }
 
     try {
@@ -285,7 +496,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
     } catch (_error) {
       // ignore resume errors during layout transitions
     }
-  }, [player, streamUri, status]);
+  }, [player, streamUri, status, resumeLookupDone]);
 
   useEffect(() => {
     tryStartPlayback();
@@ -311,14 +522,20 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }
 
     const interval = setInterval(() => {
-      if (scrubRef.current.active) {
+      if (scrubRef.current.active || isLeavingRef.current) {
         return;
       }
 
-      setProgress({
-        position: player.currentTime ?? 0,
-        duration: player.duration ?? 0,
-      });
+      const snapshot = readPlayerProgress(player);
+      if (!snapshot) {
+        return;
+      }
+
+      playbackProgressRef.current = {
+        position: snapshot.position,
+        duration: snapshot.duration,
+      };
+      setProgress(snapshot);
     }, 500);
 
     return () => clearInterval(interval);
@@ -380,7 +597,12 @@ export default function MoviePlayScreen({ movie, onBack }) {
   }, [scheduleHide, clearHideTimer]);
 
   const togglePlay = useCallback(() => {
-    if (!player || toggleLockRef.current) {
+    if (!player || toggleLockRef.current || isLeavingRef.current) {
+      return;
+    }
+
+    const snapshot = readPlayerProgress(player);
+    if (!snapshot) {
       return;
     }
 
@@ -389,24 +611,33 @@ export default function MoviePlayScreen({ movie, onBack }) {
       toggleLockRef.current = false;
     }, 400);
 
-    if (player.playing) {
-      playbackIntentRef.current = false;
-      setCenterShowsPause(false);
-      player.pause();
-    } else {
-      playbackIntentRef.current = true;
-      setCenterShowsPause(true);
-      player.play();
+    try {
+      if (snapshot.playing) {
+        playbackIntentRef.current = false;
+        setCenterShowsPause(false);
+        player.pause();
+      } else {
+        playbackIntentRef.current = true;
+        setCenterShowsPause(true);
+        player.play();
+      }
+    } catch (_error) {
+      // ignore released player errors
     }
     revealControls();
   }, [player, revealControls]);
 
   const seekBy = useCallback(
     (delta) => {
-      if (!player || isLive) {
+      if (!player || isLive || isLeavingRef.current) {
         return;
       }
-      player.seekBy(delta);
+
+      try {
+        player.seekBy(delta);
+      } catch (_error) {
+        // ignore released player errors
+      }
       revealControls();
     },
     [player, isLive, revealControls],
@@ -460,13 +691,18 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
   const beginScrubSession = useCallback(() => {
     const state = scrubRef.current;
-    if (!player || state.active) {
+    if (!player || state.active || isLeavingRef.current) {
+      return;
+    }
+
+    const snapshot = readPlayerProgress(player);
+    if (!snapshot) {
       return;
     }
 
     state.active = true;
-    state.wasPlaying = playbackIntentRef.current || player.playing;
-    state.target = player.currentTime ?? 0;
+    state.wasPlaying = playbackIntentRef.current || snapshot.playing;
+    state.target = snapshot.position;
     playbackIntentRef.current = false;
     setCenterShowsPause(false);
     setIsSeeking(true);
@@ -481,13 +717,22 @@ export default function MoviePlayScreen({ movie, onBack }) {
   // UI-only scrub while holding; one native seek on release (endScrub).
   const scrubStep = useCallback(
     (direction) => {
-      if (!player || isLive) {
+      if (!player || isLive || isLeavingRef.current) {
         return;
       }
 
-      const duration = player.duration ?? 0;
+      const snapshot = readPlayerProgress(player);
+      if (!snapshot) {
+        return;
+      }
+
+      const duration = snapshot.duration;
       if (duration <= 0) {
-        player.seekBy(direction * SEEK_STEP_SECONDS);
+        try {
+          player.seekBy(direction * SEEK_STEP_SECONDS);
+        } catch (_error) {
+          // ignore released player errors
+        }
         revealControls();
         return;
       }
@@ -586,18 +831,26 @@ export default function MoviePlayScreen({ movie, onBack }) {
     }
   }, [isFullscreen, revealControls, width, height]);
 
-  const handleBack = useCallback(() => {
+  const handleBack = useCallback(async () => {
     clearHideTimer();
     playbackIntentRef.current = false;
-    if (player) {
-      try {
-        player.pause();
-      } catch (_error) {
-        // ignore
-      }
+    isLeavingRef.current = true;
+
+    const snapshot = readPlayerProgress(player) ?? playbackProgressRef.current;
+    playbackProgressRef.current = {
+      position: snapshot.position ?? 0,
+      duration: snapshot.duration ?? 0,
+    };
+    await flushWatchProgress(snapshot.position ?? 0, snapshot.duration ?? 0);
+
+    try {
+      player?.pause();
+    } catch (_error) {
+      // ignore released player errors during exit
     }
+
     onBack?.();
-  }, [clearHideTimer, onBack, player]);
+  }, [clearHideTimer, flushWatchProgress, onBack, player]);
 
   useEffect(() => {
     if (Platform.OS !== "android") {

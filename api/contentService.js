@@ -77,4 +77,23 @@ export async function fetchSubscriptionStatus() {
   return response.data;
 }
 
+export async function saveWatchProgress(movieId, positionMs) {
+  await apiClient.post("/watch_progress", {
+    movie_id: movieId,
+    minute: String(Math.floor(positionMs)),
+  });
+}
+
+export async function fetchContinueWatching() {
+  const response = await apiClient.get("/continue_watching");
+  return response.data;
+}
+
+export async function deleteContinueWatching(movieId) {
+  const response = await apiClient.post("/delete_continue_watching", {
+    movie_id: movieId,
+  });
+  return response.data;
+}
+
 export { extractListData, extractItemData };

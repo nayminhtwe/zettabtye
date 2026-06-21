@@ -122,6 +122,7 @@ export default function App() {
   const [phoneUpdateSuccess, setPhoneUpdateSuccess] = useState(false);
   const [accountUsername, setAccountUsername] = useState("");
   const [playResolving, setPlayResolving] = useState(false);
+  const [continueWatchingRefreshKey, setContinueWatchingRefreshKey] = useState(0);
   const [searchReturnScreen, setSearchReturnScreen] = useState(SCREEN.HOME);
   const [recentSearches, setRecentSearches] = useState([]);
   const catalogMatches = useSelector(selectMatches);
@@ -321,7 +322,11 @@ export default function App() {
         return;
       }
 
-      setSelectedMovie(playItem);
+      setSelectedMovie({
+        ...playItem,
+        startPositionMs: item.startPositionMs ?? playItem.startPositionMs ?? 0,
+        videoLengthMs: item.videoLengthMs ?? playItem.videoLengthMs ?? 0,
+      });
       setMoviePlayReturnScreen(returnScreen);
       setCurrentPage(SCREEN.MOVIE_PLAY);
     } finally {
@@ -536,6 +541,8 @@ export default function App() {
         return (
         <HomeScreen
           onMoviePress={(movie) => openMovieDetail(movie, SCREEN.HOME)}
+          onResumeMoviePress={(item) => openPlayFromMovie(item, SCREEN.HOME)}
+          continueWatchingRefreshKey={continueWatchingRefreshKey}
           onMoviesPress={(category) => openMovies(SCREEN.HOME, category ?? "All")}
           onFootballPress={(fixture) => openFootballDetail(fixture, SCREEN.HOME)}
           onSeeAllFootball={() => openFootballList(SCREEN.HOME)}
@@ -756,7 +763,10 @@ export default function App() {
         return (
         <MoviePlayScreen
           movie={selectedMovie}
-          onBack={() => setCurrentPage(moviePlayReturnScreen)}
+          onBack={() => {
+            setContinueWatchingRefreshKey((key) => key + 1);
+            setCurrentPage(moviePlayReturnScreen);
+          }}
         />
         );
       case SCREEN.OTP:

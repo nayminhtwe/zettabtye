@@ -25,6 +25,8 @@ import SaleBannerCarousel from "../components/SaleBannerCarousel";
 import { focusBorderActive, focusBorderBase } from "../constants/focusStyles";
 import { gillSans } from "../constants/fonts";
 import { useScreenInsets } from "../hooks/useScreenInsets";
+import { fetchContinueWatching } from "../api/contentService";
+import { extractListData } from "../api/mappers";
 import { fetchHomeRequest } from "../store/catalog/actions";
 import {
   selectAdvertisements,
@@ -39,6 +41,7 @@ import { selectAuthAuthenticated } from "../store/auth/selectors";
 import { buildFootballDetail } from "../utils/football";
 import { buildMovieDetail } from "../utils/movieDetail";
 import { buildSeriesDetail } from "../utils/seriesDetail";
+import { mapContinueWatchingItem } from "../utils/watchProgress";
 import { selectFavoriteMediaItems } from "../store/favorites/selectors";
 import { selectCanAccessFootball } from "../store/ads/selectors";
 
@@ -377,6 +380,7 @@ const MediaCard = forwardRef(function MediaCard(
 
 export default function HomeScreen({
   onMoviePress,
+  onResumeMoviePress,
   onFootballPress,
   onSeeAllFootball,
   onProfilePress,
@@ -390,11 +394,13 @@ export default function HomeScreen({
   onSearchPress,
   onLogoutPress,
   onDeleteAccountPress,
+  continueWatchingRefreshKey = 0,
 }) {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { contentBottomPadding, bottom: bottomInset } = useScreenInsets(32);
   const isAuthenticated = useSelector(selectAuthAuthenticated);
+  const [resumeItems, setResumeItems] = useState([]);
   const featuredMovies = useSelector(selectFeaturedMovies);
   const trendingMovies = useSelector(selectTrendingMovies);
   const homeSeries = useSelector(selectHomeSeriesItems);
@@ -448,10 +454,19 @@ export default function HomeScreen({
       ...genreRows.filter((row) => (row?.items?.length ?? 0) > 0),
     ];
 
+    if (resumeItems.length > 0) {
+      sections.unshift({
+        id: "resumeWatching",
+        title: "Continue watching",
+        showSeeAll: false,
+        items: resumeItems,
+      });
+    }
+
     if (favoriteItems.length > 0) {
       const continueIndex = sections.findIndex((section) => section.id === "continue");
-      const continueWatchingSection = {
-        id: "continueWatching",
+      const savedForLaterSection = {
+        id: "savedForLater",
         title: "Saved for later",
         showSeeAll: true,
         seeAll: "history",
@@ -464,9 +479,9 @@ export default function HomeScreen({
       };
 
       if (continueIndex >= 0) {
-        sections.splice(continueIndex + 1, 0, continueWatchingSection);
+        sections.splice(continueIndex + 1, 0, savedForLaterSection);
       } else {
-        sections.push(continueWatchingSection);
+        sections.push(savedForLaterSection);
       }
     }
 
@@ -477,7 +492,15 @@ export default function HomeScreen({
 
       return section.items?.length > 0;
     });
-  }, [trendingMovies, homeSeries, genreRows, favoriteItems, footballFixtures.length, canShowFootball]);
+  }, [
+    trendingMovies,
+    homeSeries,
+    genreRows,
+    favoriteItems,
+    resumeItems,
+    footballFixtures.length,
+    canShowFootball,
+  ]);
 
   useEffect(() => {
     dispatch(fetchHomeRequest());
@@ -488,6 +511,33 @@ export default function HomeScreen({
       dispatch(fetchFavoritesRequest());
     }
   }, [dispatch, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setResumeItems([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await fetchContinueWatching();
+        const items = extractListData(response).map(mapContinueWatchingItem);
+        if (!cancelled) {
+          setResumeItems(items);
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setResumeItems([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, continueWatchingRefreshKey]);
 
   const openItemDetail = useCallback(
     (item) => {
@@ -893,13 +943,21 @@ export default function HomeScreen({
                       }}
                       label={item.label ?? item.title}
                       image={item.image}
-                      variant={row.id === "continueWatching" ? "continue" : row.id === "match" ? "match" : "poster"}
+                      variant={
+                        row.id === "resumeWatching"
+                          ? "continue"
+                          : row.id === "match"
+                            ? "match"
+                            : "poster"
+                      }
                       showLabel={false}
                       progress={item.progress ?? 0}
                       onPress={
                         row.id === "match"
                           ? undefined
-                          : () => openItemDetail(item)
+                          : row.id === "resumeWatching"
+                            ? () => onResumeMoviePress?.(item)
+                            : () => openItemDetail(item)
                       }
                       nextFocusUp={
                         rowIndex === 0 && featuredItems.length > 0

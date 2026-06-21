@@ -24,6 +24,8 @@ export function buildMovieDetail(item = {}) {
     director: item.director ?? "",
     cast: item.cast ?? "",
     type: item.type ?? "movie",
+    startPositionMs: item.startPositionMs ?? 0,
+    videoLengthMs: item.videoLengthMs ?? 0,
   };
 }
 
@@ -34,7 +36,14 @@ export function buildMovieDetail(item = {}) {
 export async function resolveMoviePlayItem(item = {}, cachedDetail = null) {
   const fromItem = buildMovieDetail(cachedDetail ?? item);
   if (fromItem.movieUrl) {
-    return { playItem: fromItem, blocked: null };
+    return {
+      playItem: {
+        ...fromItem,
+        startPositionMs: fromItem.startPositionMs ?? item.startPositionMs ?? 0,
+        videoLengthMs: fromItem.videoLengthMs ?? item.videoLengthMs ?? 0,
+      },
+      blocked: null,
+    };
   }
 
   const movieId = fromItem.id ?? item?.id;
@@ -50,7 +59,14 @@ export async function resolveMoviePlayItem(item = {}, cachedDetail = null) {
     const detailed = buildMovieDetail(mapMovieDetail(extractItemData(response)));
 
     if (detailed.movieUrl) {
-      return { playItem: detailed, blocked: null };
+      return {
+        playItem: {
+          ...detailed,
+          startPositionMs: fromItem.startPositionMs ?? detailed.startPositionMs,
+          videoLengthMs: fromItem.videoLengthMs ?? detailed.videoLengthMs,
+        },
+        blocked: null,
+      };
     }
 
     return {
