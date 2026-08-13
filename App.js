@@ -429,6 +429,13 @@ export default function App() {
     }
 
     if (category.destination === "movies") {
+      // Search was opened from MoviesScreen — update the category in-place
+      // instead of stacking a new MoviesScreen on top, which creates a loop.
+      if (returnScreen === SCREEN.SEARCH && searchReturnScreen === SCREEN.MOVIES) {
+        setMoviesInitialCategory(category.moviesCategory || "All");
+        setCurrentPage(SCREEN.MOVIES);
+        return;
+      }
       openMovies(resolvedReturn, category.moviesCategory || "All");
     }
   };
