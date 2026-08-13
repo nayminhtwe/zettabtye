@@ -33,6 +33,8 @@ const THUMB_WIDTH = 72;
 const THUMB_HEIGHT = 108;
 
 function FeaturedHistoryCard({ item, onContinuePress }) {
+  const [continueFocused, setContinueFocused] = useState(false);
+
   return (
     <View style={styles.featuredCard}>
       <Image source={item.image} resizeMode="cover" style={styles.featuredImage} />
@@ -62,10 +64,19 @@ function FeaturedHistoryCard({ item, onContinuePress }) {
           </View>
         </View>
         <Pressable
-          style={({ pressed }) => [styles.featuredContinueButton, pressed ? styles.buttonPressed : null]}
+          style={({ pressed }) => [
+            styles.featuredContinueButton,
+            continueFocused ? styles.featuredContinueButtonFocused : null,
+            pressed ? styles.buttonPressed : null,
+          ]}
+          onFocus={() => setContinueFocused(true)}
+          onBlur={() => setContinueFocused(false)}
           onPress={() => onContinuePress?.(item)}
         >
-          <Text style={styles.featuredContinueText}>Continue watching</Text>
+          <Text style={[
+            styles.featuredContinueText,
+            continueFocused ? styles.featuredContinueTextFocused : null,
+          ]}>Continue watching</Text>
         </Pressable>
       </View>
     </View>
@@ -74,9 +85,16 @@ function FeaturedHistoryCard({ item, onContinuePress }) {
 
 function HistoryListItem({ item, onPress, onActionPress }) {
   const actionLabel = item.action === "watch_again" ? "Watch again" : "Continue watching";
+  const [rowFocused, setRowFocused] = useState(false);
+  const [actionFocused, setActionFocused] = useState(false);
 
   return (
-    <Pressable style={styles.historyRow} onPress={() => onPress?.(item)}>
+    <Pressable
+      style={[styles.historyRow, rowFocused ? styles.historyRowFocused : null]}
+      onFocus={() => setRowFocused(true)}
+      onBlur={() => setRowFocused(false)}
+      onPress={() => onPress?.(item)}
+    >
       <View style={styles.thumbWrap}>
         <Image source={item.image} resizeMode="cover" style={styles.thumbImage} />
         <View style={styles.thumbProgressTrack}>
@@ -95,8 +113,14 @@ function HistoryListItem({ item, onPress, onActionPress }) {
         <Text style={styles.historySubtitle} numberOfLines={1}>
           {item.subtitle}
         </Text>
-        <Pressable onPress={() => onActionPress?.(item)}>
-          <Text style={styles.historyAction}>{actionLabel}</Text>
+        <Pressable
+          onFocus={() => { setRowFocused(false); setActionFocused(true); }}
+          onBlur={() => setActionFocused(false)}
+          onPress={() => onActionPress?.(item)}
+        >
+          <Text style={[styles.historyAction, actionFocused ? styles.historyActionFocused : null]}>
+            {actionLabel}
+          </Text>
         </Pressable>
       </View>
     </Pressable>
@@ -309,15 +333,24 @@ const styles = StyleSheet.create({
     marginTop: 12,
     minHeight: 44,
     borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "transparent",
     backgroundColor: "#E71809",
     alignItems: "center",
     justifyContent: "center",
+  },
+  featuredContinueButtonFocused: {
+    borderColor: "#FFFFFF",
+    backgroundColor: "#FFFFFF",
   },
   featuredContinueText: {
     color: "#FFFFFF",
     fontSize: 17,
     lineHeight: 22,
     ...gillSans("600"),
+  },
+  featuredContinueTextFocused: {
+    color: "#E71809",
   },
   filterBar: {
     marginTop: 20,
@@ -399,6 +432,14 @@ const styles = StyleSheet.create({
   historyRow: {
     flexDirection: "row",
     gap: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+    borderRadius: 8,
+    padding: 4,
+  },
+  historyRowFocused: {
+    borderColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   thumbWrap: {
     width: THUMB_WIDTH,
@@ -446,6 +487,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     ...gillSans("600"),
+  },
+  historyActionFocused: {
+    color: "#FFFFFF",
+    textDecorationLine: "underline",
   },
   buttonPressed: {
     opacity: 0.85,

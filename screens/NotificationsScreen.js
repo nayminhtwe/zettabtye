@@ -27,9 +27,18 @@ const THUMB_WIDTH = 72;
 const THUMB_HEIGHT = 108;
 
 function NotificationRow({ item, isUnread, onPress, onStartWatching }) {
+  const [rowFocused, setRowFocused] = useState(false);
+  const [actionFocused, setActionFocused] = useState(false);
+
   return (
     <Pressable
-      style={[styles.notificationRow, isUnread ? styles.notificationRowUnread : null]}
+      style={[
+        styles.notificationRow,
+        isUnread ? styles.notificationRowUnread : null,
+        rowFocused ? styles.notificationRowFocused : null,
+      ]}
+      onFocus={() => setRowFocused(true)}
+      onBlur={() => setRowFocused(false)}
       onPress={() => onPress?.(item)}
     >
       {item.image ? (
@@ -48,8 +57,14 @@ function NotificationRow({ item, isUnread, onPress, onStartWatching }) {
         <Text style={styles.notificationSubtitle} numberOfLines={1}>
           {item.subtitle}
         </Text>
-        <Pressable onPress={() => onStartWatching?.(item)}>
-          <Text style={styles.startWatching}>Start watching</Text>
+        <Pressable
+          onFocus={() => { setRowFocused(false); setActionFocused(true); }}
+          onBlur={() => setActionFocused(false)}
+          onPress={() => onStartWatching?.(item)}
+        >
+          <Text style={[styles.startWatching, actionFocused ? styles.startWatchingFocused : null]}>
+            Start watching
+          </Text>
         </Pressable>
       </View>
     </Pressable>
@@ -255,11 +270,16 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 12,
     borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
     backgroundColor: "#12141C",
   },
   notificationRowUnread: {
-    borderWidth: 1,
     borderColor: "#E71809",
+  },
+  notificationRowFocused: {
+    borderColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   thumbImage: {
     width: THUMB_WIDTH,
@@ -299,6 +319,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
     ...gillSans("600"),
+  },
+  startWatchingFocused: {
+    color: "#FFFFFF",
+    textDecorationLine: "underline",
   },
   premiumCard: {
     marginTop: 8,
