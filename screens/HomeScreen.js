@@ -591,6 +591,7 @@ export default function HomeScreen({
   const menuOpenLockRef = useRef(false);
   const featuredCarouselRef = useRef(null);
   const rowRefs = useRef([]);
+  const seeAllRefs = useRef([]);
   const bannerRef = useRef(null);
   const [menuFocused, setMenuFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -600,6 +601,7 @@ export default function HomeScreen({
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [deleteAccountConfirmVisible, setDeleteAccountConfirmVisible] = useState(false);
   const [deleteAccountFocused, setDeleteAccountFocused] = useState(false);
+  const [focusedSeeAllRow, setFocusedSeeAllRow] = useState(null);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
@@ -899,8 +901,17 @@ export default function HomeScreen({
               <View style={styles.rowHeader}>
                 <Text style={styles.rowTitle}>{row.title}</Text>
                 {row.showSeeAll && row.seeAll ? (
-                  <Pressable onPress={() => handleSeeAllPress(row)}>
-                    <Text style={styles.seeAllText}>See all</Text>
+                  <Pressable
+                    ref={(node) => { seeAllRefs.current[rowIndex] = node; }}
+                    onPress={() => handleSeeAllPress(row)}
+                    onFocus={() => setFocusedSeeAllRow(rowIndex)}
+                    onBlur={() => setFocusedSeeAllRow(null)}
+                    nextFocusRight={getSectionCardHandle(rowIndex, 0)}
+                  >
+                    <Text style={[
+                      styles.seeAllText,
+                      focusedSeeAllRow === rowIndex ? styles.seeAllTextFocused : null,
+                    ]}>See all</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -991,7 +1002,11 @@ export default function HomeScreen({
                           : undefined
                       }
                       nextFocusLeft={
-                        itemIndex > 0 ? getSectionCardHandle(rowIndex, itemIndex - 1) : undefined
+                        itemIndex > 0
+                          ? getSectionCardHandle(rowIndex, itemIndex - 1)
+                          : (row.showSeeAll && row.seeAll)
+                            ? findNodeHandle(seeAllRefs.current[rowIndex]) ?? undefined
+                            : undefined
                       }
                       nextFocusRight={
                         itemIndex < (row.items?.length ?? 0) - 1
@@ -1263,6 +1278,10 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     letterSpacing: 0.5,
     ...gillSans("400"),
+  },
+  seeAllTextFocused: {
+    color: "#FFFFFF",
+    textDecorationLine: "underline",
   },
   rowContent: {
     marginTop: 6,
