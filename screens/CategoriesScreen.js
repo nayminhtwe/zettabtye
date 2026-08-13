@@ -3,11 +3,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,18 +22,15 @@ import {
   selectGenresLoading,
 } from "../store/catalog/selectors";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CONTENT_PADDING = 16;
 const COLUMN_GAP = 12;
-const CARD_WIDTH = (SCREEN_WIDTH - CONTENT_PADDING * 2 - COLUMN_GAP) / 2;
-const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.38);
 
-function CategoryCard({ item, onPress }) {
+function CategoryCard({ item, onPress, cardWidth, cardHeight }) {
   const [focused, setFocused] = useState(false);
 
   return (
     <Pressable
-      style={[styles.categoryCard, focused ? styles.categoryCardFocused : null]}
+      style={[styles.categoryCard, { width: cardWidth, height: cardHeight }, focused ? styles.categoryCardFocused : null]}
       onPress={() => onPress?.(item)}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -56,6 +53,10 @@ function CategoryCard({ item, onPress }) {
 export default function CategoriesScreen({ onBack, onSearchPress, onCategoryPress }) {
   const dispatch = useDispatch();
   const { contentBottomPadding } = useScreenInsets(32);
+  const { width: screenWidth } = useWindowDimensions();
+  const columns = screenWidth >= 720 ? 4 : 2;
+  const cardWidth = (screenWidth - CONTENT_PADDING * 2 - COLUMN_GAP * (columns - 1)) / columns;
+  const cardHeight = Math.round(cardWidth * 1.38);
   const [backFocused, setBackFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const categoryItems = useSelector(selectCategoryCards);
@@ -103,7 +104,7 @@ export default function CategoriesScreen({ onBack, onSearchPress, onCategoryPres
 
         <View style={styles.grid}>
           {categoryItems.map((item) => (
-            <CategoryCard key={item.id} item={item} onPress={onCategoryPress} />
+            <CategoryCard key={item.id} item={item} onPress={onCategoryPress} cardWidth={cardWidth} cardHeight={cardHeight} />
           ))}
         </View>
       </ScrollView>
@@ -162,8 +163,6 @@ const styles = StyleSheet.create({
     gap: COLUMN_GAP,
   },
   categoryCard: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
     borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#1A2741",

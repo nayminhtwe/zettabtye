@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import FocusablePressable from "../components/FocusablePressable";
@@ -77,6 +78,8 @@ export default function OnboardingScreen({
 }) {
   const isLoading = useSelector(selectAuthLoading);
   const authError = useSelector(selectAuthError);
+  const { width: screenWidth } = useWindowDimensions();
+  const isLargeScreen = screenWidth >= 720;
 
   const listRef = useRef(null);
   const skipRef = useRef(null);
@@ -238,6 +241,117 @@ export default function OnboardingScreen({
 
   const compactLastSlide = keyboardVisible && isLastSlide;
   const displayError = phoneError || authError;
+
+  if (isLargeScreen) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.tvLayout}>
+          <View style={styles.tvCard}>
+            <Text style={styles.tvTitle}>Enter with Phone Number</Text>
+            <Text style={styles.tvSubtitle}>Enter your phone number to get started</Text>
+
+            <View style={styles.countrySection}>
+              <FocusablePressable
+                ref={countrySelectorRef}
+                style={[
+                  styles.countrySelector,
+                  authCountrySelectorBase,
+                  countrySelectorFocused ? authCountrySelectorFocused : null,
+                ]}
+                onPress={toggleCountryDropdown}
+                disabled={isLoading}
+                onFocus={() => setCountrySelectorFocused(true)}
+                onBlur={() => setCountrySelectorFocused(false)}
+                nextFocusDown={
+                  isCountryDropdownOpen
+                    ? findNodeHandle(countryOptionRefs.current[COUNTRIES[0].id]) ?? undefined
+                    : findNodeHandle(phoneInputRef.current) ?? undefined
+                }
+              >
+                <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
+                <Text style={styles.countryName}>{selectedCountry.name}</Text>
+                <Text style={styles.countryDialCode}>{selectedCountry.dialCode}</Text>
+                <Ionicons
+                  name={isCountryDropdownOpen ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color="#D2D2D2"
+                />
+              </FocusablePressable>
+
+              {isCountryDropdownOpen ? (
+                <View style={styles.countryDropdown}>
+                  {COUNTRIES.map((country) => {
+                    const isSelected = country.id === selectedCountryId;
+                    return (
+                      <FocusablePressable
+                        key={country.id}
+                        ref={(node) => { countryOptionRefs.current[country.id] = node; }}
+                        style={[
+                          styles.countryOption,
+                          authCountrySelectorBase,
+                          isSelected ? styles.countryOptionSelected : null,
+                          focusedCountryOptionId === country.id ? authCountryOptionFocused : null,
+                        ]}
+                        onPress={() => selectCountry(country.id)}
+                        onFocus={() => setFocusedCountryOptionId(country.id)}
+                        onBlur={() => setFocusedCountryOptionId(null)}
+                        nextFocusUp={getCountryOptionUpTarget(country.id)}
+                        nextFocusDown={getCountryOptionDownTarget(country.id)}
+                      >
+                        <Text style={styles.countryFlag}>{country.flag}</Text>
+                        <Text style={styles.countryName}>{country.name}</Text>
+                        <Text style={styles.countryDialCode}>{country.dialCode}</Text>
+                      </FocusablePressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+
+            <View>
+              <FloatingPhoneInput
+                inputRef={phoneInputRef}
+                autoFocus={false}
+                value={phoneNumber}
+                onChangeText={(value) => {
+                  setPhoneNumber(value);
+                  if (phoneError) setPhoneError("");
+                }}
+                editable={!isLoading}
+                focusableProps={{
+                  nextFocusUp: findNodeHandle(countrySelectorRef.current) ?? undefined,
+                  nextFocusDown: findNodeHandle(continueRef.current) ?? undefined,
+                }}
+              />
+              {displayError ? <Text style={styles.errorText}>{displayError}</Text> : null}
+            </View>
+
+            <Pressable
+              ref={continueRef}
+              style={[
+                styles.continueButton,
+                continueFocused ? styles.continueButtonFocused : null,
+                isLoading ? styles.continueButtonDisabled : null,
+              ]}
+              disabled={isLoading}
+              nextFocusUp={findNodeHandle(phoneInputRef.current) ?? undefined}
+              onFocus={() => setContinueFocused(true)}
+              onBlur={() => setContinueFocused(false)}
+              onPress={handleContinue}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#D2D2D2" />
+              ) : (
+                <Text style={[styles.continueText, continueFocused ? styles.continueTextFocused : null]}>
+                  Continue
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -577,6 +691,36 @@ const styles = StyleSheet.create({
     ...gillSans("600"),
     textDecorationLine: "underline",
     textAlign: "center",
+  },
+  tvLayout: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  tvCard: {
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: "#1D1B20",
+    borderRadius: 16,
+    paddingHorizontal: 40,
+    paddingVertical: 40,
+  },
+  tvTitle: {
+    color: "#FFFFFF",
+    fontSize: 26,
+    lineHeight: 36,
+    textAlign: "center",
+    marginBottom: 8,
+    ...gillSans("600"),
+  },
+  tvSubtitle: {
+    color: "#D2D2D2",
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    marginBottom: 32,
+    ...gillSans("400"),
   },
   countrySection: {
     marginBottom: 12,
