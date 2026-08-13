@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Platform, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { useAppFonts } from "./hooks/useAppFonts";
 import HomeScreen from "./screens/HomeScreen";
 import MovieDetailScreen from "./screens/MovieDetailScreen";
@@ -867,7 +868,9 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {renderScreen()}
+      <ErrorBoundary key={currentPage} onReset={() => setCurrentPage(SCREEN.HOME)}>
+        {renderScreen()}
+      </ErrorBoundary>
       {playResolving ? (
         <View style={styles.playResolvingOverlay} pointerEvents="auto">
           <ActivityIndicator color="#E71809" size="large" />

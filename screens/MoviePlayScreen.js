@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEvent } from "expo";
-import { useKeepAwake } from "expo-keep-awake";
+import { useKeepAwake, activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { LinearGradient } from "expo-linear-gradient";
 import * as NavigationBar from "expo-navigation-bar";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -9,6 +9,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   BackHandler,
   Image,
   PanResponder,
@@ -49,6 +50,7 @@ const SCRUB_ACCEL_WINDOW_MS = 320;
 // Cap acceleration at 6x (i.e. up to 60s per press when held).
 const SCRUB_MAX_MULTIPLIER = 6;
 const KEEP_AWAKE_TAG = "movie-playback";
+const KEEP_AWAKE_REFRESH_MS = 25000;
 const PROGRESS_THUMB_SIZE = 14;
 const WATCH_PROGRESS_SAVE_MS = 5000;
 const isPhone = Platform.isTV !== true;
@@ -172,7 +174,7 @@ function resolveMatchTeams(movie) {
 }
 
 export default function MoviePlayScreen({ movie, onBack }) {
-  useKeepAwake(KEEP_AWAKE_TAG);
+  useKeepAwake(KEEP_AWAKE_TAG, { suppressDeactivateWarnings: true });
 
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -367,6 +369,46 @@ export default function MoviePlayScreen({ movie, onBack }) {
 
   const isBuffering = status === "loading" || status === "idle";
   const hasError = status === "error" || (!streamUri && !!movie);
+
+  const sustainScreenWake = useCallback(() => {
+    if (isLeavingRef.current || !streamUri) {
+      return;
+    }
+
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+  }, [streamUri]);
+
+  useEffect(() => {
+    if (!streamUri) {
+      return undefined;
+    }
+
+    sustainScreenWake();
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        sustainScreenWake();
+      }
+    });
+
+    const interval = setInterval(sustainScreenWake, KEEP_AWAKE_REFRESH_MS);
+
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+    };
+  }, [streamUri, sustainScreenWake]);
+
+  useEffect(() => {
+    if (!streamUri || isLeavingRef.current) {
+      return;
+    }
+
+    if (isPlaying || isLive || status === "loading" || status === "readyToPlay") {
+      sustainScreenWake();
+    }
+  }, [isPlaying, isLive, status, streamUri, sustainScreenWake]);
 
   useEffect(() => {
     if (!player || !canTrackWatchProgress) {
@@ -666,7 +708,7 @@ export default function MoviePlayScreen({ movie, onBack }) {
           setCenterShowsPause(true);
           setTimeout(() => {
             try {
-              if (playbackIntentRef.current && !scrubRef.current.active) {
+              if (playbackIntentRef.current && !scrubRef.current.active && !isLeavingRef.current) {
                 player.play();
               }
             } catch (_error) {
