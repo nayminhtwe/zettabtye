@@ -906,7 +906,7 @@ export default function HomeScreen({
                     onPress={() => handleSeeAllPress(row)}
                     onFocus={() => setFocusedSeeAllRow(rowIndex)}
                     onBlur={() => setFocusedSeeAllRow(null)}
-                    nextFocusRight={getSectionCardHandle(rowIndex, 0)}
+                    nextFocusDown={getSectionCardHandle(rowIndex, 0)}
                   >
                     <Text style={[
                       styles.seeAllText,
@@ -1002,16 +1002,14 @@ export default function HomeScreen({
                           : undefined
                       }
                       nextFocusLeft={
-                        itemIndex > 0
-                          ? getSectionCardHandle(rowIndex, itemIndex - 1)
-                          : (row.showSeeAll && row.seeAll && (row.items?.length ?? 0) > 1)
-                            ? findNodeHandle(seeAllRefs.current[rowIndex]) ?? undefined
-                            : undefined
+                        itemIndex > 0 ? getSectionCardHandle(rowIndex, itemIndex - 1) : undefined
                       }
                       nextFocusRight={
                         itemIndex < (row.items?.length ?? 0) - 1
                           ? getSectionCardHandle(rowIndex, itemIndex + 1)
-                          : undefined
+                          : (row.showSeeAll && row.seeAll && (row.items?.length ?? 0) > 1)
+                            ? findNodeHandle(seeAllRefs.current[rowIndex]) ?? undefined
+                            : undefined
                       }
                     />
                   ))}
