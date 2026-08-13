@@ -520,7 +520,7 @@ export default function HomeScreen({
 
     let cancelled = false;
 
-    (async () => {
+    async function loadResumeItems() {
       try {
         const response = await fetchContinueWatching();
         const items = extractListData(response).map(mapContinueWatchingItem);
@@ -532,7 +532,9 @@ export default function HomeScreen({
           setResumeItems([]);
         }
       }
-    })();
+    }
+
+    loadResumeItems();
 
     return () => {
       cancelled = true;
@@ -586,6 +588,7 @@ export default function HomeScreen({
   const logoutButtonRef = useRef(null);
   const deleteAccountButtonRef = useRef(null);
   const drawerBlurTimeoutRef = useRef(null);
+  const menuOpenLockRef = useRef(false);
   const featuredCarouselRef = useRef(null);
   const rowRefs = useRef([]);
   const bannerRef = useRef(null);
@@ -777,6 +780,10 @@ export default function HomeScreen({
 
     if (!nav.drawerOpen) {
       if (type === "select" && isKeyUp && nav.menuFocused) {
+        menuOpenLockRef.current = true;
+        setTimeout(() => {
+          menuOpenLockRef.current = false;
+        }, 300);
         nav.openDrawer();
       }
       return;
@@ -823,7 +830,11 @@ export default function HomeScreen({
             ]}
             onFocus={() => setMenuFocused(true)}
             onBlur={() => setMenuFocused(false)}
-            onPress={() => setDrawerOpen((current) => !current)}
+            onPress={() => {
+              if (!menuOpenLockRef.current) {
+                setDrawerOpen((current) => !current);
+              }
+            }}
             nextFocusDown={drawerOpen ? getDrawerHandle(0) : getFeaturedHandle(0)}
             nextFocusRight={
               drawerOpen ? getDrawerHandle(0) : findNodeHandle(searchButtonRef.current) ?? undefined

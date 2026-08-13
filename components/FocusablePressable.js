@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useState } from "react";
+import React, { forwardRef, useCallback, useRef, useState } from "react";
 import { Pressable, useTVEventHandler as rnUseTVEventHandler } from "react-native";
 import { createActivationKeyHandler } from "../utils/remoteKeys";
 
@@ -19,6 +19,8 @@ const FocusablePressable = forwardRef(function FocusablePressable(
   ref,
 ) {
   const [focused, setFocused] = useState(false);
+  const tvHandledRef = useRef(false);
+
   const activate = useCallback(createActivationKeyHandler(disabled ? undefined : onPress), [
     disabled,
     onPress,
@@ -57,10 +59,26 @@ const FocusablePressable = forwardRef(function FocusablePressable(
           return;
         }
 
+        // Lock out the native Pressable.onPress that fires on the same keypress.
+        tvHandledRef.current = true;
+        setTimeout(() => {
+          tvHandledRef.current = false;
+        }, 300);
+
         onPress(event);
       },
       [suppressTVSelect, disabled, focused, onPress],
     ),
+  );
+
+  const handleNativePress = useCallback(
+    (event) => {
+      if (tvHandledRef.current) {
+        return;
+      }
+      onPress?.(event);
+    },
+    [onPress],
   );
 
   const handleKeyPress = useCallback(
@@ -84,7 +102,7 @@ const FocusablePressable = forwardRef(function FocusablePressable(
       ref={ref}
       {...props}
       disabled={disabled}
-      onPress={onPress}
+      onPress={handleNativePress}
       onFocus={handleFocus}
       onBlur={handleBlur}
       onKeyPress={handleKeyPress}
