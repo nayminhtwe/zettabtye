@@ -591,7 +591,7 @@ export default function HomeScreen({
   const menuOpenLockRef = useRef(false);
   const featuredCarouselRef = useRef(null);
   const rowRefs = useRef([]);
-  const seeAllRefs = useRef([]);
+  const seeAllRefs = useRef({});
   const bannerRef = useRef(null);
   const [menuFocused, setMenuFocused] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -902,7 +902,7 @@ export default function HomeScreen({
                 <Text style={styles.rowTitle}>{row.title}</Text>
                 {row.showSeeAll && row.seeAll ? (
                   <Pressable
-                    ref={(node) => { seeAllRefs.current[rowIndex] = node; }}
+                    ref={(node) => { seeAllRefs.current[row.id] = node; }}
                     onPress={() => handleSeeAllPress(row)}
                     onFocus={() => setFocusedSeeAllRow(rowIndex)}
                     onBlur={() => setFocusedSeeAllRow(null)}
@@ -1007,8 +1007,8 @@ export default function HomeScreen({
                       nextFocusRight={
                         itemIndex < (row.items?.length ?? 0) - 1
                           ? getSectionCardHandle(rowIndex, itemIndex + 1)
-                          : (row.showSeeAll && row.seeAll && (row.items?.length ?? 0) > 1)
-                            ? findNodeHandle(seeAllRefs.current[rowIndex]) ?? undefined
+                          : (row.showSeeAll && row.seeAll)
+                            ? findNodeHandle(seeAllRefs.current[row.id]) ?? undefined
                             : undefined
                       }
                     />
