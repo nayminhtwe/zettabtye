@@ -49,8 +49,10 @@ import {
   selectAuthOtpRequired,
   selectAuthPasswordRequired,
   selectAuthPhone,
+  selectAuthTransactionId,
   selectAuthUser,
 } from "./store/auth/selectors";
+import { formatPhoneForApi } from "./utils/phoneAuth";
 
 const SCREEN = {
   SPLASH: "splash",
@@ -122,6 +124,7 @@ export default function App() {
   const needsPasswordSetup = useSelector(selectAuthNeedsPasswordSetup);
   const authUser = useSelector(selectAuthUser);
   const authPhone = useSelector(selectAuthPhone);
+  const authTransactionId = useSelector(selectAuthTransactionId);
   const forgotPasswordPhone = useSelector(selectAuthForgotPasswordPhone);
 
   const [currentPage, setCurrentPage] = useState(SCREEN.SPLASH);
@@ -845,6 +848,19 @@ export default function App() {
             setResumeOnboardingAtPhone(false);
             setPhoneNumber(phone);
             setSelectedCountryId(countryId);
+
+            // If an OTP session is already live for this exact phone, go straight
+            // to the OTP screen without calling initiateAuth again — the backend
+            // rate-limits new OTP requests to once per hour, but the existing OTP
+            // is still valid and can be entered directly.
+            if (otpRequired && authTransactionId) {
+              const formattedPhone = formatPhoneForApi(phone, countryId);
+              if (formattedPhone && formattedPhone === authPhone) {
+                setCurrentPage(SCREEN.OTP);
+                return;
+              }
+            }
+
             dispatch(authInitiateRequest({ phone, countryId }));
           }}
         />
