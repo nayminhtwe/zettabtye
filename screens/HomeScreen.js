@@ -1004,7 +1004,7 @@ export default function HomeScreen({
                       nextFocusLeft={
                         itemIndex > 0
                           ? getSectionCardHandle(rowIndex, itemIndex - 1)
-                          : (row.showSeeAll && row.seeAll)
+                          : (row.showSeeAll && row.seeAll && (row.items?.length ?? 0) > 1)
                             ? findNodeHandle(seeAllRefs.current[rowIndex]) ?? undefined
                             : undefined
                       }
